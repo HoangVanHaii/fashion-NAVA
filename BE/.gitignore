@@ -2,5 +2,5 @@
 .env.Central
 .env.DaNang
 .env.HoChiMinh
-
+.env
 /node_modules
