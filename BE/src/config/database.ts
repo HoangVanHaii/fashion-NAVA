@@ -23,7 +23,7 @@ const createSqlConfig = (hostKey: string, dbKey: string): mssqlConfig => {
 
 const sqlCentralConfig = createSqlConfig('SQL_CENTRAL_HOST', 'SQL_CENTRAL_DB');
 const sqlHaNoiConfig = createSqlConfig('SQL_HANOI_HOST', 'SQL_HANOI_DB');
-const sqlDaNangConfig = createSqlConfig('SQL_DANANG_HOST', 'SQL_DANANGL_DB'); 
+const sqlDaNangConfig = createSqlConfig('SQL_DANANG_HOST', 'SQL_DANANG_DB'); 
 const sqlHCMConfig = createSqlConfig('SQL_HCM_HOST', 'SQL_HCM_DB');
 
 export const dbPools = {
@@ -31,7 +31,6 @@ export const dbPools = {
     bac: new ConnectionPool(sqlHaNoiConfig),
     trung: new ConnectionPool(sqlDaNangConfig),
     nam: new ConnectionPool(sqlHCMConfig),
-    // Thêm một đối tượng để theo dõi trạng thái kết nối
     status: {
         central: false,
         bac: false,
@@ -56,13 +55,13 @@ export const connectDatabases = async (): Promise<void> => {
         process.exit(1);
     }
     //hn
-    try {
-        await dbPools.bac.connect();
-        console.log('✅ SQL HaNoi DB (HN) connected.');
-        dbPools.status.bac = true;
-    } catch (err) {
-        console.warn('⚠️ SQL HaNoi DB (HN) connection FAILED (App still running):', (err as Error).message);
-    }
+    // try {
+    //     await dbPools.bac.connect();
+    //     console.log('✅ SQL HaNoi DB (HN) connected.');
+    //     dbPools.status.bac = true;
+    // } catch (err) {
+    //     console.warn('⚠️ SQL HaNoi DB (HN) connection FAILED (App still running):', (err as Error).message);
+    // }
     //dn
     try {
         await dbPools.trung.connect();
@@ -72,13 +71,13 @@ export const connectDatabases = async (): Promise<void> => {
         console.warn('⚠️ SQL DaNang DB (DN) connection FAILED (App still running):', (err as Error).message);
     }
     //hcm
-    try {
-        await dbPools.nam.connect();
-        console.log('✅ SQL HCM DB (HCM) connected.');
-        dbPools.status.nam = true;
-    } catch (err) {
-        console.warn('⚠️ SQL HCM DB (HCM) connection FAILED (App still running):', (err as Error).message);
-    }
+    // try {
+    //     await dbPools.nam.connect();
+    //     console.log('✅ SQL HCM DB (HCM) connected.');
+    //     dbPools.status.nam = true;
+    // } catch (err) {
+    //     console.warn('⚠️ SQL HCM DB (HCM) connection FAILED (App still running):', (err as Error).message);
+    // }
 };
 
 export const getBranchPool = (branch_code: string): ConnectionPool | null => {

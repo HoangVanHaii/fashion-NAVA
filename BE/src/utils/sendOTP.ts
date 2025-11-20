@@ -1,5 +1,5 @@
 import nodemailer from "nodemailer";
-// import { AppError } from "./appError";
+import { AppError } from "./appError";
 export const generateOTP = (): string => {
     return Math.floor(100000 + Math.random() * 900000).toString();
 };
@@ -23,7 +23,6 @@ export const sendOtp = async (email: string, otp: string): Promise<boolean> => {
         await transporter.sendMail(mailOptions);
         return true;
     } catch (err: any) {
-        // throw new AppError("Failed to sendOtp", 500, false);
-        return false;
+        throw new AppError("Failed to sendOtp", 500, false);
     }
 };
