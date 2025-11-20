@@ -5,7 +5,7 @@ import jwt from "jsonwebtoken";
 import { UserJwtPayload } from "../types/request";
 import { AppError } from "../utils/appError";
 // Đã sửa lỗi gõ nhầm 'databasel' -> 'database'
-import { dbPools, getBranchPool } from '../config/databasel'; 
+import { dbPools, getBranchPool } from '../config/database'; 
 
 export const authMiddleware = async (req: Request, res: Response, next: NextFunction) => {
     // --- PHẦN 1: XÁC THỰC TOKEN ---
