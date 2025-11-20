@@ -83,8 +83,11 @@ export const connectDatabases = async (): Promise<void> => {
 export const getBranchPool = (branch_code: string): ConnectionPool | null => {
     let pool: ConnectionPool | null = null;
     let poolStatus = false;
-
     switch (branch_code.toLowerCase()) {
+        case 'central':
+            pool = dbPools.central;
+            poolStatus = dbPools.status.central;
+            break;
         case 'hn':
             pool = dbPools.bac;
             poolStatus = dbPools.status.bac;
