@@ -2,7 +2,7 @@ import express, { Request, Response, NextFunction } from 'express';
 import * as dotenv from 'dotenv';
 import { connectDatabases } from './src/config/databasel';
 import authRouter from './src/routers/user'
-
+import reviewRouter from './src/routers/review'
 dotenv.config();
 
 const app = express();
@@ -10,6 +10,7 @@ const app = express();
 app.use(express.json()); 
 app.use(express.urlencoded({ extended: true }));
 app.use('/api/auth', authRouter);
+app.use('/api/review', reviewRouter);
 
 
 
