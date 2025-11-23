@@ -10,39 +10,40 @@ import { dbPools, getBranchPool } from '../config/database';
 export const authMiddleware = async (req: Request, res: Response, next: NextFunction) => {
     // --- PHẦN 1: XÁC THỰC TOKEN ---
     
-    // const secret = process.env.JWT_SECRET;
-    // if (!secret) {
-    //     console.error('CRITICAL: JWT_SECRET is not defined in .env file.');
-    //     throw new AppError('Internal server configuration error', 500);
-    // }
+    const secret = process.env.JWT_SECRET;
+    if (!secret) {
+        console.error('CRITICAL: JWT_SECRET is not defined in .env file.');
+        throw new AppError('Internal server configuration error', 500);
+    }
 
-    // const authHeader = req.headers["authorization"];
-    // if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    //     throw new AppError("Token is required", 401);
-    // }
+    const authHeader = req.headers["authorization"];
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        throw new AppError("Token is required", 401);
+    }
 
-    // const token = authHeader.split(" ")[1];
-    // let decodedPayload: UserJwtPayload;
+    const token = authHeader.split(" ")[1];
+    let decodedPayload: UserJwtPayload;
 
-    // try {
-    //     decodedPayload = jwt.verify(token, secret) as UserJwtPayload;
+    try {
+        decodedPayload = jwt.verify(token, secret) as UserJwtPayload;
         
-    //     if (!decodedPayload.branch_code || !decodedPayload.role) {
-    //         throw new AppError("Invalid token payload: missing 'branch_code' or 'role'", 401);
-    //     }
+        if (!decodedPayload.branch_code || !decodedPayload.role) {
+            throw new AppError("Invalid token payload: missing 'branch_code' or 'role'", 401);
+        }
 
-    //     req.user = decodedPayload;
+        req.user = decodedPayload;
 
-    // } catch (err: any) {
-    //     if (err instanceof jwt.TokenExpiredError) {
-    //         throw new AppError("Token expired", 401);
-    //     }
-    //     throw new AppError("Invalid token", 401);
-    // }
+    } catch (err: any) {
+        if (err instanceof jwt.TokenExpiredError) {
+            throw new AppError("Token expired", 401);
+        }
+        throw new AppError("Invalid token", 401);
+    }
 
     // --- PHẦN 2: GÁN KẾT NỐI CSDL ---
 
-    const branchCode = 'DN' // decodedPayload.branch_code;
+    // const branchCode = 'DN'
+    const branchCode = decodedPayload.branch_code;
 
     // 2. Gán kết nối Chi nhánh
     const branchPool = getBranchPool(branchCode);
