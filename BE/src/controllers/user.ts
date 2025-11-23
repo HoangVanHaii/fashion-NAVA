@@ -25,18 +25,6 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
 
     } catch (err) {
         next();
-        // const error = err as Error;
-        // console.error('Registration Error:', error.message);
-        
-        // if (error.message.includes('Email already in use')) {
-        //     return res.status(409).json({ message: 'Email already in use.' });
-        // }
-        // // Xử lý lỗi Mongo duplicate key (nếu có lọt qua)
-        // if (error.message.includes('E11000')) {
-        //     return res.status(409).json({ message: 'Email already in use (MongoDB).' });
-        // }
-
-        // return res.status(500).json({ message: error.message || 'Internal server error' });
     }
 };
 export const verify = async (req: Request, res: Response, next: NextFunction) => {
@@ -52,13 +40,6 @@ export const verify = async (req: Request, res: Response, next: NextFunction) =>
 
     } catch (err) {
         next();
-        // const error = err as Error;
-        // console.error('Verification Error:', error.message);
-
-        // if (error.message.includes('Invalid or expired OTP')) {
-        //     return res.status(400).json({ message: 'Invalid or expired OTP.' });
-        // }
-        // return res.status(500).json({ message: error.message || 'Internal server error' });
     }
 };
 export const loginUser = async (req: Request, res: Response, next: NextFunction) => {
@@ -101,8 +82,7 @@ export const refreshToken = async (req: Request, res: Response, next: NextFuncti
 export const getProfile = async (req: Request, res: Response, next: NextFunction) => {
     try {
         
-        // const userEmail = req.user.email;
-        const userEmail ='hvhaihoangvan@gmail.com'
+        const userEmail = req.user?.email;
         const fullProfile = await authService.getUserProfile(userEmail as string);
 
         return res.status(200).json({
@@ -112,15 +92,12 @@ export const getProfile = async (req: Request, res: Response, next: NextFunction
 
     } catch (err) {
         next();
-        // const error = err as Error;
-        // console.error('Get Profile Error:', error.message);
-        // return res.status(500).json({ message: error.message || 'Internal server error' });
     }
 };
 
 export const changeAvatar = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const userEmail = 'hvhaihoangvan@gmail.com';
+        const userEmail = req.user?.email;
         const avatarFile = req.file as Express.Multer.File;
         if (!avatarFile) {
             return res.status(400).json({ message: 'No avatar file uploaded.' });
@@ -135,14 +112,11 @@ export const changeAvatar = async (req: Request, res: Response, next: NextFuncti
 
     } catch (err) {
         next();
-        // const error = err as Error;
-        // console.error('Change Avatar Error:', error.message);
-        // return res.status(500).json({ message: error.message || 'Internal server error' });
     }
 }
 export const upadteProfile = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const userEmail = "hvhaihoangvan@gmail.com";
+        const userEmail = req.user?.email;
         const { name, phone, date_of_birth, gender, bio, preferences } = req.body;
  
         await authService.upadteUserProfile(userEmail as string, name, phone, date_of_birth, gender, bio, preferences);
