@@ -3,9 +3,6 @@ import * as productService from '../services/product';
 import { AppError } from "../utils/appError";
 import { getBranchPool } from "../config/database";
 
-
-
-
 export const getAllProducts = async (req: Request, res: Response, next: NextFunction) => {
     try {
         if (!req.dbBranch! || !req.dbBranch!.connected) {
