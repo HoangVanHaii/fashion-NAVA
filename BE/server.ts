@@ -6,7 +6,8 @@ import adminRouter from './src/routers/admin/user'
 import employeeaProduct from './src/routers/employee/product'
 import { errorHandler } from './src/middlewares/errorHandler';
 import productRouter from './src/routers/product'
-
+import categoryRouter from './src/routers/category'
+import employeeCatetory from './src/routers/employee/category'
 
 dotenv.config();
 
@@ -18,6 +19,8 @@ app.use('/api/auth', authRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/employee/product', employeeaProduct);
 app.use('/api/product', productRouter);
+app.use('/api/category', categoryRouter);
+app.use('/api/employee/category', employeeCatetory);
 
 
 app.use(errorHandler);
