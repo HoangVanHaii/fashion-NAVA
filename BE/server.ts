@@ -1,18 +1,27 @@
 import express, { Request, Response, NextFunction } from 'express';
 import * as dotenv from 'dotenv';
-import { connectDatabases } from './src/config/databasel';
+import { connectDatabases } from './src/config/database';
 import authRouter from './src/routers/user'
 import reviewRouter from './src/routers/review'
+import adminRouter from './src/routers/admin/user'
+import { errorHandler } from './src/middlewares/errorHandler';
+import productRouter from './src/routers/product'
+
+
+
 dotenv.config();
 
 const app = express();
 
-app.use(express.json()); 
+app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use('/api/auth', authRouter);
 app.use('/api/review', reviewRouter);
+app.use('/api/admin', adminRouter);
+app.use("/api/product", productRouter);
 
 
+app.use(errorHandler);
 
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
     console.error(err.stack);

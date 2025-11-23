@@ -17,4 +17,4 @@ const storage = new CloudinaryStorage({
 });
 
 const upload = multer({ storage });
-export const uploadReview = upload.array('review_files', 10); 
+export const uploadReview = upload.array('review_files'); 

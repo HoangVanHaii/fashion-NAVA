@@ -23,7 +23,7 @@ const createSqlConfig = (hostKey: string, dbKey: string): mssqlConfig => {
 
 const sqlCentralConfig = createSqlConfig('SQL_CENTRAL_HOST', 'SQL_CENTRAL_DB');
 const sqlHaNoiConfig = createSqlConfig('SQL_HANOI_HOST', 'SQL_HANOI_DB');
-const sqlDaNangConfig = createSqlConfig('SQL_DANANG_HOST', 'SQL_DANANGL_DB'); 
+const sqlDaNangConfig = createSqlConfig('SQL_DANANG_HOST', 'SQL_DANANG_DB'); 
 const sqlHCMConfig = createSqlConfig('SQL_HCM_HOST', 'SQL_HCM_DB');
 
 export const dbPools = {
@@ -31,7 +31,6 @@ export const dbPools = {
     bac: new ConnectionPool(sqlHaNoiConfig),
     trung: new ConnectionPool(sqlDaNangConfig),
     nam: new ConnectionPool(sqlHCMConfig),
-    // Thêm một đối tượng để theo dõi trạng thái kết nối
     status: {
         central: false,
         bac: false,
@@ -84,8 +83,11 @@ export const connectDatabases = async (): Promise<void> => {
 export const getBranchPool = (branch_code: string): ConnectionPool | null => {
     let pool: ConnectionPool | null = null;
     let poolStatus = false;
-
     switch (branch_code.toLowerCase()) {
+        case 'central':
+            pool = dbPools.central;
+            poolStatus = dbPools.status.central;
+            break;
         case 'hn':
             pool = dbPools.bac;
             poolStatus = dbPools.status.bac;

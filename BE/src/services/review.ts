@@ -1,13 +1,15 @@
 import ReviewMongo, { IReviewDetail } from "../models/review.mongo";
-import { ConnectionPool } from "mssql";
+import { ConnectionPool, Request, Transaction } from "mssql";
 import mongoose, { Mongoose } from "mongoose";
-import { getBranchPool } from "../config/databasel";
+import { getBranchPool } from "../config/database";
 import { IChildReview, IReviewSQL, ReviewDTO } from "../interfaces/review";
 import { v2 as cloudinary } from "cloudinary";
+import { AppError } from '../utils/appError'; 
 
-export const createReview = async (data: ReviewDTO) => {
-    const pool: ConnectionPool | null = getBranchPool("HN");
-    if (!pool) throw new Error("SQL pool không kết nối");
+export const createReview = async (data: ReviewDTO,branch_code:string) => {
+    const pool: ConnectionPool | null= getBranchPool(branch_code);
+    if (!pool) throw new AppError("SQL pool cannot connect", 503); 
+
     const transaction = pool.transaction();
     try {
         await transaction.begin(); 
@@ -38,165 +40,208 @@ export const createReview = async (data: ReviewDTO) => {
         } catch (rollbackErr) {
             console.error("Rollback SQL thất bại:", rollbackErr);
         }
-        throw error; 
+        if (error instanceof AppError) throw error;
+        console.error(error);
+        throw new AppError("Failed to create review", 500); 
     }
 };
 
 
 export const addChildReview = async (parent_id: string, childReview: IChildReview) => {
-  const updated = await ReviewMongo.findByIdAndUpdate(
-    parent_id,
-    { $push: { child_reviews: childReview } },
-    { new: true }
-  );
-  return updated;
+    try {
+        const updated = await ReviewMongo.findByIdAndUpdate(
+            parent_id,
+            { $push: { child_reviews: childReview } },
+            { new: true }
+        );
+        return updated;
+    } catch (error) {
+        if (error instanceof AppError) throw error;
+        console.error(error);
+        throw new AppError("Failed to add child review", 500);
+    }
 };
 
 export const updateReview = async (newData:ReviewDTO) =>{
     const review = await ReviewMongo.findById(newData.mongodb_id);
-    if (!review) throw new Error("Review not found");
+    if (!review) throw new AppError("Review not found", 404); 
 
-    if (newData.images && review.images && newData.images.length > 0) {
-        for (const img of review.images) {
-            await cloudinary.uploader.destroy(img.public_id, { resource_type: "image" });
+    try {
+        if (newData.images && review.images && newData.images.length > 0) {
+            for (const img of review.images) {
+                await cloudinary.uploader.destroy(img.public_id, { resource_type: "image" });
+            }
         }
-    }
 
-    if (newData.videos && review.videos &&newData.videos.length > 0) {
-        for (const vid of review.videos) {
-            await cloudinary.uploader.destroy(vid.public_id, { resource_type: "video" });
+        if (newData.videos && review.videos &&newData.videos.length > 0) {
+            for (const vid of review.videos) {
+                await cloudinary.uploader.destroy(vid.public_id, { resource_type: "video" });
+            }
         }
-    }
-    const updateFields: any = {};
-    if(newData.rating!==undefined){
-        updateFields.rating  = newData.rating;
-    }
+        const updateFields: any = {};
+        if(newData.rating!==undefined){
+            updateFields.rating  = newData.rating;
+        }
 
-    if(newData.comment!==undefined){
-        updateFields.comment = newData.comment;
-    }
+        if(newData.comment!==undefined){
+            updateFields.comment = newData.comment;
+        }
 
-     if (newData.images!==undefined && newData.images.length > 0) {
-        updateFields.images= newData.images;
-    }
+        if (newData.images!==undefined && newData.images.length > 0) {
+            updateFields.images= newData.images;
+        }
 
-    if (newData.videos!==undefined && newData.videos.length > 0) {
-        updateFields.videos = newData.videos;
-    }
+        if (newData.videos!==undefined && newData.videos.length > 0) {
+            updateFields.videos = newData.videos;
+        }
 
-    return await ReviewMongo.findOneAndUpdate(
-        { _id: newData.mongodb_id},
-        { $set: updateFields },
-        { new: true }
-    );
+        return await ReviewMongo.findOneAndUpdate(
+            { _id: newData.mongodb_id},
+            { $set: updateFields },
+            { new: true }
+        );
+    } catch (error) {
+        if (error instanceof AppError) throw error;
+        console.error(error);
+        throw new AppError("Failed to update review", 500);
+    }
 }
 
-export const updateChildReview = async (parent_id:string, child_id:string, newData:IChildReview) =>{
+export const updateChildReview = async (parent_id:string, child_id:string, newData:IChildReview,user_id:string) =>{
     const parent = await ReviewMongo.findById(parent_id);
-    if (!parent) throw new Error("Parent review not found");
+    if (!parent) throw new AppError("Parent review not found", 404); 
+
     const child = parent.child_reviews.id(child_id) 
-    if (!child) throw new Error("Child review not found");
+    if (!child) throw new AppError("Child review not found", 404); 
 
-    if (newData.images && child.images && newData.images.length > 0) {
-        for (const img of child.images) {
-            await cloudinary.uploader.destroy(img.public_id, { resource_type: "image" });
+    if (child.user_id.toString() !== user_id.toString()) {
+        throw new AppError("Only the user who created this child review is allowed to update it.", 403); 
+    }
+
+    try {
+        if (newData.images && child.images && newData.images.length > 0) {
+            for (const img of child.images) {
+                await cloudinary.uploader.destroy(img.public_id, { resource_type: "image" });
+            }
         }
-    }
 
-    if (newData.videos && child.videos &&newData.videos.length > 0) {
-        for (const vid of child.videos) {
-            await cloudinary.uploader.destroy(vid.public_id, { resource_type: "video" });
+        if (newData.videos && child.videos &&newData.videos.length > 0) {
+            for (const vid of child.videos) {
+                await cloudinary.uploader.destroy(vid.public_id, { resource_type: "video" });
+            }
         }
-    }
-    const updateFields: any = {};
-    if(newData.comment){
-        updateFields["child_reviews.$.comment"] = newData.comment;
-    }
+        const updateFields: any = {};
+        if(newData.comment){
+            updateFields["child_reviews.$.comment"] = newData.comment;
+        }
 
-    if (newData.images && newData.images.length > 0) {
-        updateFields["child_reviews.$.images"] = newData.images;
-    }
+        if (newData.images && newData.images.length > 0) {
+            updateFields["child_reviews.$.images"] = newData.images;
+        }
 
-    if (newData.videos && newData.videos.length > 0) {
-        updateFields["child_reviews.$.videos"] = newData.videos;
-    }
+        if (newData.videos && newData.videos.length > 0) {
+            updateFields["child_reviews.$.videos"] = newData.videos;
+        }
 
-    return await ReviewMongo.findOneAndUpdate(
-        { _id: parent_id, "child_reviews._id": child_id },
-        { $set: updateFields },
-        { new: true }
-    );
+        return await ReviewMongo.findOneAndUpdate(
+            { _id: parent_id, "child_reviews._id": child_id },
+            { $set: updateFields },
+            { new: true }
+        );
+    } catch (error) {
+        if (error instanceof AppError) throw error;
+        console.error(error);
+        throw new AppError("Failed to update child review", 500);
+    }
 }
 
-export const deleteReview = async (review_id_sql: string, mongodb_id: string, branch_code: string) => {
+export const deleteReview = async (review_id_sql: string, mongodb_id: string, branch_code: string,user_id:string) => {
     const pool: ConnectionPool | null = getBranchPool(branch_code || "central");
-    if (!pool) throw new Error("SQL pool không kết nối");
+    if (!pool) throw new AppError("SQL pool cannot connect", 503); 
 
     const review = await ReviewMongo.findById(mongodb_id);
-    if (!review) throw new Error("Review not found");
+    if (!review) throw new AppError("Review not found", 404); 
+    
+    try {
+        for (const img of review.images || []) {
+            await cloudinary.uploader.destroy(img.public_id, { resource_type: "image" });
+        }
+        for (const vid of review.videos || []) {
+            await cloudinary.uploader.destroy(vid.public_id, { resource_type: "video" });
+        }
 
-    for (const img of review.images || []) {
-        await cloudinary.uploader.destroy(img.public_id, { resource_type: "image" });
+        for (const child of review.child_reviews || []) {
+            for (const img of child.images || []) {
+                await cloudinary.uploader.destroy(img.public_id, { resource_type: "image" });
+            }
+            for (const vid of child.videos || []) {
+                await cloudinary.uploader.destroy(vid.public_id, { resource_type: "video" });
+            }
+        }
+
+        await ReviewMongo.findByIdAndDelete(mongodb_id);
+        const transaction = pool.transaction();
+
+        try {
+            await transaction.begin();
+
+            await transaction.request()
+                .input("ID", review_id_sql)
+                .input("user_id",user_id)
+                .query(`
+                    DELETE FROM reviews WHERE ID = @ID AND user_id = @user_id
+                `);
+
+            await transaction.commit();
+        } catch (error) {
+            await transaction.rollback(); 
+            throw error; 
+        }
+
+        return true;
+    } catch (error) {
+        if (error instanceof AppError) throw error;
+        console.error(error);
+        throw new AppError("Failed to delete review", 500);
     }
-    for (const vid of review.videos || []) {
-        await cloudinary.uploader.destroy(vid.public_id, { resource_type: "video" });
+};
+
+
+export const deleteChildReview = async (parent_id: string, child_id: string,user_id:string) => {
+    const parent = await ReviewMongo.findById(parent_id);
+    if (!parent) throw new AppError("Parent review not found", 404); 
+
+    const child = parent.child_reviews.id(child_id);
+    if (!child) throw new AppError("Child review not found", 404); 
+
+    if (child.user_id.toString() !== user_id.toString()) {
+        throw new AppError("Only the user who created this child review is allowed to update it.", 403); 
     }
 
-    for (const child of review.child_reviews || []) {
+    try {
         for (const img of child.images || []) {
             await cloudinary.uploader.destroy(img.public_id, { resource_type: "image" });
         }
         for (const vid of child.videos || []) {
             await cloudinary.uploader.destroy(vid.public_id, { resource_type: "video" });
         }
-    }
 
-    await ReviewMongo.findByIdAndDelete(mongodb_id);
-    const transaction = pool.transaction();
-
-    try {
-        await transaction.begin();
-
-        await transaction.request()
-            .input("ID", review_id_sql)
-            .query(`
-                DELETE FROM reviews WHERE ID = @ID
-            `);
-
-        await transaction.commit();
+        const updatedParent= await ReviewMongo.findByIdAndUpdate(
+            parent_id,
+            { $pull: { child_reviews: { _id: child_id } } },
+            { new: true }
+        );
+        return updatedParent;
     } catch (error) {
-        await transaction.rollback(); 
-        throw error;
+        if (error instanceof AppError) throw error;
+        console.error(error);
+        throw new AppError("Failed to delete child review", 500);
     }
-
-    return true;
-};
-
-
-export const deleteChildReview = async (parent_id: string, child_id: string) => {
-    const parent = await ReviewMongo.findById(parent_id);
-    if (!parent) throw new Error("Parent review not found");
-
-    const child = parent.child_reviews.id(child_id);
-    if (!child) throw new Error("Child review not found");
-
-    for (const img of child.images || []) {
-        await cloudinary.uploader.destroy(img.public_id, { resource_type: "image" });
-    }
-    for (const vid of child.videos || []) {
-        await cloudinary.uploader.destroy(vid.public_id, { resource_type: "video" });
-    }
-
-    const updatedParent= await ReviewMongo.findByIdAndUpdate(
-        parent_id,
-        { $pull: { child_reviews: { _id: child_id } } },
-        { new: true }
-    );
-  return updatedParent;
 };
 export const getReviewsByProductId = async (product_id: string,user_id:string) => {
     const pool = getBranchPool("HN"); 
-    if (!pool) throw new Error("SQL pool không kết nối");
+    if (!pool) throw new AppError("SQL pool cannot connect", 503);
+    
     try {
         const sqlResult = await pool.request()
         .input("ProductID", product_id)
@@ -249,7 +294,8 @@ export const getReviewsByProductId = async (product_id: string,user_id:string) =
         };
 
     } catch (error) {
+        if (error instanceof AppError) throw error;
         console.error(error);
-        throw error;
+        throw new AppError("Failed to get reviews", 500); 
     }
 }

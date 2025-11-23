@@ -3,7 +3,9 @@ import mongoose, { Schema, Document } from 'mongoose';
 export interface IUserProfileMongo extends Document {
     user_id_sql: string;
     bio?: string;
-    preferences?: string[];
+    preferences?: {
+        [key: string]: string | boolean |number
+    };
     notification_settings?: any;
     last_active?: Date;
     createdAt: Date;
@@ -13,8 +15,8 @@ export interface IUserProfileMongo extends Document {
 
 const UserProfileSchema: Schema = new Schema({
     user_id_sql: { type: String, required: true, unique: true },
-    bio: { type: String, default: '' },
-    preferences: { type: [String], default: [] },
+    bio: { type: String },
+    preferences: { type: Schema.Types.Mixed, default: {} },
 
     notification_settings: { type: Schema.Types.Mixed, default: {} },
 
