@@ -7,8 +7,8 @@ import { authMiddleware, isEmployee, isAdmin } from '../../middlewares/authMiddl
 const router = Router();
 router.post(
     '/register-employee',
-    authMiddleware,
-    isAdmin,
+    // authMiddleware,
+    // isAdmin,
     userMiddleware.registerEmployee,
     validateRequest,
     admincontroller.registerEmployee
