@@ -3,7 +3,6 @@ import * as IProduct from "../interfaces/product";
 import { AppError } from "../utils/appError";
 import { ProductDetailModel } from "../models/product";
 import cloudinary from "../config/cloudinary";
-import { dbPools, getBranchPool } from "../config/database";
 
 export const getProductSizesBySizeId = async (sizeId: string, dbBranch: ConnectionPool, branch_id: string): Promise<any | null> => {
     try {   
@@ -553,7 +552,7 @@ export const getProductDetail = async (pool: ConnectionPool, product_id_sql: str
 }
 
 
-const getMongoProductsByIds = async (mongoIds: string[]) => {
+export const getMongoProductsByIds = async (mongoIds: string[]) => {
     try {
         const mongoProducts = await ProductDetailModel.find({ _id: { $in: mongoIds } }).lean();
 
@@ -565,7 +564,7 @@ const getMongoProductsByIds = async (mongoIds: string[]) => {
         throw err;
     }
 }
-const buildInventoryMap = (rows: any[]) => {
+export const buildInventoryMap = (rows: any[]) => {
     try {
         const inventoryMap = new Map<string, IProduct.IInventoryItem>();
 
@@ -596,7 +595,7 @@ const buildInventoryMap = (rows: any[]) => {
         throw err;
     }
 }
-const mergeSqlMongoProducts = (sqlRows: any[], mongoMap: Map<string,
+export const mergeSqlMongoProducts = (sqlRows: any[], mongoMap: Map<string,
     IProduct.IProductMongoDetail>,
     inventoryMap: Map<string, IProduct.IInventoryItem>) =>{
     try {
@@ -615,7 +614,6 @@ const mergeSqlMongoProducts = (sqlRows: any[], mongoMap: Map<string,
                     category_id: row.category_id,
                     status: row.status,
                     attributes: mongoDoc?.attributes ?? {},
-                    created_at: mongoDoc?.attributes || row.created,
                     colors: mongoDoc?.colors ?? [],
                 };
                 productMap.set(row.mongodb_id, product);
