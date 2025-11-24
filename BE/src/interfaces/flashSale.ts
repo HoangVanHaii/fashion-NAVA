@@ -1,0 +1,29 @@
+export interface FlashSale {
+    title: string;
+    start_date: Date;
+    end_date: Date;
+    status?: string;
+    created_by: string;
+    created_at?: Date;
+    items?: FlashSaleItem[];
+}
+export interface FlashSaleItem {
+    flash_sale_id?: string;
+    product_id?: string;
+    size_id_mongo?: string
+    product_name?: string;
+    flash_sale_price: number;
+    stock: number;
+    sold?: number;
+    status?: string;
+    created_at?: Date;
+}
+export interface ImageProducts {
+    color_id: number;
+    image_url: string;
+}
+export interface FlashSaleProductSold {
+    product_id: number;
+    total_flash_sale_sold: number;
+    total_stock: number;
+}
