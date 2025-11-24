@@ -3,12 +3,15 @@ import * as dotenv from 'dotenv';
 import { connectDatabases } from './src/config/database';
 import authRouter from './src/routers/user'
 import adminRouter from './src/routers/admin/user'
+import employeeaProduct from './src/routers/employee/product'
 import { errorHandler } from './src/middlewares/errorHandler';
 import productRouter from './src/routers/product'
 import vnpayRouter from './src/routers/vnpay'
 import orderRouter from './src/routers/order'
 import orderRouterEmployee from './src/routers/employee/order'
 
+import categoryRouter from './src/routers/category'
+import employeeCatetory from './src/routers/employee/category'
 
 dotenv.config();
 
@@ -21,6 +24,11 @@ app.use('/api/admin', adminRouter);
 app.use("/api/product", productRouter);
 app.use("/api/order", orderRouter);
 app.use("/api/payment", vnpayRouter);
+app.use('/api/employee/product', employeeaProduct);
+app.use('/api/product', productRouter);
+app.use('/api/category', categoryRouter);
+app.use('/api/employee/category', employeeCatetory);
+
 
 app.use('/api/employee/order', orderRouterEmployee)
 app.use(errorHandler);
