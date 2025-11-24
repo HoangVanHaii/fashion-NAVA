@@ -13,6 +13,8 @@ import favouriteRouter from './src/routers/favourite'
 
 import categoryRouter from './src/routers/category'
 import employeeCatetory from './src/routers/employee/category'
+import employeeBrand from './src/routers/employee/brand';
+import brandRouter from './src/routers/brand'
 
 dotenv.config();
 
@@ -30,8 +32,8 @@ app.use('/api/product', productRouter);
 app.use('/api/category', categoryRouter);
 app.use('/api/employee/category', employeeCatetory);
 app.use('/api/favourite', favouriteRouter);
-
-
+app.use('/api/brand', brandRouter);
+app.use('/api/employee/brand', employeeBrand);
 app.use('/api/employee/order', orderRouterEmployee)
 app.use(errorHandler);
 
