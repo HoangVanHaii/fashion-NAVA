@@ -5,6 +5,9 @@ import authRouter from './src/routers/user'
 import adminRouter from './src/routers/admin/user'
 import { errorHandler } from './src/middlewares/errorHandler';
 import productRouter from './src/routers/product'
+import vnpayRouter from './src/routers/vnpay'
+import orderRouter from './src/routers/order'
+import orderRouterEmployee from './src/routers/employee/order'
 
 
 dotenv.config();
@@ -16,14 +19,15 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/api/auth', authRouter);
 app.use('/api/admin', adminRouter);
 app.use("/api/product", productRouter);
+app.use("/api/order", orderRouter);
+app.use("/api/payment", vnpayRouter);
 
+app.use('/api/employee/order', orderRouterEmployee)
 app.use(errorHandler);
 
-app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
-    console.error(err.stack);
-    res.status(500).send({ message: 'Something broke!', error: err.message });
+app.use((req: Request, res: Response) => {
+    return res.status(404).send({ message: "Route not found" });
 });
-
 
 const PORT = process.env.PORT || 3000;
 

@@ -22,7 +22,7 @@ export const registerEmployee = async (req: Request, res: Response, next: NextFu
             message: 'Employee registration successful. Please check your email for OTP.'
         });
     } catch (err) {
-        next();
+        next(err);
     }
 };
 export const changeRole = async (req: Request, res: Response, next: NextFunction) => {
@@ -34,6 +34,6 @@ export const changeRole = async (req: Request, res: Response, next: NextFunction
             message: 'User role updated successfully.'
         });
     } catch (err) {
-        next();
+        next(err);
     }
 };

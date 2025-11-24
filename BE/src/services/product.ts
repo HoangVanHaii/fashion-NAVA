@@ -3,7 +3,65 @@ import * as IProduct from "../interfaces/product";
 import { AppError } from "../utils/appError";
 import { ProductDetailModel } from "../models/product";
 import cloudinary from "../config/cloudinary";
+import { dbPools, getBranchPool } from "../config/database";
 
+export const getProductSizesBySizeId = async (sizeId: string, dbBranch: ConnectionPool, branch_id: string): Promise<any | null> => {
+    try {   
+        const query = `SELECT bi.product_id, bi.stock, bi.price, fsi.stock as stock_fsi, fsi.flash_sale_price
+        FROM branch_inventories bi
+        LEFT JOIN flash_sale_items fsi ON fsi.branch_id = bi.branch_id 
+                                    and fsi.product_id = bi.product_id
+                                    and fsi.color_id_mongo = bi.color_id_mongo
+                                    and fsi.size_id_mongo = bi.size_id_mongo
+                                    and fsi.status = 'active'
+        LEFT JOIN flash_sales fs On fs.ID = fsi.flash_sale_id and fs.Status = 'active'
+        WHERE bi.size_id_mongo = @sizeId
+            and bi.branch_id = @branchId`;
+
+        const pool = dbBranch
+        const result: IResult<any> = await pool.request()
+            .input("sizeId", sizeId)
+            .input("branchId", branch_id)
+            .query(query);
+        
+        if (result.recordset.length === 0) {
+            return null;
+        }
+        return result.recordset[0];
+    } catch (err) {
+        console.log(err);
+        throw new AppError("Failed to getProductSizesBySizeId", 500, false)
+    }
+}
+export const getProductByStatus = async (dbBranch: ConnectionPool, status: string): Promise<number> => {
+    try {
+        const query = `SELECT id from products WHERE status = @status`;
+        const result = await dbBranch.request().input('status', status).query(query);
+
+        return result.recordset.length;
+    } catch (error) {
+        if (error instanceof AppError) throw error;
+        console.log(error);
+        throw new AppError('Failed to fetch number of product', 500, false);
+    }
+}
+export const getProductName = async (productId: string, dbBranch: ConnectionPool): Promise<string | null> => {
+    try {
+        const query = `SELECT name FROM products WHERE id = @productId`;
+        const pool = dbBranch;
+        const result: IResult<any> = await pool.request()
+            .input("productId", productId)
+            .query(query);
+        
+        if (result.recordset.length === 0) {
+            return null;
+        }
+        return result.recordset[0].name;
+    } catch (err) {
+        console.log(err);
+        throw new AppError("Failed to getProductName", 500, false)
+    }   
+}
 export const insertProductSql = async (transaction: Transaction, productSql: IProduct.IProductSQL): Promise<string> => {
     try {
         const request = new Request(transaction);
