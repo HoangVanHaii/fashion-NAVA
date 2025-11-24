@@ -1,22 +1,51 @@
 export interface FavouritePayload {
-    user_id: number;
-    product_id: number;
+    user_id: string;
+    product_id: string;
     created_at?: Date;
 }
 
-export interface FavouriteItem {
-    product_id: number;
-    product_name: string;
-    image_url: string
-    price: number;
-    flash_price: number
-    color?: string;
-    size?: string;
+export interface FavouriteResponse {
+    favourite_id: string;
+    user_id: string;
 }
-export interface FavouriteSummary {
-    user_id: number;
-    shop_id: number;
-    shop_name: string;
-    products: FavouriteItem[];
+
+export interface FavouriteDetail {
+    favourite_id: string;
+    product_id_mongo: string;
+    product_id_sql: string;
+    name?: string;
+    description: string;
+    brand_id?: string 
+    category_id?: string;
+    status?: string;
+    attributes?: {
+        [key: string]: string | number | boolean;
+    };
     created_at?: Date;
+    colors: IProductColorResponse[];
+}
+export interface IInventoryItem {
+    price: number | null;
+    stock: number;
+    sale_price: number | null;
+    sale_stock: number;
+    sale_sold: number;
+}
+export interface IProductColorResponse {
+    _id: string;
+    color?: string;
+    is_main: boolean;
+    image_main: string;
+    color_images: (string | Express.Multer.File)[];
+    sizes: IProductSizeResponse[];
+}
+  
+export interface IProductSizeResponse {
+    _id: string;
+    size: string;
+    price: number | null;
+    stock: number;
+    sale_price?: number | null;
+    sale_stock?: number;
+    sale_sold?: number;
 }

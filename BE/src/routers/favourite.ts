@@ -5,19 +5,25 @@ const router = express.Router();
 import { authMiddleware } from "../middlewares/authMiddleware";
 
 router.post(
-    "/createFavourite",
+    "/",
     authMiddleware,
     favouriteController.createFavourite
 );
 
 router.get(
-    "/getFavouritesOfme",
+    "/detail",
     authMiddleware,
-    favouriteController.getFavouritesOfme
+    favouriteController.getFavouritesOfmeDetail
+);
+router.get(
+    "/getFavouriteIdsOfme",
+    authMiddleware,
+    favouriteController.getFavouriteIdsOfme
 );
 router.delete(
-    "/deleteFavourite/:product_id",
+    "/:product_id",
     authMiddleware,
     favouriteController.deleteFavourite
 );
+
 export default router;
