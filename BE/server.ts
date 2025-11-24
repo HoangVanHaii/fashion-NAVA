@@ -8,6 +8,8 @@ import { errorHandler } from './src/middlewares/errorHandler';
 import productRouter from './src/routers/product'
 import categoryRouter from './src/routers/category'
 import employeeCatetory from './src/routers/employee/category'
+import employeeBrand from './src/routers/employee/brand';
+import brandRouter from './src/routers/brand'
 
 dotenv.config();
 
@@ -21,7 +23,8 @@ app.use('/api/employee/product', employeeaProduct);
 app.use('/api/product', productRouter);
 app.use('/api/category', categoryRouter);
 app.use('/api/employee/category', employeeCatetory);
-
+app.use('/api/brand', brandRouter);
+app.use('/api/employee/brand', employeeBrand);
 
 app.use(errorHandler);
 
