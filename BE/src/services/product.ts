@@ -3,7 +3,6 @@ import * as IProduct from "../interfaces/product";
 import { AppError } from "../utils/appError";
 import { ProductDetailModel } from "../models/product";
 import cloudinary from "../config/cloudinary";
-import { dbPools, getBranchPool } from "../config/database";
 
 export const getProductSizesBySizeId = async (sizeId: string, dbBranch: ConnectionPool, branch_id: string): Promise<any | null> => {
     try {   
@@ -615,7 +614,6 @@ export const mergeSqlMongoProducts = (sqlRows: any[], mongoMap: Map<string,
                     category_id: row.category_id,
                     status: row.status,
                     attributes: mongoDoc?.attributes ?? {},
-                    created_at: mongoDoc?.attributes || row.created,
                     colors: mongoDoc?.colors ?? [],
                 };
                 productMap.set(row.mongodb_id, product);
