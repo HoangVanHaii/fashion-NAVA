@@ -26,22 +26,52 @@ export const mapColorFile = (req: Request, res: Response, next: NextFunction) =>
 
 export const mapColorFileUpdate = (req: Request, res: Response, next: NextFunction) => {
     try {
-        const files = req.files as { [fieldname: string]: Express.Multer.File[] };
-        const color = JSON.parse(req.body.color) as IUpdateProductColor;
-
-        if (files.image_main && files.image_main.length > 0) {
-            color.image_main = files.image_main[0];
+        const files = req.files as Express.Multer.File[];
+        const color = req.body as any;
+        if (color.sizes) {
+            if (typeof color.sizes === "string") {
+                const match = color.sizes.match(/\[\s*{[\s\S]*}\s*\]/);
+                if (match) {
+                    color.sizes = JSON.parse(match[0]);
+                } else {
+                    color.sizes = [];
+                }
+            }
+        } else {
+            color.sizes = [];
         }
-
-        if (files.color_images && files.color_images.length > 0) {
-            color.color_images = files.color_images;
+        const mainFile = files.find(f => f.fieldname === "image_main");
+        if (mainFile) {
+            color.image_main = mainFile;
         }
-        req.body.color = color;
+        else if (typeof color.image_main === "string") {
+            color.image = color.image_main;
+        }
+        const uploadFiles = files?.filter(f => f.fieldname === "color_images") || [];
+        let resultImages: (string | Express.Multer.File)[] = [];
+
+        if (color.color_images) {
+            if (Array.isArray(color.color_images)) {
+                for (const item of color.color_images) {
+                    if (typeof item === "string") {
+                        resultImages.push(item);
+                    }
+                }
+            } else if (typeof color.color_images === "string") {
+                resultImages.push(color.color_images);
+            }
+        }
+        for (const file of uploadFiles) {
+            resultImages.push(file);
+        }
+        color.color_images = resultImages;
+        req.body = color;
         next();
     } catch (err) {
         throw new AppError("Failed to map images", 400, false);
     }
 };
+
 export const createProductValidation = [
     body('name')
         .isString().withMessage('Name must be a string')

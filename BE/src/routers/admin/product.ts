@@ -40,8 +40,8 @@ router.put(
 router.put(
     "/color-size",
     authMiddleware,
-    isAdmin,
     upload.any(),
+    productMiddleware.mapColorFileUpdate,
     productMiddleware.updateProductColorValidation,
     validateRequest,
     productController.updateProductColor

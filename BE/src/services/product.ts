@@ -336,7 +336,6 @@ export const updateProductInfoMongo = async (product_id_sql: string, description
 
 export const updateProductColorSize = async (pool: ConnectionPool, branch_id: string, color: IProduct.IUpdateProductColor) => {
     try {
-        console.log(color);
         let inventorySql: IProduct.updateInventory[] = [];
         color.sizes?.forEach(size => {
             inventorySql.push({
@@ -406,52 +405,54 @@ export const updateBranchInnventory = async (pool: ConnectionPool, branch_id: st
 
 export const updateColorMongo = async (color: IProduct.IUpdateProductColor) => {
     try {
-        if (!color.product_id_sql || !color.color_id_mongo) {
-            throw new AppError("Missing product_id_sql or color_id_mongo", 400);
-        }
-
         const setFields: any = {};
-
         if (color.color !== undefined) setFields["colors.$[c].color"] = color.color;
         if (color.is_main !== undefined) setFields["colors.$[c].is_main"] = color.is_main;
 
-        if (color.image_main && typeof color.image_main === "string") {
+        if (color.image_main && typeof color.image_main !== "string") {
             const img = await uploadToCloudinary(color.image_main);
             setFields["colors.$[c].image_main"] = img.secure_url;
         }
-
         if (color.color_images && color.color_images.length > 0) {
             const urls = await Promise.all(
                 color.color_images.map(async (img) => {
-                    if (typeof img === "string") {
+                    if (typeof img !== "string") {
                         const uploaded = await uploadToCloudinary(img);
                         return uploaded.secure_url;
                     }
-                    return null;
+                    return img;
                 })
             );
             setFields["colors.$[c].color_images"] = urls.filter(Boolean);
         }
 
-        if (color.sizes && color.sizes.length > 0) {
-            setFields["colors.$[c].sizes"] = color.sizes.map(s => ({
-                _id: s.size_id_mongo,
-                size: s.size,
-                price: s.price,
-                stock: s.stock,
-            }));
+        if (Object.keys(setFields).length > 0) {
+            const resultColor = await ProductDetailModel.updateOne(
+                { product_id_sql: color.product_id_sql },
+                { $set: setFields },
+                { arrayFilters: [{ "c._id": color.color_id_mongo }] }
+            );
+
+            if (resultColor.matchedCount === 0) {
+                throw new AppError("Color not found in MongoDB", 404);
+            }
         }
 
-        if (Object.keys(setFields).length === 0) return;
-
-        const result = await ProductDetailModel.updateOne(
-            { product_id_sql: color.product_id_sql },
-            { $set: setFields },
-            { arrayFilters: [{ "c._id": color.color_id_mongo }] }
-        );
-
-        if (result.matchedCount === 0) {
-            throw new AppError("Color not found in MongoDB", 404);
+        if (color.sizes && color.sizes.length > 0) {
+            for (const s of color.sizes) {
+                await ProductDetailModel.updateOne(
+                    { product_id_sql: color.product_id_sql },
+                    { $set: {
+                        "colors.$[c].sizes.$[s].size": s.size,
+                    }},
+                    {
+                        arrayFilters: [
+                            { "c._id": color.color_id_mongo },
+                            { "s._id": s.size_id_mongo }
+                        ]
+                    }
+                );
+            }
         }
 
     } catch (err) {
