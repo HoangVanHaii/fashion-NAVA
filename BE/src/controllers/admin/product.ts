@@ -9,7 +9,7 @@ import { AppError } from "../../utils/appError";
 export const createProduct = async (req: Request, res: Response, next: NextFunction) => {
     const transaction = new sql.Transaction(req.dbBranch!);
     await transaction.begin();
-    const idProductMongo = new mongoose.Types.ObjectId().toString();
+    const idProductMongo = new mongoose.Types.ObjectId();
     const idProductSql = UUID();
     let uploadProducts: IProducts.IProductColorPayload[] = [];
 
@@ -45,7 +45,7 @@ export const createProduct = async (req: Request, res: Response, next: NextFunct
             message: "Product created successfully"
         })
     } catch (err) {
-        await productService.deleteProductMongo(idProductMongo);
+        await productService.deleteProductMongo(idProductMongo.toString());
         await productService.deleteImagesFromColors(uploadProducts);
         await transaction.rollback();
         next(err);
@@ -153,7 +153,7 @@ const buildListInventory = (productId: string, colors: IProducts.IProductColorPa
     return listBranchInventory;    
 }
 
-const buildProductMongo = (idProductMongo: string, idProductSql: string, description: string,
+const buildProductMongo = (idProductMongo: mongoose.Types.ObjectId, idProductSql: string, description: string,
     attributes: any, uploadProducts: IProducts.IProductColorPayload[]): IProducts.IProductMongo => {
     try {
         const productMongo: IProducts.IProductMongo = {

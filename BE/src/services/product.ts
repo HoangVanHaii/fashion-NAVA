@@ -339,7 +339,7 @@ export const updateProductColorSize = async (pool: ConnectionPool, branch_id: st
         let inventorySql: IProduct.updateInventory[] = [];
         color.sizes?.forEach(size => {
             inventorySql.push({
-                product_id: color.product_id_sql,
+                product_id: color.product_id_sql.toString(),
                 color_id_mongo: color.color_id_mongo,
                 size_id_mongo: size.size_id_mongo,
                 price: size.price,
@@ -673,7 +673,7 @@ export const getMongoProductsByIds = async (mongoIds: string[]) => {
         const mongoProducts = await ProductDetailModel.find({ _id: { $in: mongoIds } }).lean();
 
         const mongoMap = new Map<string, IProduct.IProductMongoDetail>();
-        mongoProducts.forEach(p => mongoMap.set(p._id, p as IProduct.IProductMongoDetail));
+        mongoProducts.forEach(p => mongoMap.set(p._id.toString(), p as IProduct.IProductMongoDetail));
 
         return mongoMap;
     } catch (err) {

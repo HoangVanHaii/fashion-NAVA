@@ -1,5 +1,5 @@
 import { Router } from "express";
-import * as brandController from "../../controllers/employee/brand";
+import * as brandController from "../../controllers/admin/brand";
 import * as brandsValidator  from "../../middlewares/brand"
 import { validateRequest } from "../../middlewares/validateRequest";
 import { authMiddleware, isAdmin } from "../../middlewares/authMiddleware";
