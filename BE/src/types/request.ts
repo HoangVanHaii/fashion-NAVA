@@ -5,7 +5,7 @@ export interface UserJwtPayload {
     id: string;
     role: "customer" | "employee" | "admin";
     email: string;
-    branch_code: 'HN' | 'DN' | 'HCM' | 'CENTRAL';
+    branch_code: 'HN' | 'DN' | 'HCM' | 'CT';
     branch_id: string;
 }
 
