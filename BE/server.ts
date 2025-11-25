@@ -2,6 +2,7 @@ import express, { Request, Response, NextFunction } from 'express';
 import * as dotenv from 'dotenv';
 import { connectDatabases } from './src/config/database';
 import authRouter from './src/routers/user'
+import reviewRouter from './src/routers/review'
 import adminRouter from './src/routers/admin/user'
 import employeeaProduct from './src/routers/employee/product'
 import { errorHandler } from './src/middlewares/errorHandler';
@@ -18,6 +19,7 @@ import brandRouter from './src/routers/brand'
 import flashSaleRouter from "./src/routers/flashSale";
 
 
+
 dotenv.config();
 
 const app = express();
@@ -25,8 +27,10 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use('/api/auth', authRouter);
+app.use('/api/review', reviewRouter);
 app.use('/api/admin', adminRouter);
 app.use("/api/product", productRouter);
+
 app.use("/api/order", orderRouter);
 app.use("/api/payment", vnpayRouter);
 app.use('/api/employee/product', employeeaProduct);
