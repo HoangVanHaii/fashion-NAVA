@@ -1,5 +1,5 @@
 import { Router } from "express";
-import * as categoryController from "../../controllers/employee/category";
+import * as categoryController from "../../controllers/admin/category";
 import * as categoriesValidator  from "../../middlewares/category"
 import { validateRequest } from "../../middlewares/validateRequest";
 import { authMiddleware, isAdmin } from "../../middlewares/authMiddleware";

@@ -7,10 +7,11 @@ import { AppError } from "../utils/appError";
 export const mapColorFile = (req: Request, res: Response, next: NextFunction) => {
     try {
         const files = req.files as Express.Multer.File[];
+        if (files.length === 0) {
+            throw new AppError("Image is required", 400);
+        }
         const colors = JSON.parse(req.body.colors) as IProductColorPayload[];
-
         colors.forEach((color: IProductColorPayload, index: number) => {
-            // color._id = new mongoose.Types.ObjectId().toString();
             const mainFile = files.find(f => f.fieldname === `image_main_${index}`);
             if (mainFile) color.image_main = mainFile;
 
@@ -20,7 +21,7 @@ export const mapColorFile = (req: Request, res: Response, next: NextFunction) =>
         req.body.colors = colors;
         next();
     } catch (err) {
-        throw new AppError("Failed to image", 400, false);
+        throw new AppError("Failed to image", 400);
     }
 }
 

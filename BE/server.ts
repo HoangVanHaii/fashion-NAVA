@@ -4,7 +4,7 @@ import { connectDatabases } from './src/config/database';
 import authRouter from './src/routers/user'
 import reviewRouter from './src/routers/review'
 import adminRouter from './src/routers/admin/user'
-import employeeaProduct from './src/routers/admin/product'
+import adminaProduct from './src/routers/admin/product'
 import { errorHandler } from './src/middlewares/errorHandler';
 import productRouter from './src/routers/product'
 import vnpayRouter from './src/routers/vnpay'
@@ -13,8 +13,8 @@ import orderRouterEmployee from './src/routers/employee/order'
 import favouriteRouter from './src/routers/favourite'
 
 import categoryRouter from './src/routers/category'
-import employeeCatetory from './src/routers/admin/category'
-import employeeBrand from './src/routers/admin/brand';
+import adminCatetory from './src/routers/admin/category'
+import adminBrand from './src/routers/admin/brand';
 import brandRouter from './src/routers/brand'
 import flashSaleRouter from "./src/routers/flashSale";
 
@@ -33,13 +33,13 @@ app.use("/api/product", productRouter);
 
 app.use("/api/order", orderRouter);
 app.use("/api/payment", vnpayRouter);
-app.use('/api/employee/product', employeeaProduct);
+app.use('/api/admin/product', adminaProduct);
 app.use('/api/product', productRouter);
 app.use('/api/category', categoryRouter);
-app.use('/api/employee/category', employeeCatetory);
+app.use('/api/admin/category', adminCatetory);
 app.use('/api/favourite', favouriteRouter);
 app.use('/api/brand', brandRouter);
-app.use('/api/employee/brand', employeeBrand);
+app.use('/api/admin/brand', adminBrand);
 app.use("/api/flashSale", flashSaleRouter);
 
 app.use('/api/employee/order', orderRouterEmployee)

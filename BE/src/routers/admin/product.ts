@@ -1,5 +1,5 @@
 import express from "express";
-import * as productController from "../../controllers/employee/product";
+import * as productController from "../../controllers/admin/product";
 import { upload } from "../../utils/upload";
 import {
   authMiddleware,
