@@ -46,9 +46,9 @@ export const connectDatabases = async (): Promise<void> => {
         await mongoose.connect(env.MONGO_URL!);
         console.log('✅ MongoDB connected.');
 
-        // await dbPools.central.connect();
-        // console.log('✅ SQL Central DB connected.');
-        // dbPools.status.central = true;
+        await dbPools.central.connect();
+        console.log('✅ SQL Central DB connected.');
+        dbPools.status.central = true;
 
     } catch (err) {
         console.error('❌ FATAL DB CONNECTION ERROR (Mongo or Central):', err);
@@ -63,21 +63,21 @@ export const connectDatabases = async (): Promise<void> => {
         console.warn('⚠️ SQL HaNoi DB (HN) connection FAILED (App still running):', (err as Error).message);
     }
     //dn
-    // try {
-    //     await dbPools.trung.connect();
-    //     console.log('✅ SQL DaNang DB (DN) connected.');
-    //     dbPools.status.trung = true;
-    // } catch (err) {
-    //     console.warn('⚠️ SQL DaNang DB (DN) connection FAILED (App still running):', (err as Error).message);
-    // }
+    try {
+        await dbPools.trung.connect();
+        console.log('✅ SQL DaNang DB (DN) connected.');
+        dbPools.status.trung = true;
+    } catch (err) {
+        console.warn('⚠️ SQL DaNang DB (DN) connection FAILED (App still running):', (err as Error).message);
+    }
     //hcm
-    // try {
-    //     await dbPools.nam.connect();
-    //     console.log('✅ SQL HCM DB (HCM) connected.');
-    //     dbPools.status.nam = true;
-    // } catch (err) {
-    //     console.warn('⚠️ SQL HCM DB (HCM) connection FAILED (App still running):', (err as Error).message);
-    // }
+    try {
+        await dbPools.nam.connect();
+        console.log('✅ SQL HCM DB (HCM) connected.');
+        dbPools.status.nam = true;
+    } catch (err) {
+        console.warn('⚠️ SQL HCM DB (HCM) connection FAILED (App still running):', (err as Error).message);
+    }
 };
 
 export const getBranchPool = (branch_code: string): ConnectionPool | null => {

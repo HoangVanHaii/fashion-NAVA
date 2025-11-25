@@ -6,7 +6,7 @@ import reviewRouter from './src/routers/review'
 import adminRouter from './src/routers/admin/user'
 import { errorHandler } from './src/middlewares/errorHandler';
 import productRouter from './src/routers/product'
-
+import cartRouter from './src/routers/cart'
 
 
 dotenv.config();
@@ -19,7 +19,7 @@ app.use('/api/auth', authRouter);
 app.use('/api/review', reviewRouter);
 app.use('/api/admin', adminRouter);
 app.use("/api/product", productRouter);
-
+app.use("/api/cart", cartRouter);
 
 app.use(errorHandler);
 
