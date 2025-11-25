@@ -12,8 +12,8 @@ export interface IBranchInventorySQL {
     id?: string;
     branch_id: string;
     product_id?: string;
-    color_id_mongo: string | null; 
-    size_id_mongo: string | null;  
+    color_id_mongo: string; 
+    size_id_mongo: string;  
     price: number;
     stock: number;
     created_at?: Date;
@@ -21,29 +21,100 @@ export interface IBranchInventorySQL {
   
 ////
 
-export interface IProductSizeMongo {
-    _id: string | null;
+export interface IProductSizePayload {
+    _id: string;
     size: string;
     price: number;
     stock: number;
 }
   
-export interface IProductColorMongo {
-    _id: string | null;
+export interface IProductColorPayload {
+    _id: string;
     color?: string;
     is_main: boolean;
     image_main: string | Express.Multer.File;
     color_images: (string | Express.Multer.File)[];
-    sizes: IProductSizeMongo[];
+    sizes: IProductSizePayload[];
 }
   
-export interface IProductDetailMongo {
-    _id: string | null;
-    name: string; 
+export interface IProductMongo {
+    _id: string;
+    product_id_sql: string;
     description: string;
     attributes?: {
         [key: string]: string | number | boolean;
     };
-    colors: IProductColorMongo[];
+    colors: IProductColorPayload[];
     created_at?: Date;
+}
+
+
+export interface IProductSizeInput {
+    _id: string;
+    size: string;
+    price: number;
+    stock: number;
+}
+
+export interface IProductColorInput {
+    _id: string;
+    color?: string;
+    is_main: boolean;
+    image_main?: string | Express.Multer.File;
+    color_images?: (string | Express.Multer.File)[];
+    sizes?: IProductSizeInput[];
+}
+
+export interface UpdateProductInput {
+    product_id_sql: string;
+    name?: string;
+    description?: string;
+    brand_id?: string;
+    category_id?: string;
+    attributes?: {
+        [key: string]: string | number | boolean;
+    };
+    colors?: IProductColorInput[];
+}
+
+
+
+export interface IProductMongoDetail {
+    _id: string;
+    product_id_sql: string;
+    name?: string;
+    description: string;
+    brand_id?: string 
+    category_id?: string;
+    status?: string;
+    attributes?: {
+        [key: string]: string | number | boolean;
+    };
+    created_at?: Date;
+    colors: IProductColorResponse[];
+}
+export interface IInventoryItem {
+    price: number | null;
+    stock: number;
+    sale_price: number | null;
+    sale_stock: number;
+    sale_sold: number;
+}
+export interface IProductColorResponse {
+    _id: string;
+    color?: string;
+    is_main: boolean;
+    image_main: string;
+    color_images: (string | Express.Multer.File)[];
+    sizes: IProductSizeResponse[];
+}
+  
+export interface IProductSizeResponse {
+    _id: string;
+    size: string;
+    price: number | null;
+    stock: number;
+    sale_price?: number | null;
+    sale_stock?: number;
+    sale_sold?: number;
 }

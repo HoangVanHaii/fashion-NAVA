@@ -164,23 +164,35 @@ export const registerUser = async (name: string, email: string, password: string
     }
 };
 
-export const verifyOTP = async (email: string, otp: string, branch_code: string) => {
-    const pool: ConnectionPool | null = getBranchPool(branch_code);
-    if (!pool) throw new AppError(`${branch_code} database pool is not connected.`, 503);
+export const verifyOTP = async (email: string, otp: string) => {
 
+    const centralPool = dbPools.central;
+    if (!centralPool) throw new AppError("Mất kết nối tới Central Database.", 503);
+
+    const directoryResult = await centralPool.request()
+        .input("email", email)
+        .query("SELECT branch_code FROM user_directory WHERE email = @email");
+
+    if (directoryResult.recordset.length === 0) {
+        throw new AppError("User not found (Directory)", 404);
+    }
+    const targetBranchCode = directoryResult.recordset[0].branch_code;
+    const pool: ConnectionPool | null = getBranchPool(targetBranchCode);
+
+    if (!pool) throw new AppError(`${targetBranchCode} database pool is not connected.`, 503);
     const transaction: Transaction = pool.transaction();
     try {
         await transaction.begin();
         const tranRequest: Request = transaction.request();
-
         tranRequest.input('email', email);
         tranRequest.input('otp', otp);
         const otpResult = await tranRequest.query(`
             SELECT ID FROM otp_codes 
             WHERE email = @email AND otp = @otp AND expires_at > GETDATE()
         `);
-
+            
         if (otpResult.recordset.length === 0) {
+            console.log('Verifying OTP for email:', email, 'with OTP:', otp);
             throw new AppError("Invalid or expired OTP.", 400);
         }
 
@@ -239,9 +251,9 @@ export const loginUser = async (email: string, password: string) => {
         }
         delete user.password;
         const branch = await pool.request().input('branch_id', user.branch_id).query(`SELECT branch_code from branches where id = @branch_id`);
-
-        const accessToken = jwtUtils.accessToken(user.id, user.email, user.role, branch.recordset[0].branch_code);
-        const refreshToken = jwtUtils.refreshToken(user.id, user.email, user.role, branch.recordset[0].branch_code);
+        user.branch_code = branch.recordset[0].branch_code;
+        const accessToken = jwtUtils.accessToken(user.id, user.email, user.role, branch.recordset[0].branch_code,user.branch_id);
+        const refreshToken = jwtUtils.refreshToken(user.id, user.email, user.role, branch.recordset[0].branch_code, user.branch_id);
 
         return {
             user,
@@ -566,7 +578,7 @@ export const registerEmployee = async (name: string, email: string, password: st
         await transaction.begin();
         const req = transaction.request();
         await insertUserSql(
-            req, newUserId, name, email, 1, 'employee',hashedPassword,
+            req, newUserId, name, email, 1, role,hashedPassword,
             phone, date_of_birth, gender, branchId, newMongoId
         );
         

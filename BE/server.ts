@@ -4,8 +4,19 @@ import { connectDatabases } from './src/config/database';
 import authRouter from './src/routers/user'
 import reviewRouter from './src/routers/review'
 import adminRouter from './src/routers/admin/user'
+import employeeaProduct from './src/routers/employee/product'
 import { errorHandler } from './src/middlewares/errorHandler';
 import productRouter from './src/routers/product'
+import vnpayRouter from './src/routers/vnpay'
+import orderRouter from './src/routers/order'
+import orderRouterEmployee from './src/routers/employee/order'
+import favouriteRouter from './src/routers/favourite'
+
+import categoryRouter from './src/routers/category'
+import employeeCatetory from './src/routers/employee/category'
+import employeeBrand from './src/routers/employee/brand';
+import brandRouter from './src/routers/brand'
+import flashSaleRouter from "./src/routers/flashSale";
 
 
 
@@ -20,14 +31,23 @@ app.use('/api/review', reviewRouter);
 app.use('/api/admin', adminRouter);
 app.use("/api/product", productRouter);
 
+app.use("/api/order", orderRouter);
+app.use("/api/payment", vnpayRouter);
+app.use('/api/employee/product', employeeaProduct);
+app.use('/api/product', productRouter);
+app.use('/api/category', categoryRouter);
+app.use('/api/employee/category', employeeCatetory);
+app.use('/api/favourite', favouriteRouter);
+app.use('/api/brand', brandRouter);
+app.use('/api/employee/brand', employeeBrand);
+app.use("/api/flashSale", flashSaleRouter);
 
+app.use('/api/employee/order', orderRouterEmployee)
 app.use(errorHandler);
 
-app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
-    console.error(err.stack);
-    res.status(500).send({ message: 'Something broke!', error: err.message });
+app.use((req: Request, res: Response) => {
+    return res.status(404).send({ message: "Route not found" });
 });
-
 
 const PORT = process.env.PORT || 3000;
 
