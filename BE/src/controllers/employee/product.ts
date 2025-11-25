@@ -28,7 +28,7 @@ export const createProduct = async (req: Request, res: Response, next: NextFunct
         }
         await productService.insertProductSql(transaction, productSql);
 
-        const branchId = await productService.getBranchIdByCode(req.dbBranch!, req.user?.branch_code || "DN");
+        const branchId = await productService.getBranchIdByCode(req.dbBranch!, req.user?.branch_code || "");
         if (!branchId) {
             throw new AppError("branch_id not found", 404);
         }
@@ -38,7 +38,6 @@ export const createProduct = async (req: Request, res: Response, next: NextFunct
 
         const productMongo: IProducts.IProductMongo = buildProductMongo(idProductMongo, idProductSql, description, attributes, uploadProducts);
         await productService.insertProductMongo(productMongo);
-        console.log(4);
 
         await transaction.commit();
         return res.status(201).json({
@@ -73,46 +72,62 @@ export const changeStatusProduct = async (req: Request, res: Response, next: Nex
     }
 }
 
-export const updateProduct = async (req: Request, res: Response, next: NextFunction) => {
-    const transaction = new sql.Transaction(req.dbBranch!);
-    await transaction.begin();
+export const updateProductInfo = async (req: Request, res: Response, next: NextFunction) => {
 
     try {
         if (!req.dbBranch! || !req.dbBranch!.connected) {
             throw new AppError("Central DB is not connected", 503);
         }
-        const branchId = await productService.getBranchIdByCode(req.dbBranch!, req.user?.branch_code || "DN");
-        if (!branchId) {
-            throw new AppError("branch_id not found", 404);
-        }
         
         const product_id_sql = req.params.id;    
-        const input: IProducts.UpdateProductInput = {
+        const product: IProducts.UpdateProductInfo = {
             product_id_sql,
             name: req.body.name,
             description: req.body.description,
             brand_id: req.body.brand_id,
             category_id: req.body.category_id,
             attributes: req.body.attributes,
-            colors: req.body.colors  
         };      
-        const updatedProduct = await productService.updateProduct(transaction, branchId || 'DN', input);
-        
-        await transaction.commit();
+
+        const updatedProduct = await productService.updateProductInfo(req.dbBranch, product);
 
         res.status(200).json({
             success: true,
-            message: "Updated product successfully",
+            message: "Updated productInfo successfully",
+            updatedProduct
+        });
+  
+    } catch (err) {
+        console.log(err);
+        next(err);
+    }
+};
+
+export const updateProductColor = async (req: Request, res: Response, next: NextFunction) => {
+
+    try {
+        if (!req.dbBranch! || !req.dbBranch!.connected) {
+            throw new AppError("Central DB is not connected", 503);
+        }
+        
+        const branchId = await productService.getBranchIdByCode(req.dbBranch!, req.user?.branch_code || "");
+        if (!branchId) {
+            throw new AppError("branch_id not found", 404);
+        }
+        
+        const updatedProduct = await productService.updateProductColorSize(req.dbBranch, branchId, req.body);
+
+        res.status(200).json({
+            success: true,
+            message: "Updated product Color Size successfully",
             data: updatedProduct
         });
   
     } catch (err) {
         console.log(err);
-        await transaction.rollback();
         next(err);
     }
-  };
-
+};
 
 
 

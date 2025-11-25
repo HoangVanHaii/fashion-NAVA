@@ -3,6 +3,9 @@ import * as IProduct from "../interfaces/product";
 import { AppError } from "../utils/appError";
 import { ProductDetailModel } from "../models/product";
 import cloudinary from "../config/cloudinary";
+import { Db } from "mongodb";
+import sql from 'mssql'
+
 
 export const getProductSizesBySizeId = async (sizeId: string, dbBranch: ConnectionPool, branch_id: string): Promise<any | null> => {
     try {   
@@ -208,15 +211,145 @@ const extractPublicId = (url: string): string | null => {
     }
 };
 
-export const updateProduct = async (transaction: Transaction, branch_id: string, product: IProduct.UpdateProductInput) => {
+
+
+export const deleteBranchInnventory = async (pool: ConnectionPool, branch_id: string, branchInventory: IProduct.deleteInventory[]): Promise<void> => {
+    const transaction = pool.transaction();
     try {
-        await updateProductSQL(transaction,
-            {
-                product_id_sql: product.product_id_sql, name: product.name,
-                description: product.description, brand_id: product.brand_id, category_id: product.category_id
+        await transaction.begin();
+        const request = transaction.request();
+
+        for (const item of branchInventory) {
+            const existing = await request
+                .input("branch_id", branch_id)
+                .input("product_id", item.product_id)
+                .input("size_id_mongo", item.size_id_mongo)
+                .input("color_id_mongo", item.color_id_mongo)
+                .query(`
+                    SELECT 1 
+                    FROM branch_inventories 
+                    WHERE branch_id = @branch_id
+                      AND product_id = @product_id
+                      AND size_id_mongo = @size_id_mongo 
+                      AND color_id_mongo = @color_id_mongo
+                `);
+
+            if (existing.recordset.length === 0) {
+                throw new AppError(`Item size_id: ${item.size_id_mongo}, color_id: ${item.color_id_mongo} not found`, 404);
+            }
+
+            await request
+                .input("branch_id", branch_id)
+                .input("product_id", item.product_id)
+                .input("size_id_mongo", item.size_id_mongo)
+                .input("color_id_mongo", item.color_id_mongo)
+                .query(`
+                    DELETE FROM branch_inventories 
+                    WHERE branch_id = @branch_id
+                        AND product_id = @product_id
+                        AND size_id_mongo = @size_id_mongo
+                        AND color_id_mongo = @color_id_mongo
+                `);
+        }
+
+        await transaction.commit();
+
+    } catch (err) {
+        await transaction.rollback();
+        if (err instanceof AppError) throw err;
+        console.error("Failed to deleteInventory", err);
+        throw new AppError("Failed to deleteInventory", 500, false)
+    }
+}
+
+
+
+
+export const updateProductInfo = async (pool: ConnectionPool, product: IProduct.UpdateProductInfo) => {
+    const transaction = new sql.Transaction(pool);
+    try {
+        await transaction.begin();
+        const checkSql = await checkProduct(pool, product.product_id_sql);
+        if (!checkSql) {
+            throw new AppError("Product not found", 404);
+        }
+
+        await updateProductInfoSql(transaction, product);
+        await updateProductInfoMongo(product.product_id_sql, product.description || "", product.attributes);
+        await transaction.commit();
+    } catch (err) {
+        await transaction.rollback();
+        if (err instanceof AppError) throw err;
+        console.error("Failed update product", err);
+        throw new AppError("Failed update product", 500, false);
+    }
+}
+
+export const updateProductInfoSql = async (transaction: Transaction, product: IProduct.UpdateProductInfo) => {
+    try {
+        let setFields: string[] = [];
+        const req = transaction.request()
+            .input("product_id", product.product_id_sql);
+        
+        for (const [key, value] of Object.entries(product)) {
+            if (key === "product_id_sql" || key === "attributes" || key === 'description') continue;
+            if (value === undefined || value === null || value === "") continue;
+            setFields.push(`${key} = @${key}`);
+            req.input(key, value);
+        }
+        const query = `
+                    UPDATE products
+                    SET ${setFields.join(', ')}
+                    WHERE id = @product_id`
+        await req.query(query);
+
+    } catch (err) {
+        throw new AppError("Failed update product", 500, false);
+    }
+}
+
+export const updateProductInfoMongo = async (product_id_sql: string, description: string, attributes?: { [key: string]: string | number | boolean }) => {
+    try {
+        const setFields: any = {};
+
+        if (description !== undefined && description !== null && description !== "") {
+            setFields.description = description;
+        }
+        if (attributes && typeof attributes === "object") {
+            setFields.attributes = attributes;
+        }
+        if (Object.keys(setFields).length === 0) return;
+
+        const result = await ProductDetailModel.updateOne(
+            { product_id_sql: product_id_sql.toLocaleLowerCase() },
+            { $set: setFields }
+        );
+
+        if (result.matchedCount === 0) {
+            throw new AppError("Product not found in MongoDB", 404);
+        }
+        
+    } catch (err) {
+        throw err;
+    }
+}
+
+export const updateProductColorSize = async (pool: ConnectionPool, branch_id: string, color: IProduct.IUpdateProductColor) => {
+    try {
+        console.log(color);
+        let inventorySql: IProduct.updateInventory[] = [];
+        color.sizes?.forEach(size => {
+            inventorySql.push({
+                product_id: color.product_id_sql,
+                color_id_mongo: color.color_id_mongo,
+                size_id_mongo: size.size_id_mongo,
+                price: size.price,
+                stock: size.stock,
             });
-        await updateBranchInventory(transaction, branch_id, product.product_id_sql, product.colors || []);  
-        await updateProductMongo(product.product_id_sql, product.colors, product.attributes);
+        });
+        
+        await updateBranchInnventory(pool, branch_id, inventorySql)
+        await updateColorMongo(color);
         
     } catch (err) {
         if (err instanceof AppError) throw err;
@@ -225,125 +358,107 @@ export const updateProduct = async (transaction: Transaction, branch_id: string,
     }
 }
 
-export const updateProductSQL = async (transaction: Transaction, product: IProduct.UpdateProductInput) => {
+export const updateBranchInnventory = async (pool: ConnectionPool, branch_id: string, branchInventory: IProduct.updateInventory[]): Promise<void> => {
+    const transaction = pool.transaction();
     try {
-        const fieldMap: Record<string, any> = {
-            name: product.name,
-            brand_id: product.brand_id,
-            category_id: product.category_id
-        };
-        const fields: string[] = [];
-        const req = new Request(transaction)
-            .input("product_id_sql", product.product_id_sql.toString());
+        await transaction.begin();
 
-        for (const [key, value] of Object.entries(fieldMap)) {
-            if (value !== undefined && value !== null) {
-                fields.push(`${key}=@${key}`);
-                req.input(key, value);
+        for (const item of branchInventory) {
+            let setFields: string[] = [];
+            const req = transaction.request();
+
+            if (item.price !== undefined && item.price !== null) {
+                setFields.push("price = @price");
+                req.input("price", item.price)
             }
-        }
-        if (fields.length === 0) return;
-        const query = `UPDATE products SET ${fields.join(", ")} WHERE id=@product_id_sql`;
-        await req.query(query);
-    } catch (err) {
-        throw err;
-    }
-};
+            if (item.stock !== undefined && item.stock !== null) {
+                setFields.push("stock = @stock");
+                req.input("stock", item.stock)
+            }
+            if (setFields.length === 0) continue;
 
-export const updateBranchInventory = async ( transaction: Transaction, branch_id: string, product_id_sql: string, colors: IProduct.IProductColorInput[]) => {
-    try {
-        for (const color of colors) {
-            if (!color.sizes || color.sizes.length === 0) continue;
-            for (const size of color.sizes) {
-                const req = new Request(transaction)
-                    .input("branch_id", branch_id)
-                    .input("product_id_sql", product_id_sql)
-                    .input("color_id_mongo", color._id)
-                    .input("size_id_mongo", size._id)
-                    .input("price", size.price)
-                    .input("stock", size.stock);
-            
-                const existsResult = await req.query(`
-                    SELECT 1 FROM branch_inventories
-                    WHERE branch_id=@branch_id 
-                    AND product_id=@product_id_sql
-                    AND color_id_mongo=@color_id_mongo
-                    AND size_id_mongo=@size_id_mongo
-                `);
-        
-                if (existsResult.recordset.length > 0) {
-                    await req.query(`
+            const query = `
                     UPDATE branch_inventories
-                    SET price=@price, stock=@stock
-                    WHERE branch_id=@branch_id
-                        AND product_id=@product_id_sql
-                        AND color_id_mongo=@color_id_mongo
-                        AND size_id_mongo=@size_id_mongo
-                    `);
-                } else {
-                    await req.query(`
-                    INSERT INTO branch_inventories(branch_id, product_id, color_id_mongo, size_id_mongo, price, stock)
-                    VALUES(@branch_id, @product_id_sql, @color_id_mongo, @size_id_mongo, @price, @stock)
-                    `);
-                }
+                    SET ${setFields.join(', ')}
+                    WHERE branch_id = @branch_id
+                        AND product_id = @product_id
+                        AND size_id_mongo = @size_id_mongo
+                        AND color_id_mongo = @color_id_mongo`;
+            
+            req.input("branch_id", branch_id);
+            req.input("product_id", item.product_id);
+            req.input("size_id_mongo", item.size_id_mongo);
+            req.input("color_id_mongo", item.color_id_mongo);
+            
+            const result = await req.query(query);
+            if (result.rowsAffected[0] === 0) {
+                throw new AppError(`Item size: ${item.size_id_mongo}, color: ${item.color_id_mongo} not found`, 404);
             }
         }
-    } catch (err) {
-        throw err;
-    }
-};
 
-const updateProductMongo = async ( product_id_sql: string, colors?: IProduct.IProductColorInput[], attributes?: { [key: string]: string | number | boolean }) => {
-    const productMongoDoc = await ProductDetailModel.findOne({ product_id_sql: product_id_sql.toLocaleLowerCase() });
-    if (!productMongoDoc) throw new AppError("Mongo product not found", 404);
+        await transaction.commit();
 
-    const mongoSnapshot = productMongoDoc.toObject();
-    try {
-        // const productMongoDoc = await ProductDetailModel.findOne({ product_id_sql: product_id_sql.toLocaleLowerCase() });
-        // if (!productMongoDoc) throw new AppError("Mongo product not found", 404);
-      
-        if (colors) {
-            for (const color of colors) {
-                if (color.image_main instanceof Object) {
-                    const uploaded = await uploadToCloudinary(color.image_main);
-                    color.image_main = uploaded.secure_url;
-                }
-        
-                if (Array.isArray(color.color_images) && color.color_images.length > 0) {
-                    const newImages: string[] = [];
-                    for (const img of color.color_images) {
-                        const uploaded = await uploadToCloudinary(img);
-                        newImages.push(uploaded.secure_url);
-                    }
-                    color.color_images = newImages;
-                }
-                
-            }
-            productMongoDoc.colors = colors.map(color => ({
-                _id: color._id,
-                color: color.color || '',
-                is_main: color.is_main || false,
-                image_main: color.image_main || '', 
-                color_images: Array.isArray(color.color_images) ? color.color_images : [],
-                sizes: Array.isArray(color.sizes) ? color.sizes : [],
-            }));
-        }
-      
-        if (attributes) {
-            productMongoDoc.attributes = { ...productMongoDoc.attributes, ...attributes };
-        }
-      
-        await productMongoDoc.save();
-        return productMongoDoc;
-        
     } catch (err) {
-        await ProductDetailModel.updateOne(
-            { product_id_sql: product_id_sql.toLowerCase() },
-            mongoSnapshot
-        );
+        await transaction.rollback();
         throw err;
     }
 }
+
+export const updateColorMongo = async (color: IProduct.IUpdateProductColor) => {
+    try {
+        if (!color.product_id_sql || !color.color_id_mongo) {
+            throw new AppError("Missing product_id_sql or color_id_mongo", 400);
+        }
+
+        const setFields: any = {};
+
+        if (color.color !== undefined) setFields["colors.$[c].color"] = color.color;
+        if (color.is_main !== undefined) setFields["colors.$[c].is_main"] = color.is_main;
+
+        if (color.image_main && typeof color.image_main === "string") {
+            const img = await uploadToCloudinary(color.image_main);
+            setFields["colors.$[c].image_main"] = img.secure_url;
+        }
+
+        if (color.color_images && color.color_images.length > 0) {
+            const urls = await Promise.all(
+                color.color_images.map(async (img) => {
+                    if (typeof img === "string") {
+                        const uploaded = await uploadToCloudinary(img);
+                        return uploaded.secure_url;
+                    }
+                    return null;
+                })
+            );
+            setFields["colors.$[c].color_images"] = urls.filter(Boolean);
+        }
+
+        if (color.sizes && color.sizes.length > 0) {
+            setFields["colors.$[c].sizes"] = color.sizes.map(s => ({
+                _id: s.size_id_mongo,
+                size: s.size,
+                price: s.price,
+                stock: s.stock,
+            }));
+        }
+
+        if (Object.keys(setFields).length === 0) return;
+
+        const result = await ProductDetailModel.updateOne(
+            { product_id_sql: color.product_id_sql },
+            { $set: setFields },
+            { arrayFilters: [{ "c._id": color.color_id_mongo }] }
+        );
+
+        if (result.matchedCount === 0) {
+            throw new AppError("Color not found in MongoDB", 404);
+        }
+
+    } catch (err) {
+        console.error("Failed update color in MongoDB:", err);
+        throw err;
+    }
+};
 
 const queryGlobal = `
                 SELECT 

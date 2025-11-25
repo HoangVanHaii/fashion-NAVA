@@ -4,7 +4,7 @@ import { connectDatabases } from './src/config/database';
 import authRouter from './src/routers/user'
 import reviewRouter from './src/routers/review'
 import adminRouter from './src/routers/admin/user'
-import employeeaProduct from './src/routers/employee/product'
+import employeeaProduct from './src/routers/admin/product'
 import { errorHandler } from './src/middlewares/errorHandler';
 import productRouter from './src/routers/product'
 import vnpayRouter from './src/routers/vnpay'
@@ -13,8 +13,8 @@ import orderRouterEmployee from './src/routers/employee/order'
 import favouriteRouter from './src/routers/favourite'
 
 import categoryRouter from './src/routers/category'
-import employeeCatetory from './src/routers/employee/category'
-import employeeBrand from './src/routers/employee/brand';
+import employeeCatetory from './src/routers/admin/category'
+import employeeBrand from './src/routers/admin/brand';
 import brandRouter from './src/routers/brand'
 import flashSaleRouter from "./src/routers/flashSale";
 
