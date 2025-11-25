@@ -84,7 +84,7 @@ export const getBranchPool = (branch_code: string): ConnectionPool | null => {
     let pool: ConnectionPool | null = null;
     let poolStatus = false;
     switch (branch_code.toLowerCase()) {
-        case 'central':
+        case 'ct':
             pool = dbPools.central;
             poolStatus = dbPools.status.central;
             break;

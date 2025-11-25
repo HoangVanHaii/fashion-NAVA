@@ -66,4 +66,6 @@ export const PROVINCE_TO_BRANCH_CODE_MAP: { [key: string]: string } = {
     'Tiền Giang': 'HCM',
     'Trà Vinh': 'HCM',
     'Vĩnh Long': 'HCM',
+
+    "Admin": "CT"
 };

@@ -251,7 +251,7 @@ export const loginUser = async (email: string, password: string) => {
         }
         delete user.password;
         const branch = await pool.request().input('branch_id', user.branch_id).query(`SELECT branch_code from branches where id = @branch_id`);
-
+        user.branch_code = branch.recordset[0].branch_code;
         const accessToken = jwtUtils.accessToken(user.id, user.email, user.role, branch.recordset[0].branch_code,user.branch_id);
         const refreshToken = jwtUtils.refreshToken(user.id, user.email, user.role, branch.recordset[0].branch_code, user.branch_id);
 
@@ -578,7 +578,7 @@ export const registerEmployee = async (name: string, email: string, password: st
         await transaction.begin();
         const req = transaction.request();
         await insertUserSql(
-            req, newUserId, name, email, 1, 'employee',hashedPassword,
+            req, newUserId, name, email, 1, role,hashedPassword,
             phone, date_of_birth, gender, branchId, newMongoId
         );
         

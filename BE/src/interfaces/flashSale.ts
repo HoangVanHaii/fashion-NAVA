@@ -9,7 +9,8 @@ export interface FlashSale {
 }
 export interface FlashSaleItem {
     flash_sale_id?: string;
-    product_id?: string;
+    product_id?: string; 
+    color_id_mongo?: string;
     size_id_mongo?: string
     product_name?: string;
     flash_sale_price: number;
@@ -19,11 +20,11 @@ export interface FlashSaleItem {
     created_at?: Date;
 }
 export interface ImageProducts {
-    color_id: number;
+    color_id: string;
     image_url: string;
 }
 export interface FlashSaleProductSold {
-    product_id: number;
+    product_id: string;
     total_flash_sale_sold: number;
     total_stock: number;
 }

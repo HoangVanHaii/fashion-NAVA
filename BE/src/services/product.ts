@@ -553,7 +553,7 @@ export const getProductDetail = async (pool: ConnectionPool, product_id_sql: str
 }
 
 
-const getMongoProductsByIds = async (mongoIds: string[]) => {
+export const getMongoProductsByIds = async (mongoIds: string[]) => {
     try {
         const mongoProducts = await ProductDetailModel.find({ _id: { $in: mongoIds } }).lean();
 
@@ -565,7 +565,7 @@ const getMongoProductsByIds = async (mongoIds: string[]) => {
         throw err;
     }
 }
-const buildInventoryMap = (rows: any[]) => {
+export const buildInventoryMap = (rows: any[]) => {
     try {
         const inventoryMap = new Map<string, IProduct.IInventoryItem>();
 
@@ -596,7 +596,7 @@ const buildInventoryMap = (rows: any[]) => {
         throw err;
     }
 }
-const mergeSqlMongoProducts = (sqlRows: any[], mongoMap: Map<string,
+export const mergeSqlMongoProducts = (sqlRows: any[], mongoMap: Map<string,
     IProduct.IProductMongoDetail>,
     inventoryMap: Map<string, IProduct.IInventoryItem>) =>{
     try {
