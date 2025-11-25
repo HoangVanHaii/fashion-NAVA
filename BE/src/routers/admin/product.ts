@@ -3,7 +3,7 @@ import * as productController from "../../controllers/employee/product";
 import { upload } from "../../utils/upload";
 import {
   authMiddleware,
-  adminOrEmployee,
+  isAdmin,
 } from "../../middlewares/authMiddleware";
 import * as productMiddleware from "../../middlewares/products";
 import { validateRequest } from "../../middlewares/validateRequest";
@@ -13,7 +13,7 @@ const router = express.Router();
 router.post(
     "/",
     authMiddleware,
-    adminOrEmployee,
+    isAdmin,
     upload.any(),
     productMiddleware.mapColorFile,
     productMiddleware.createProductValidation,
@@ -23,20 +23,27 @@ router.post(
 router.put(
     "/status/:id",
     authMiddleware,
-    adminOrEmployee,
+    isAdmin,
     productMiddleware.changeStatusValidation,
     validateRequest,
     productController.changeStatusProduct
 );
 router.put(
-    "/:id",
+    "/info/:id",
     authMiddleware,
-    adminOrEmployee,
-    upload.any(),
-    productMiddleware.mapColorFile,
-    productMiddleware.updateProductValidation,
+    isAdmin,
+    productMiddleware.updateProductInfoValidation,
     validateRequest,
-    productController.updateProduct
+    productController.updateProductInfo
 );
 
+router.put(
+    "/color-size",
+    authMiddleware,
+    isAdmin,
+    upload.any(),
+    productMiddleware.updateProductColorValidation,
+    validateRequest,
+    productController.updateProductColor
+);
 export default router;

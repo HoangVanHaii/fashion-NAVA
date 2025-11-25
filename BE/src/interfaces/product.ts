@@ -49,23 +49,25 @@ export interface IProductMongo {
 }
 
 
-export interface IProductSizeInput {
-    _id: string;
-    size: string;
-    price: number;
-    stock: number;
+export interface updateSize {
+    size_id_mongo: string;
+    size?: string;
+    price?: number;
+    stock?: number;
 }
 
-export interface IProductColorInput {
-    _id: string;
+export interface IUpdateProductColor {
+    product_id_sql: string
+    color_id_mongo: string;
     color?: string;
-    is_main: boolean;
+    is_main?: boolean;
     image_main?: string | Express.Multer.File;
     color_images?: (string | Express.Multer.File)[];
-    sizes?: IProductSizeInput[];
+    sizes?: updateSize[];
 }
 
-export interface UpdateProductInput {
+
+export interface UpdateProductInfo {
     product_id_sql: string;
     name?: string;
     description?: string;
@@ -74,10 +76,9 @@ export interface UpdateProductInput {
     attributes?: {
         [key: string]: string | number | boolean;
     };
-    colors?: IProductColorInput[];
 }
 
-
+/////
 
 export interface IProductMongoDetail {
     _id: string;
@@ -117,4 +118,19 @@ export interface IProductSizeResponse {
     sale_price?: number | null;
     sale_stock?: number;
     sale_sold?: number;
+}
+
+///
+
+export interface updateInventory{
+    product_id: string;
+    color_id_mongo: string;
+    size_id_mongo: string;
+    price?: number;
+    stock?: number;
+}
+export interface deleteInventory{
+    product_id: string;
+    color_id_mongo: string;
+    size_id_mongo: string;
 }

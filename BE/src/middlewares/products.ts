@@ -1,5 +1,5 @@
 import { Response, Request, NextFunction } from "express";
-import { IProductColorPayload, IProductSizePayload } from "../interfaces/product";
+import { IProductColorPayload, IProductSizePayload, IUpdateProductColor } from "../interfaces/product";
 import mongoose from "mongoose";
 import { body, param } from 'express-validator';
 import { AppError } from "../utils/appError";
@@ -24,6 +24,24 @@ export const mapColorFile = (req: Request, res: Response, next: NextFunction) =>
     }
 }
 
+export const mapColorFileUpdate = (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+        const color = JSON.parse(req.body.color) as IUpdateProductColor;
+
+        if (files.image_main && files.image_main.length > 0) {
+            color.image_main = files.image_main[0];
+        }
+
+        if (files.color_images && files.color_images.length > 0) {
+            color.color_images = files.color_images;
+        }
+        req.body.color = color;
+        next();
+    } catch (err) {
+        throw new AppError("Failed to map images", 400, false);
+    }
+};
 export const createProductValidation = [
     body('name')
         .isString().withMessage('Name must be a string')
@@ -117,7 +135,7 @@ export const changeStatusValidation = [
         .notEmpty().withMessage('Product ID SQL is required'),
 ]
 
-export const updateProductValidation = [
+export const updateProductInfoValidation = [
 
     param("id")
         .isString().withMessage("Product ID SQL must be a string")
@@ -150,6 +168,49 @@ export const updateProductValidation = [
             }
             return true;
         }),
+]
+export const updateProductColorValidation = [
+    body("product_id_sql")
+        .notEmpty()
+        .withMessage("Product ID is required"),
+
+    body("color_id_mongo")
+        .notEmpty()
+        .withMessage("Color ID is required"),
+
+    body("color")
+        .optional()
+        .isString()
+        .withMessage("Color must be a string"),
+
+    body("is_main")
+        .optional()
+        .isBoolean()
+        .withMessage("is_main must be boolean"),
+
+    body("sizes")
+        .optional()
+        .isArray()
+        .withMessage("Sizes must be an array"),
+
+    body("sizes.*.size_id_mongo")
+        .notEmpty()
+        .withMessage("size_id_mongo is required for each size"),
+
+    body("sizes.*.size")
+        .optional()
+        .isString()
+        .withMessage("Size must be a string"),
+
+    body("sizes.*.price")
+        .optional()
+        .isNumeric()
+        .withMessage("Price must be a number"),
+
+    body("sizes.*.stock")
+        .optional()
+        .isNumeric()
+        .withMessage("Stock must be a number"),
 ]
 export const getByCategoryValidation = [
     param("category_id")
