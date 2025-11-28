@@ -48,7 +48,7 @@ const getBranchId = async (pool: ConnectionPool, branch_code: string) => {
 
     return result.recordset[0].id;
 };
-const insertUserSql = async (request: Request, userId: string, name: string, email: string, is_verified : number,role: string, hashedPassword: string, phone: string, dob: Date, gender: string, branchId: string, mongodb_id: string) => {
+const insertUserSql = async (request: Request, userId: string, name: string, email: string, is_verified : number,role: string, hashedPassword: string, phone: string, dob: Date, gender: string, branchId: string, mongodb_id: mongoose.Types.ObjectId) => {
     request.input("id", userId);
     request.input("name", name);
     request.input("email", email);  
@@ -91,7 +91,7 @@ const insertAddress = async (request: Request, userId: string, name: string, pho
     `);
 };
 
-const createMongoProfile = async (userId: string, bio: any, mongodb_id: string, preferences: any) => {
+const createMongoProfile = async (userId: string, bio: any, mongodb_id: mongoose.Types.ObjectId, preferences: any) => {
     return await UserProfileModel.create({
         _id: mongodb_id,
         user_id_sql: userId,
@@ -130,7 +130,7 @@ export const registerUser = async (name: string, email: string, password: string
 
     const hashedPassword = await bcrypt.hash(password, 10);
     const newUserId = uuidv4();
-    const newMongoId = new mongoose.Types.ObjectId().toString();
+    const newMongoId = new mongoose.Types.ObjectId();
 
     const transaction = pool.transaction();
 
@@ -572,7 +572,7 @@ export const registerEmployee = async (name: string, email: string, password: st
     const branchId = await getBranchId(pool, branch_code);
     const hashedPassword = await bcrypt.hash(password, 10);
     const newUserId = uuidv4();
-    const newMongoId = new mongoose.Types.ObjectId().toString();
+    const newMongoId = new mongoose.Types.ObjectId();
     const transaction = pool.transaction();
     try {
         await transaction.begin();
