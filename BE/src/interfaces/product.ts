@@ -1,9 +1,11 @@
+import mongoose from "mongoose";
+
 export interface IProductSQL {
     id?: string;
     brand_id: string;
     category_id: string;
     name: string;
-    mongodb_id: string | null;
+    mongodb_id: string | mongoose.Types.ObjectId;
     status: 'active' | 'hidden' | 'banned';
     created_at?: Date;
 }
@@ -22,14 +24,14 @@ export interface IBranchInventorySQL {
 ////
 
 export interface IProductSizePayload {
-    _id: string;
+    _id: string | mongoose.Types.ObjectId;
     size: string;
     price: number;
     stock: number;
 }
   
 export interface IProductColorPayload {
-    _id: string;
+    _id?: string | mongoose.Types.ObjectId;
     color?: string;
     is_main: boolean;
     image_main: string | Express.Multer.File;
@@ -38,7 +40,7 @@ export interface IProductColorPayload {
 }
   
 export interface IProductMongo {
-    _id: string;
+    _id: mongoose.Types.ObjectId;
     product_id_sql: string;
     description: string;
     attributes?: {
@@ -49,23 +51,25 @@ export interface IProductMongo {
 }
 
 
-export interface IProductSizeInput {
-    _id: string;
-    size: string;
-    price: number;
-    stock: number;
+export interface updateSize {
+    size_id_mongo: string;
+    size?: string;
+    price?: number;
+    stock?: number;
 }
 
-export interface IProductColorInput {
-    _id: string;
+export interface IUpdateProductColor {
+    product_id_sql: string | mongoose.Types.ObjectId;
+    color_id_mongo: string;
     color?: string;
-    is_main: boolean;
+    is_main?: boolean;
     image_main?: string | Express.Multer.File;
     color_images?: (string | Express.Multer.File)[];
-    sizes?: IProductSizeInput[];
+    sizes?: updateSize[];
 }
 
-export interface UpdateProductInput {
+
+export interface UpdateProductInfo {
     product_id_sql: string;
     name?: string;
     description?: string;
@@ -74,13 +78,12 @@ export interface UpdateProductInput {
     attributes?: {
         [key: string]: string | number | boolean;
     };
-    colors?: IProductColorInput[];
 }
 
-
+/////
 
 export interface IProductMongoDetail {
-    _id: string;
+    _id: string | mongoose.Types.ObjectId;
     product_id_sql: string;
     name?: string;
     description: string;
@@ -101,7 +104,7 @@ export interface IInventoryItem {
     sale_sold: number;
 }
 export interface IProductColorResponse {
-    _id: string;
+    _id: string | mongoose.Types.ObjectId;
     color?: string;
     is_main: boolean;
     image_main: string;
@@ -110,11 +113,26 @@ export interface IProductColorResponse {
 }
   
 export interface IProductSizeResponse {
-    _id: string;
+    _id: string | mongoose.Types.ObjectId;
     size: string;
     price: number | null;
     stock: number;
     sale_price?: number | null;
     sale_stock?: number;
     sale_sold?: number;
+}
+
+///
+
+export interface updateInventory{
+    product_id: string;
+    color_id_mongo: string | mongoose.Types.ObjectId;
+    size_id_mongo: string | mongoose.Types.ObjectId;
+    price?: number;
+    stock?: number;
+}
+export interface deleteInventory{
+    product_id: string;
+    color_id_mongo: string | mongoose.Types.ObjectId;
+    size_id_mongo: string | mongoose.Types.ObjectId;
 }
