@@ -161,6 +161,51 @@ export const getAllProductsForGuests = async (req: Request, res: Response, next:
     }
 }
 
+export const getTopProductsNewForGuests = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const topCount = parseInt(req.query.top as string) || 20;
+        const pool = getBranchPool("DN");
+        if (!pool) {
+            throw new AppError("DaNang DB is not connected", 503);
+        }
+        const branch_id = await productService.getBranchIdByCode(pool, 'DN');
+        if (!branch_id) {
+            throw new AppError("branch_id not found", 404);
+        }
+        const products = await productService.getTopProductsNews(pool, branch_id, topCount);
+        return res.status(200).json({
+            success: true,
+            message: "Get all products New for guest successfully",
+            products
+        });
+        
+    } catch (err) {
+        next(err);
+    }
+}
+export const getTopProductsBestSellerForGuests = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const topCount = parseInt(req.query.top as string) || 20;
+        const pool = getBranchPool("DN");
+        if (!pool) {
+            throw new AppError("DaNang DB is not connected", 503);
+        }
+        const branch_id = await productService.getBranchIdByCode(pool, 'DN');
+        if (!branch_id) {
+            throw new AppError("branch_id not found", 404);
+        }
+        const products = await productService.getTopProductsBestseller(pool, branch_id, topCount);
+        return res.status(200).json({
+            success: true,
+            message: "Get all products best seller for guest successfully",
+            products
+        });
+        
+    } catch (err) {
+        next(err);
+    }
+}
+
 export const getProductDetailForGuests = async (req: Request, res: Response, next: NextFunction) => {
     try {      
         const pool = getBranchPool("DN");

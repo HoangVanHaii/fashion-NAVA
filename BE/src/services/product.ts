@@ -527,6 +527,150 @@ export const checkProduct = async (pool: ConnectionPool, product_id_sql: string)
 }
 
 
+export const getTopProductsNews = async (pool: ConnectionPool, branch_id: string, top: number): Promise<IProduct.IProductMongoDetail[]> => {
+    try {
+        
+        const query = `
+                        SELECT TOP ${top}
+                            p.id,
+                            p.mongodb_id,
+                            p.name,
+                            p.category_id,
+                            p.brand_id,
+                            p.status AS product_status,
+                            p.created_at AS product_created_at,
+                            bi.color_id_mongo,
+                            bi.size_id_mongo,
+                            bi.price AS current_price,
+                            bi.stock AS current_stock,
+                            fsi.flash_sale_price AS sale_price,
+                            fsi.stock AS sale_stock,
+                            fsi.sold AS sale_sold
+                        FROM 
+                            products p
+                        LEFT JOIN 
+                            branch_inventories bi 
+                            ON p.id = bi.product_id AND bi.branch_id = @branch_id
+                        LEFT JOIN 
+                            flash_sale_items fsi
+                            ON fsi.branch_id = @branch_id
+                            AND fsi.product_id = p.id
+                            AND fsi.color_id_mongo = bi.color_id_mongo
+                            AND fsi.size_id_mongo = bi.size_id_mongo
+                            AND fsi.status = 'active'
+                        LEFT JOIN 
+                            flash_sales fs
+                            ON fs.id = fsi.flash_sale_id
+                            AND fs.status = 'active'
+                            AND fs.start_date <= GETDATE()
+                            AND fs.end_date >= GETDATE()
+                        WHERE p.status = 'active'
+                        ORDER BY
+                            p.created_at DESC;`
+        
+        const req = pool.request()
+            .input("branch_id", branch_id)
+            
+        const sqlResult = await req.query(query)
+        
+        const productSql = sqlResult.recordset;
+
+        const mongoIds = productSql
+            .map(p => p.mongodb_id)
+            .filter(Boolean);
+        
+        const mongoProducts = await getMongoProductsByIds(mongoIds);
+
+        const inventoryMap = buildInventoryMap(productSql);
+
+        const productResult = mergeSqlMongoProducts(productSql, mongoProducts, inventoryMap);
+        
+        return productResult;
+
+    } catch (err) {
+        console.error("Failed to fetch top new products", err);
+        throw new AppError("Failed to fetch top new products", 500, false);    }
+};
+
+export const getTopProductsBestseller = async (pool: ConnectionPool, branch_id: string, top: number): Promise<IProduct.IProductMongoDetail[]> => {
+    try {
+        
+        const query = `WITH TopSoldProducts AS (
+                            SELECT TOP ${top}
+                                oi.product_id,
+                                SUM(oi.quantity) AS total_quantity_sold
+                            FROM order_items oi 
+                            JOIN orders o ON oi.order_id = o.ID
+                            WHERE o.status = 'completed' 
+                            GROUP BY oi.product_id
+                            ORDER BY total_quantity_sold DESC
+                        )
+                        SELECT 
+                            p.id,
+                            p.mongodb_id,
+                            p.name,
+                            p.category_id,
+                            p.brand_id,
+                            p.status AS product_status,
+                            p.created_at AS product_created_at,
+                            bi.color_id_mongo,
+                            bi.size_id_mongo,
+                            bi.price AS current_price,
+                            bi.stock AS current_stock,
+                            fsi.flash_sale_price AS sale_price,
+                            fsi.stock AS sale_stock,
+                            fsi.sold AS sale_sold,
+                            tsp.total_quantity_sold
+                        FROM 
+                            products p
+                        JOIN 
+                            TopSoldProducts tsp ON p.id = tsp.product_id
+                        LEFT JOIN 
+                            branch_inventories bi 
+                            ON p.id = bi.product_id AND bi.branch_id = @branch_id
+                        LEFT JOIN 
+                            flash_sale_items fsi
+                            ON fsi.branch_id = @branch_id
+                            AND fsi.product_id = p.id
+                            AND fsi.color_id_mongo = bi.color_id_mongo
+                            AND fsi.size_id_mongo = bi.size_id_mongo
+                            AND fsi.status = 'active'
+                        LEFT JOIN 
+                            flash_sales fs
+                            ON fs.id = fsi.flash_sale_id
+                            AND fs.status = 'active'
+                            AND fs.start_date <= GETDATE()
+                            AND fs.end_date >= GETDATE()
+                        WHERE p.status = 'active'
+                        ORDER BY
+                            tsp.total_quantity_sold DESC;`
+        
+        const req = pool.request()
+            .input("branch_id", branch_id)
+            
+        const sqlResult = await req.query(query)
+        
+        const productSql = sqlResult.recordset;
+
+        const mongoIds = productSql
+            .map(p => p.mongodb_id)
+            .filter(Boolean);
+        
+        const mongoProducts = await getMongoProductsByIds(mongoIds);
+
+        const inventoryMap = buildInventoryMap(productSql);
+
+        const productResult = mergeSqlMongoProducts(productSql, mongoProducts, inventoryMap);
+        
+        return productResult;
+
+    } catch (err) {
+        console.error("Failed to fetch all products", err);
+        throw new AppError("Failed to fetch all products", 500, false);
+    }
+};
+
+
 export const getAllProductsByCategory = async (pool: ConnectionPool, branch_id: string, role: string, category_id: string): Promise<IProduct.IProductMongoDetail[]> => {
     try {
         let query = queryGlobal + ' WHERE p.category_id = @category_id';
