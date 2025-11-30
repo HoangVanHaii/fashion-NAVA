@@ -1,24 +1,22 @@
 import { ConnectionPool, Transaction } from "mssql";
-import { GetOrder, OderPayLoad, Order, OrderItem } from "../interfaces/order";
+import { GetOrder, OderPayLoad, Order, OrderItem, RevenueOrder } from "../interfaces/order";
 import { v4 as uuidv4 } from 'uuid';
 import { getProductSizesBySizeId } from "./product";
 import mongoose from "mongoose";
 import { OrderDetail } from "../models/order.mongo";
 import { AppError } from "../utils/appError";
+import { Address } from "../interfaces/address";
 const insertOrder = async (tranRequest: Transaction, orderIdSql: string, orderData: Order, mongoOrderId: mongoose.Types.ObjectId): Promise<void> => {
-    const query = `INSERT INTO orders (ID, user_id, total, shipping_name, shipping_phone, voucher_id, shipping_province, shipping_district, shipping_ward, shipping_street, mongodb_id)
-    VALUES (@orderId, @user_id, @total, @shipping_name, @shipping_phone, @voucher_id, @shipping_province, @shipping_district, @shipping_ward, @shipping_street, @mongodb_id)`;
-    await tranRequest.request().input('orderId', orderIdSql)
+    const query = `INSERT INTO orders (ID, user_id, total, voucher_id, mongodb_id, method_order, status)
+    VALUES (@orderId, @user_id, @total, @voucher_id, @mongodb_id, @method_order, @status)`;
+    await tranRequest.request()
+        .input('orderId', orderIdSql)
         .input('user_id', orderData.user_id)
         .input('total', orderData.total)
-        .input('shipping_name', orderData.address.name)
-        .input('shipping_phone', orderData.address.phone)
         .input('voucher_id', orderData.voucher_id || null)
-        .input('shipping_province', orderData.address.province)
-        .input('shipping_district', orderData.address.district)
-        .input('shipping_ward', orderData.address.ward)
-        .input('shipping_street', orderData.address.street_address)
         .input('mongodb_id', mongoOrderId.toString())
+        .input('method_order', orderData.method_order || 'online')
+        .input('status', orderData.status || 'pending')
         .query(query);
 }
 const insertOrderItems = async (tranRequest: Transaction, orderIdSql: string, orderItems: any[]): Promise<void> => {
@@ -101,11 +99,13 @@ export const updateStockAfterOrder = async (
     }
 };
 
-const insertOrderDetailMongoDB = async (mongoOrderId: mongoose.Types.ObjectId, orderIdSql: string, orderItems: OrderItem[]): Promise<void> => {
+const insertOrderDetailMongoDB = async (mongoOrderId: mongoose.Types.ObjectId, orderIdSql: string, orderItems: OrderItem[], address: Address, note: any): Promise<void> => {
     await OrderDetail.create({
         _id: mongoOrderId,
         order_id_sql: orderIdSql,
-        items: orderItems
+        items: orderItems,
+        shipping_address: address,
+        note: note
     });
 }
 const insertPayment = async (tranRequest: Transaction, orderIdSql: string, orderData: Order): Promise<void> => {
@@ -130,7 +130,7 @@ export const createOrder = async (orderPayload: OderPayLoad, dbBranch: Connectio
         // update stock
         await updateStockAfterOrder(tranRequest, orderPayload.orderItems, branch_id);
         // insert detail order in mongoDB
-        await insertOrderDetailMongoDB(mongoOrderId, orderIdSql ,orderPayload.orderItems);
+        await insertOrderDetailMongoDB(mongoOrderId, orderIdSql ,orderPayload.orderItems, orderPayload.order.address!, orderPayload.order.note);
 
         // function insert payment
         await insertPayment(tranRequest, orderIdSql, orderPayload.order);
@@ -270,10 +270,16 @@ export const changeStatusOrder = async (dbBranch: ConnectionPool, order_id: stri
     }
 
 }
-export const getOrderOfBranch = async (dbBranch: ConnectionPool) : Promise<GetOrder[]> => {
+export const getOrderOfBranch = async (dbBranch: ConnectionPool, method_order: string) : Promise<GetOrder[]> => {
     try {
-        const query = `SELECT *FROM orders`;
-        const result = await dbBranch.request().query(query);
+        const query = `SELECT 
+                o.*, 
+                u.name AS user_name_buyer
+            FROM orders o
+            INNER JOIN users u ON o.user_id = u.ID
+            WHERE o.method_order = @method_order
+        `;
+        const result = await dbBranch.request().input('method_order', method_order).query(query);
         const orderSqlIds = result.recordset.map(order => order.ID);
         const lowerCaseOrderSqlIds = orderSqlIds.map((id: string) => id.toString().toLowerCase());
         const mongoOrders = await OrderDetail.find({ order_id_sql: { $in: lowerCaseOrderSqlIds } }).lean();
@@ -292,6 +298,7 @@ export const getOrderOfBranch = async (dbBranch: ConnectionPool) : Promise<GetOr
             total: order.total,
             mongo_id: order.mongodb_id,
             payment_method: order.payment_method,
+            user_name_buyer: order.user_name_buyer,
             address: {
                 name: order.shipping_name,
                 phone: order.shipping_phone,
@@ -311,21 +318,21 @@ export const getOrderOfBranch = async (dbBranch: ConnectionPool) : Promise<GetOr
             throw error;
         }
         console.error(error);
-        throw new AppError("Failed to cancel order", 500);
+        throw new AppError("Failed to get order of branch", 500);
     }
 }
-export const getOrderByStatus = async (dbBranch: ConnectionPool, status: string): Promise<number> => {
+export const statisticalOrder = async (dbBranch: ConnectionPool): Promise<any[]> => {
     try {
-        const query = `SELECT *FROM orders WHERE status = @status`;
-        const result = await dbBranch.request().input('status', status).query(query);
+        const query = `SELECT status FROM orders`;
+        const result = await dbBranch.request().query(query);
         
-        return result.recordset.length ;
+        return result.recordset;
     } catch (err) {
         if (err instanceof AppError) {
             throw err;
         }
         console.log(err);
-        throw new AppError('Failed to get order by status', 500);
+        throw new AppError('Failed to get statistical order', 500);
     }
 }
 
@@ -344,3 +351,101 @@ export const getRevenueOfBranch = async (dbBranch: ConnectionPool): Promise<numb
     }
 }
 
+const getDateRange = (type: string): { currentStart: string, currentEnd: string, previousStart: string, previousEnd: string } => {
+    const today = 'CAST(GETDATE() AS DATE)';
+    let currentStart = '';
+    let previousStart = '';
+    const currentEnd = 'GETDATE()';
+
+    switch (type.toLowerCase()) {
+        case 'hôm nay':
+            currentStart = today; // 00:00:00 hôm nay
+            previousStart = `DATEADD(DAY, -1, ${today})`; // 00:00:00 hôm qua
+            return { currentStart, currentEnd, previousStart, previousEnd: today };
+        case 'tuần này':
+            currentStart = `DATEADD(wk, DATEDIFF(wk, 0, GETDATE()), 0) - 6`;
+            previousStart = `DATEADD(wk, DATEDIFF(wk, 0, GETDATE()) - 1, 0) - 6`;
+
+            return { currentStart, currentEnd, previousStart, previousEnd: currentStart };
+        case 'tháng này':
+            currentStart = `DATEADD(mm, DATEDIFF(mm, 0, GETDATE()), 0)`;
+            previousStart = `DATEADD(mm, DATEDIFF(mm, 0, GETDATE()) - 1, 0)`;
+            return { currentStart, currentEnd, previousStart, previousEnd: currentStart };
+
+        case 'từ trước tới nay':
+            // Không có khoảng thời gian so sánh, chỉ lấy tổng
+            currentStart = `'1900-01-01'`;
+            previousStart = `'1900-01-01'`; // Giả lập để không lỗi cú pháp
+            return { currentStart, currentEnd, previousStart, previousEnd: currentStart };
+
+        default:
+            // Mặc định về hôm nay nếu type không hợp lệ
+            return getDateRange('hôm nay');
+    }
+}
+
+
+export const getRevenueOrderComparison = async (dbBranch: ConnectionPool, type: string): Promise<RevenueOrder> => {
+    const { currentStart, currentEnd, previousStart, previousEnd } = getDateRange(type); 
+
+    const isAllTime = type.toLowerCase() === 'từ trước tới nay';
+
+    try {
+        // --- 1. TRUY VẤN DỮ LIỆU HIỆN TẠI (CURRENT) ---
+        // Lấy Tổng doanh thu, Đơn Online, Đơn Offline trong khoảng thời gian hiện tại
+        const currentQuery = `
+            SELECT 
+                SUM(CASE WHEN status != 'cancelled' THEN total ELSE 0 END) AS revenue,
+                COUNT(CASE WHEN status != 'cancelled' AND method_order = 'online' THEN 1 ELSE NULL END) AS total_order_online,
+                COUNT(CASE WHEN status != 'cancelled' AND method_order = 'offline' THEN 1 ELSE NULL END) AS total_order_offline,
+                COUNT(ID) AS total_orders -- Tổng số đơn hiện tại
+            FROM orders
+            WHERE created_at >= ${currentStart} AND created_at < ${currentEnd};
+        `;
+
+        const currentResult = await dbBranch.request().query(currentQuery);
+        const currentData = currentResult.recordset[0];
+
+        // --- 2. TRUY VẤN DỮ LIỆU SO SÁNH (PREVIOUS) ---
+        let previousTotalOrders = 0;
+        let percentageChange = 0;
+
+        if (!isAllTime) {
+            // Lấy Tổng số đơn trong khoảng thời gian so sánh
+            const previousQuery = `
+                SELECT 
+                    COUNT(ID) AS previous_total_orders
+                FROM orders
+                WHERE status != 'cancelled'
+                  AND created_at >= ${previousStart} AND created_at < ${previousEnd};
+            `;
+
+            const previousResult = await dbBranch.request().query(previousQuery);
+            previousTotalOrders = previousResult.recordset[0].previous_total_orders as number;
+            // phần trăm
+            const currentTotalOrders = currentData.total_orders as number;
+
+            if (previousTotalOrders === 0) {
+                percentageChange = currentTotalOrders > 0 ? 100 : 0;
+            } else {
+                percentageChange = ((currentTotalOrders - previousTotalOrders) / previousTotalOrders) * 100;
+            }
+        }
+
+        const revenueOrder: RevenueOrder = {
+            revenue: currentData.revenue ? parseFloat(currentData.revenue.toFixed(2)) : 0,
+            total_order_online: currentData.total_order_online as number,
+            total_order_offline: currentData.total_order_offline as number,
+            percentageChange: parseFloat(percentageChange.toFixed(2))
+        };
+
+        return revenueOrder;
+
+    } catch (error) {
+        if (error instanceof AppError) {
+            console.error("Error in getRevenueOrderComparison:", error);
+            throw error;
+        }
+        throw new AppError("Failed to get revenue and order comparison data", 500);
+    }
+};

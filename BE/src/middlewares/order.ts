@@ -105,3 +105,23 @@ export const changeStatusOrderValidation = [
         .isIn(["pending", "confirmed", "shipped", "completed", "cancelled"])
         .withMessage("Status must be one of: pending, confirmed, shipped, completed, cancelled")
 ];
+
+export const createOrderByEmployee = [
+    body("orderItems")
+        .exists({ checkFalsy: true })
+        .withMessage("Order items list is required")
+        .isArray({ min: 1 })
+        .withMessage("orderItems must be an array and contain at least one product"),
+
+    body("orderItems.*.size_id")
+        .exists({ checkFalsy: true })
+        .withMessage("size_id for each product is required")
+        .isString()
+        .withMessage("size_id must be a string"),
+
+    body("orderItems.*.quantity")
+        .exists({ checkFalsy: true })
+        .withMessage("Quantity for each product is required")
+        .isInt({ min: 1 })
+        .withMessage("Quantity must be a positive integer")
+]

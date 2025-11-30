@@ -5,12 +5,13 @@ export interface Order {
     id?: string;
     user_id: string;
     voucher_id?: string;
-    discount_value?: number;
     total: number;
     payment_method: 'cod' | 'credit_card' | 'paypal' | 'vnpay' | 'momo';
-    address: Address
-    status?: 'pending' | 'confirm' | 'shipped' | 'completed' | 'cancelled';
+    address?: Address
+    status?: 'pending' | 'confirmed' | 'shipped' | 'completed' | 'cancelled';
     created_at?: Date;
+    note?: string;
+    method_order?: string
 }
 export interface OrderItem {
     id?: string;
@@ -58,6 +59,7 @@ export interface GetOrder {
     user_id: string;
     voucher_id?: string;
     total: number;
+    user_name_buyer?: string;
     mongo_id?: string;
     payment_method: 'cod' | 'credit_card' | 'paypal' | 'vnpay' | 'momo';
     address: Address;
@@ -73,10 +75,12 @@ export interface StatisticalOrder {
     order_completed: number;
     order_shipped: number;
     order_cancelled: number;
-    product_banned: number;
-
+}
+export interface RevenueOrder {
     revenue: number;
-    total_order: number;
+    total_order_online: number;
+    total_order_offline: number;
+    percentageChange: number
 }
 //     order_id_sql: string;
 //     items: IOrderItem[];
