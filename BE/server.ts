@@ -8,7 +8,7 @@ import { errorHandler } from './src/middlewares/errorHandler';
 import productRouter from './src/routers/product'
 import cartRouter from './src/routers/cart'
 import addressRouter from './src/routers/address'
-
+import voucherRouter from './src/routers/voucher'
 
 dotenv.config();
 
@@ -22,6 +22,7 @@ app.use('/api/admin', adminRouter);
 app.use("/api/product", productRouter);
 app.use("/api/cart", cartRouter);
 app.use("/api/address", addressRouter);
+app.use("/api/voucher", voucherRouter);
 
 app.use(errorHandler);
 
