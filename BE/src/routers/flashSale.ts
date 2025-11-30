@@ -1,6 +1,6 @@
 import { Router } from "express";
 import * as flashSaleController from "../controllers/flashSale";
-import { authMiddleware, isAdmin, isEmployee } from "../middlewares/authMiddleware";
+import { adminOrEmployee, authMiddleware, isAdmin, isEmployee } from "../middlewares/authMiddleware";
 import { validateRequest } from "../middlewares/validateRequest";
 import * as flashSaleValidate from '../middlewares/flashSale'
 const router = Router();
@@ -21,11 +21,14 @@ router.post(
     validateRequest,
     flashSaleController.addFlashSaleItem
 );
+router.delete('/item/:item', authMiddleware, adminOrEmployee,flashSaleController.sortDeleteItem);
+router.delete('/sale/:flashSale', authMiddleware, adminOrEmployee, flashSaleController.sortDeleteFlashSale);
+
 router.get("/active-not-in", authMiddleware, flashSaleController.getFlashSaleHotDeal);
 router.get("/public/activeNotIn", flashSaleController.getFlashSaleHotDealPublic);
 
 router.get("/flash-sale-home", flashSaleController.getFlashSaleHome);
 router.get("/public/flash-sale-home", flashSaleController.getFlashSaleHomePublic);
-
+router.get("/flash-sale-active", authMiddleware, adminOrEmployee,  flashSaleController.getFlashSaleActive)
 
 export default router;

@@ -13,7 +13,7 @@ export const createFlashSale = async (flashSale: FlashSale, pool: ConnectionPool
             .input("user_id", flashSale.created_by)
             .input("start_date", startDateVN)
             .input("end_date", endDateVN)
-            .input("status", "pending")
+            .input("status", "active")
             .query(`INSERT INTO flash_sales (title, created_by, start_date, end_date, status)
                     VALUES (@title, @user_id, @start_date, @end_date, @status)`);
         return 1;
@@ -38,7 +38,7 @@ export const addItemToFlashSale = async (branch_id: string, flash_sale_id: strin
             throw new AppError("Flash sale not found", 404,);
         }
 
-        if (flash_sale.status !== "pending") {
+        if (flash_sale.status !== "active") {
             throw new AppError(`Cannot add items while the flash sale is ${flash_sale.status}`, 400);
         }
         for (const item of items) {
@@ -67,7 +67,7 @@ export const addItemToFlashSale = async (branch_id: string, flash_sale_id: strin
                     SELECT fsi.id, fs.title
                     FROM flash_sale_items fsi
                     JOIN flash_sales fs ON fsi.flash_sale_id = fs.id 
-                                        AND fs.status IN ('pending','active')
+                                        AND fs.status IN ('active')
                     WHERE fsi.size_id_mongo = @size_id_mongo
                         AND fsi.branch_id = @branch_id
                         AND fs.id <> @flash_sale_id
@@ -97,7 +97,91 @@ export const addItemToFlashSale = async (branch_id: string, flash_sale_id: strin
         throw new AppError("Failed to add items to flash sale", 500, false);
     }
 }
+export const sortDeleteItem = async (dbBranch: ConnectionPool, idItem: string): Promise<void> => {
+    try {
+        const query = `
+            UPDATE flash_sale_items
+            SET status = 'removed'
+            WHERE id = @idItem;
+        `;
 
+        const result = await dbBranch.request()
+            .input('idItem', idItem) 
+            .query(query);
+
+        if (result.rowsAffected[0] === 0) {
+            throw new AppError(`Flash Sale Item with ID ${idItem} not found or already removed.`, 404);
+        }
+
+    } catch (error) {
+        if (error instanceof AppError) {
+            throw error;
+        }
+        console.error("Error in sortDeleteItem:", error);
+        throw new AppError("Failed to update Flash Sale Item status.", 500);
+    }
+};
+
+export const sortDeleteFlashSale = async (dbBranch: ConnectionPool, idFlashSale: string): Promise<void> => {
+    try {
+        const updateFlashSaleQuery = `
+            UPDATE flash_sales
+            SET status = 'cancelled'
+            WHERE id = @idFlashSale;
+        `;
+        await dbBranch.request()
+            .input('idFlashSale', idFlashSale)
+            .query(updateFlashSaleQuery);
+
+    } catch (error) {
+        if (error instanceof AppError) {
+            throw error;
+        }
+        console.error("Error in sortDeleteFlashSale:", error);
+        throw new AppError("Failed to update Flash Sale and associated items status.", 500);
+    }
+};
+export const getFlashSaleActive = async (pool: ConnectionPool): Promise<FlashSale[]> => {
+    try {
+        const query = `
+                SELECT
+                    fs.*,
+                    CASE
+                        WHEN EXISTS (
+                            SELECT 1
+                            FROM flash_sale_items fsi
+                            WHERE fsi.flash_sale_id = fs.id
+                            AND fsi.status = 'active'
+                        ) THEN 1
+                        ELSE 0
+                    END AS is_participate
+                FROM flash_sales fs
+                WHERE fs.status = 'active'
+                ORDER BY fs.start_date DESC;
+            `;
+        const result = await pool.request().query(query);
+
+        const flash_sale_result: FlashSale[] = result.recordset.map(fl => {
+            const is_participate = fl.is_participate === 1;
+
+            return {
+                title: fl.title,
+                start_date: fl.start_date,
+                end_date: fl.end_date,
+                status: fl.status,
+                created_by: fl.created_by,
+                created_at: fl.created_at,
+                is_participate: is_participate, 
+            };
+        });
+
+        return flash_sale_result; 
+
+    } catch (error) {
+        console.error("Error getHotDeal:", error);
+        throw new AppError("Failed to get hot deal", 500, false);
+    }
+}
 export const getFlashSaleHotDeal = async (excludeIds: string, pool: ConnectionPool, branch_id: string, role: string): Promise<{ flash_sale: FlashSale, products: IProductMongoDetail[] }> => {
     try {
         const request = pool.request();

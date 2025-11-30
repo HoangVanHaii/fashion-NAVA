@@ -6,6 +6,7 @@ export interface FlashSale {
     created_by: string;
     created_at?: Date;
     items?: FlashSaleItem[];
+    is_participate?: boolean
 }
 export interface FlashSaleItem {
     flash_sale_id?: string;
