@@ -71,7 +71,7 @@ const makeOrderItem = async (orderItems: any, dbBranch: ConnectionPool, branch_i
 export const createOrder = async (req: Request, res: Response, next: NextFunction) => {
     try {
         
-        const { orderItems, voucherCode, address, methodPayment } = req.body;
+        const { orderItems, voucherCode, address, methodPayment, note } = req.body;
 
         const userId = req.user?.id as string;
         const branch_id = req.user?.branch_id as string;
@@ -92,7 +92,8 @@ export const createOrder = async (req: Request, res: Response, next: NextFunctio
                 voucher_id: voucherCode ? voucherCode : undefined,
                 total: total-discount_value,
                 payment_method: methodPayment,
-                address: address
+                address: address,
+                note: note
             },
             orderItems: orderItemsData
         };
