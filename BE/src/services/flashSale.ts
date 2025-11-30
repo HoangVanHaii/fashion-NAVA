@@ -13,7 +13,7 @@ export const createFlashSale = async (flashSale: FlashSale, pool: ConnectionPool
             .input("user_id", flashSale.created_by)
             .input("start_date", startDateVN)
             .input("end_date", endDateVN)
-            .input("status", "pending")
+            .input("status", "active")
             .query(`INSERT INTO flash_sales (title, created_by, start_date, end_date, status)
                     VALUES (@title, @user_id, @start_date, @end_date, @status)`);
         return 1;
@@ -38,7 +38,7 @@ export const addItemToFlashSale = async (branch_id: string, flash_sale_id: strin
             throw new AppError("Flash sale not found", 404,);
         }
 
-        if (flash_sale.status !== "pending") {
+        if (flash_sale.status !== "active") {
             throw new AppError(`Cannot add items while the flash sale is ${flash_sale.status}`, 400);
         }
         for (const item of items) {
@@ -67,7 +67,7 @@ export const addItemToFlashSale = async (branch_id: string, flash_sale_id: strin
                     SELECT fsi.id, fs.title
                     FROM flash_sale_items fsi
                     JOIN flash_sales fs ON fsi.flash_sale_id = fs.id 
-                                        AND fs.status IN ('pending','active')
+                                        AND fs.status IN ('active')
                     WHERE fsi.size_id_mongo = @size_id_mongo
                         AND fsi.branch_id = @branch_id
                         AND fs.id <> @flash_sale_id
