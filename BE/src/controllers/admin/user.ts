@@ -1,5 +1,6 @@
 import { Address } from '../../interfaces/address';
 import * as authService from '../../services/user';
+import { AppError } from '../../utils/appError';
 import { PROVINCE_TO_BRANCH_CODE_MAP } from '../../utils/province'
 import { Request, Response, NextFunction } from 'express';
 
@@ -16,13 +17,17 @@ export const registerEmployee = async (req: Request, res: Response, next: NextFu
             ward,
             street_address
         } 
+
+        if (role && role.toString().toLowerCase() == 'admin' && req.user?.branch_code != 'CT') {
+            throw new AppError('Admin central is only', 403);
+        }
         await authService.registerEmployee(name, email, password, phone, date_of_birth, gender, address, branch_code, bio, preferences, role);
         
         return res.status(201).json({
-            message: 'Employee registration successful. Please check your email for OTP.'
+            message: 'Register successfully. You can login now'
         });
     } catch (err) {
-        next();
+        next(err);
     }
 };
 export const changeRole = async (req: Request, res: Response, next: NextFunction) => {
@@ -34,6 +39,6 @@ export const changeRole = async (req: Request, res: Response, next: NextFunction
             message: 'User role updated successfully.'
         });
     } catch (err) {
-        next();
+        next(err);
     }
 };

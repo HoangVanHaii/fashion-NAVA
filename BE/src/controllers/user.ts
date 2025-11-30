@@ -24,22 +24,22 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
         });
 
     } catch (err) {
-        next();
+        next(err);
     }
 };
 export const verify = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const { email, otp, branch_code } = req.body;
+        const { email, otp } = req.body;
 
         console.log(otp);
-        await authService.verifyOTP(email, otp, branch_code);
+        await authService.verifyOTP(email, otp);
 
         return res.status(200).json({
             message: 'Account verified successfully. You can now log in.'
         });
 
     } catch (err) {
-        next();
+        next(err);
     }
 };
 export const loginUser = async (req: Request, res: Response, next: NextFunction) => {
@@ -67,7 +67,7 @@ export const refreshToken = async (req: Request, res: Response, next: NextFuncti
             if (err) {
                 // throw new AppError("Invalid or expired refresh token", 403);
             }
-            const newAccessToken = utilJwt.accessToken(user.id, user.email, user.role, user.branch_code);
+            const newAccessToken = utilJwt.accessToken(user.id, user.email, user.role, user.branch_code, user.branch_id);
 
             return res.status(200).json({
                 success: true,
