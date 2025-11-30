@@ -45,7 +45,57 @@ export const addFlashSaleItem = async (req: Request, res: Response, next: NextFu
         next(err);
     }
 }
-
+export const sortDeleteItem = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const dbBranch = req.dbBranch;
+        const idItem = req.params.item;
+        const branch_code = req.user?.branch_code;
+        if (!dbBranch || !dbBranch.connected) {
+            throw new AppError(`${branch_code} is not connected`, 503);
+        }
+        const flash_Sale = await FlashSaleService.sortDeleteItem(dbBranch, idItem)
+        return res.status(200).json({
+            success: true,
+            message: 'Remove item by id successfully'
+        })
+    } catch (error) {
+        next(error)
+    }
+}
+export const sortDeleteFlashSale = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const dbBranch = req.dbBranch;
+        const idFlashSale = req.params.flashSale;
+        const branch_code = req.user?.branch_code;
+        if (!dbBranch || !dbBranch.connected) {
+            throw new AppError(`${branch_code} is not connected`, 503);
+        }
+        const flash_Sale = await FlashSaleService.sortDeleteFlashSale(dbBranch, idFlashSale)
+        return res.status(200).json({
+            success: true,
+            message: 'Remove item by id successfully'
+        })
+    } catch (error) {
+        next(error)
+    }
+}
+export const getFlashSaleActive = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const dbBranch = req.dbBranch;
+        const branch_code = req.user?.branch_code;
+        if (!dbBranch || !dbBranch.connected) {
+            throw new AppError(`${branch_code} is not connected`, 503);
+        }
+        const flash_Sale = await FlashSaleService.getFlashSaleActive(dbBranch)
+        return res.status(200).json({
+            success: true,
+            message: 'Get flash sale active successfully',
+            flash_sale: flash_Sale
+        })
+    } catch (error) {
+        next(error);
+    }
+}
 export const getFlashSaleHotDeal = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const excludeIdsParam = req.query.excludeIds as string;
