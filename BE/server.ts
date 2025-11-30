@@ -7,6 +7,7 @@ import adminRouter from './src/routers/admin/user'
 import adminaProduct from './src/routers/admin/product'
 import { errorHandler } from './src/middlewares/errorHandler';
 import productRouter from './src/routers/product'
+import cartRouter from './src/routers/cart'
 import vnpayRouter from './src/routers/vnpay'
 import orderRouter from './src/routers/order'
 import orderRouterEmployee from './src/routers/employee/order'
@@ -30,6 +31,7 @@ app.use('/api/auth', authRouter);
 // app.use('/api/review', reviewRouter);
 app.use('/api/admin', adminRouter);
 app.use("/api/product", productRouter);
+app.use("/api/cart", cartRouter);
 
 app.use("/api/order", orderRouter);
 app.use("/api/payment", vnpayRouter);
