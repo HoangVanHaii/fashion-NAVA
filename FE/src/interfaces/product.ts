@@ -7,7 +7,7 @@ export interface IProductSQL {
     status: 'active' | 'hidden' | 'banned';
     created_at?: Date;
 }
-
+  
 export interface IBranchInventorySQL {
     id?: string;
     branch_id: string;
@@ -18,16 +18,16 @@ export interface IBranchInventorySQL {
     stock: number;
     created_at?: Date;
 }
-
+  
 ////
 
 export interface IProductSizePayload {
-    _id: string;
+    _id?: string;
     size: string;
     price: number;
     stock: number;
 }
-
+  
 export interface IProductColorPayload {
     _id?: string;
     color?: string;
@@ -36,7 +36,7 @@ export interface IProductColorPayload {
     color_images: (string | File)[];
     sizes: IProductSizePayload[];
 }
-
+  
 export interface IProductMongo {
     _id: string;
     product_id_sql: string;
@@ -47,6 +47,7 @@ export interface IProductMongo {
     colors: IProductColorPayload[];
     created_at?: Date;
 }
+
 
 export interface updateSize {
     size_id_mongo: string;
@@ -101,7 +102,7 @@ export interface IProductColorResponse {
     color_images: (string | File)[];
     sizes: IProductSizeResponse[];
 }
-
+  
 export interface IProductSizeResponse {
     _id: string;
     size: string;

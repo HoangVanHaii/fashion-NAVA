@@ -186,10 +186,16 @@ export const getFlashSaleHotDeal = async (excludeIds: string, pool: ConnectionPo
     try {
         const request = pool.request();
         
-        const excludeSql = excludeIds
+        const excludeArray = excludeIds
             .split(',')
-            .map(id => `'${id.trim()}'`)
-            .join(',');
+            .map(id => id.trim())
+            .filter(id => /^[0-9a-fA-F-]{8}-[0-9a-fA-F-]{4}-[0-9a-fA-F-]{4}-[0-9a-fA-F-]{4}-[0-9a-fA-F-]{12}$/.test(id));
+        let notInClause = '';
+        if (excludeArray.length > 0) {
+            notInClause = `AND fs.id NOT IN (${excludeArray.map(id => `'${id}'`).join(',')})`;
+        }
+            
+        
         const query = `
             SELECT TOP 1 fs.*
             FROM flash_sales fs
@@ -198,13 +204,14 @@ export const getFlashSaleHotDeal = async (excludeIds: string, pool: ConnectionPo
                   SELECT COUNT(*)
                   FROM flash_sale_items fsi
                   WHERE fsi.flash_sale_id = fs.id
-                    AND fsi.status = 'active'
+                    AND fsi.status = 'active' AND fsi.branch_id = @branch_id
               ) >= 4
-              AND fs.id NOT IN (${excludeSql})
+            ${notInClause}
             ORDER BY fs.start_date DESC;
         `;
-
-        const flashSaleResult = await request.query(query);
+        const flashSaleResult = await request
+            .input("branch_id", branch_id)    
+            .query(query);
         const flash_sale = flashSaleResult.recordset[0];
 
         if (!flash_sale) {
@@ -220,6 +227,7 @@ export const getFlashSaleHotDeal = async (excludeIds: string, pool: ConnectionPo
         throw new AppError("Failed to get hot deal", 500, false);
     }
 };
+
 export const getFlashSaleHome = async (pool: ConnectionPool, branch_id: string, role: string): Promise<{ flash_sale: FlashSale, products: IProductMongoDetail[] }> => {
     try {
         const flashSaleResult = await pool.request().query(`

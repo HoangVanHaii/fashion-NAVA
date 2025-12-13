@@ -25,9 +25,9 @@ router.delete('/item/:item', authMiddleware, adminOrEmployee,flashSaleController
 router.delete('/sale/:flashSale', authMiddleware, adminOrEmployee, flashSaleController.sortDeleteFlashSale);
 
 router.get("/active-not-in", authMiddleware, flashSaleController.getFlashSaleHotDeal);
-router.get("/public/activeNotIn", flashSaleController.getFlashSaleHotDealPublic);
+router.get("/public/active-not-in", flashSaleController.getFlashSaleHotDealPublic);
 
-router.get("/flash-sale-home", flashSaleController.getFlashSaleHome);
+router.get("/flash-sale-home", authMiddleware, flashSaleController.getFlashSaleHome);
 router.get("/public/flash-sale-home", flashSaleController.getFlashSaleHomePublic);
 router.get("/flash-sale-active", authMiddleware, adminOrEmployee,  flashSaleController.getFlashSaleActive)
 

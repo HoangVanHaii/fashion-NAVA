@@ -95,3 +95,30 @@ export const getAllProductActive = async () => {
     const result = await api.get(`/product/actives`);
     return result.data;
 }
+
+//
+export const getProductBestSeller = async (top: number) => {
+  const authStore = useAuthStore();
+  const endpoint = authStore.isLogin
+    ? `/product/best-seller?top=${top}`
+    : `/product/public/best-seller?top=${top}`;
+
+  const response = await api.get(endpoint);
+  return response.data;
+};
+export const getProductLatest = async (top: number) => {
+  const authStore = useAuthStore();
+  const endpoint = authStore.isLogin
+    ? `/product/new?top=${top}`
+    : `/product/public/new?top=${top}`;
+
+  const result = await api.get(endpoint);
+  return result.data;
+};
+export const getProductByName = async (name: string) => {
+  const result = await api.get(`/product/searchByName?name=${name}`);
+  return result.data;
+};
+
+
+

@@ -51,4 +51,3 @@ export interface IProductSizeResponse {
     sale_stock?: number;
     sale_sold?: number;
 }
-

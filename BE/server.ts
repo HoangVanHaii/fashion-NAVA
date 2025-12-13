@@ -5,7 +5,7 @@ import { connectDatabases } from './src/config/database';
 import authRouter from './src/routers/user'
 import reviewRouter from './src/routers/review'
 import adminRouter from './src/routers/admin/user'
-import adminaProduct from './src/routers/admin/product'
+import adminProduct from './src/routers/admin/product'
 import { errorHandler } from './src/middlewares/errorHandler';
 import productRouter from './src/routers/product'
 import cartRouter from './src/routers/cart'
@@ -21,6 +21,7 @@ import adminCatetory from './src/routers/admin/category'
 import adminBrand from './src/routers/admin/brand';
 import brandRouter from './src/routers/brand'
 import flashSaleRouter from "./src/routers/flashSale";
+import cors from 'cors';
 
 
 
@@ -40,7 +41,7 @@ app.use("/api/voucher", voucherRouter);
 
 app.use("/api/order", orderRouter);
 app.use("/api/payment", vnpayRouter);
-app.use('/api/admin/product', adminaProduct);
+app.use('/api/admin/product', adminProduct);
 app.use('/api/product', productRouter);
 app.use('/api/category', categoryRouter);
 app.use('/api/admin/category', adminCatetory);

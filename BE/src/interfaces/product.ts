@@ -52,7 +52,7 @@ export interface IProductMongo {
 
 
 export interface updateSize {
-    size_id_mongo: string;
+    size_id_mongo: string | mongoose.Types.ObjectId;
     size?: string;
     price?: number;
     stock?: number;

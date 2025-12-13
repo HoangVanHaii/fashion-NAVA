@@ -143,7 +143,7 @@ export const resetPassword = [
         .withMessage("new password must be at least 6 characters")
 ];
 
-export const registerEmployee = [
+export const createAccount = [
     body("name")
         .exists({ checkFalsy: true })
         .withMessage("Name is required")
@@ -164,9 +164,7 @@ export const registerEmployee = [
         .exists({ checkFalsy: true })
         .withMessage("Password is required")
         .isString()
-        .withMessage("Password must be a string")
-        .isLength({ min: 6 })
-        .withMessage("Password must be at least 6 characters"),
+        .withMessage("Password must be a string"),
 
     body("phone")
         .exists({ checkFalsy: true })

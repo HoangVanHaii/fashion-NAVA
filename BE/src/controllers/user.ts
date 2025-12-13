@@ -96,6 +96,7 @@ export const getProfile = async (req: Request, res: Response, next: NextFunction
     }
 };
 
+
 export const changeAvatar = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const userEmail = req.user?.email;

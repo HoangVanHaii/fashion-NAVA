@@ -1,13 +1,10 @@
 <script setup lang="ts">
-// import Footer from './components/Footer.vue';
 </script>
 <template>
   <div>
     <router-view />
-    <!-- <Footer /> -->
   </div>
 </template>
-
 <style scoped>
 /* No custom CSS needed - All handled by Tailwind */
 </style>

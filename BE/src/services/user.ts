@@ -270,6 +270,101 @@ export const loginUser = async (email: string, password: string) => {
     }
 };
 
+
+export const getAllUser = async (pool: ConnectionPool, branchCode: string) => { 
+    try {
+        const sqlResult = await pool.request().query(`
+            SELECT * FROM users
+        `);
+        const sqlUsers = sqlResult.recordset;
+
+        if (sqlUsers.length === 0) return [];
+
+        const listId = sqlUsers
+            .map((item) => item.mongodb_id)
+            .filter((id) => id);
+
+        const mongoProfiles = await UserProfileModel.find({
+            _id: { $in: listId }
+        }).lean();
+        const profileMap: Record<string, any> = {};
+        mongoProfiles.forEach((p: any) => {
+            profileMap[String(p._id)] = p;
+        });
+
+        const finalResult = sqlUsers.map((user) => {
+            const userProfile = user.mongodb_id ? profileMap[String(user.mongodb_id)] : null;
+
+            return {
+                ...user,
+                profile: userProfile || {},
+                branch: branchCode
+            };
+        });
+        return finalResult;
+
+    } catch (err) {
+        if (err instanceof AppError) throw err;
+        console.error("Error in getAllUser:", err);
+        throw new AppError("Failed to get all users", 500);
+    }
+};
+
+const ALL_BRANCHES = ['HN', 'DN', 'HCM'];
+
+export const getAllUserForCentral = async () => { 
+    try {
+
+        const branchPromises = ALL_BRANCHES.map(async (branchCode) => {
+            const pool = getBranchPool(branchCode);
+            if (!pool || !pool.connected) {
+                console.warn(`⚠️ Chi nhánh ${branchCode} đang offline hoặc chưa kết nối.`);
+                return []; 
+            }
+            try {
+                const result = await pool.request().query(`SELECT * FROM users`);
+                    return result.recordset.map((user: any) => ({
+                    ...user,
+                    branch: branchCode 
+                }));
+            } catch (err) {
+                console.error(`❌ Lỗi query tại chi nhánh ${branchCode}:`, err);
+                return [];
+            }
+        });
+
+        const results = await Promise.all(branchPromises);
+        const allUsersSQL = results.flat();
+
+        if (allUsersSQL.length === 0) return [];
+        const listId = allUsersSQL
+            .map((item) => item.mongodb_id)
+            .filter((id) => id);
+        const mongoProfiles = await UserProfileModel.find({
+            _id: { $in: listId }
+        }).lean();
+
+        const profileMap: Record<string, any> = {};
+        mongoProfiles.forEach((p: any) => {
+            profileMap[String(p._id)] = p;
+        });
+
+        const finalResult = allUsersSQL.map((user) => {
+            const userProfile = user.mongodb_id ? profileMap[String(user.mongodb_id)] : null;
+
+            return {
+                ...user,
+                profile: userProfile || {},
+            };
+        });
+
+        return finalResult;
+
+    } catch (err) {
+        console.error("Critical Error in getAllUserForCentral:", err);
+        throw new AppError("Failed to aggregate users from all branches", 500);
+    }
+};
 export const getUserProfile = async (email: string) => {
     try {
         const centralPool = dbPools.central;
@@ -554,31 +649,21 @@ export const changeUserRole = async (email: string, newRole: string) => {
         throw new AppError("Failed to change user role", 500, false);
     }
 };
-export const registerEmployee = async (name: string, email: string, password: string, phone: string, date_of_birth: Date, gender: string, address: Address, branch_code: string, bio: any, preferences: any, role: string) => {
+export const registerAccount = async (name: string, email: string, password: string, phone: string, date_of_birth: Date, gender: string, address: Address, branch_code: string, bio: any, preferences: any, role: string) => {
     const pool = getBranchPool(branch_code);
     if (!pool) throw new AppError(`${branch_code} database pool is not connected.`, 503);
     const existingUser = await checkExistingUser(pool, email);
-    if (existingUser != null) {
-        // update role if user exists
-        if (existingUser) {
-            await pool.request()
-                .input("email", email)
-                .input("role", role)
-                .query(`
-                    UPDATE users
-                    SET role = @role, is_verified = 1
-                    WHERE email = @email
-                `);
-            return;
-        }  
+    if (existingUser) {
+        throw new AppError("User already exists", 409);
     }
-    const branchId = await getBranchId(pool, branch_code);
-    const hashedPassword = await bcrypt.hash(password, 10);
     const newUserId = uuidv4();
     const newMongoId = new mongoose.Types.ObjectId();
     const transaction = pool.transaction();
     try {
         await transaction.begin();
+        const branchId = await getBranchId(pool, branch_code);
+        const hashedPassword = await bcrypt.hash(password, 10);
+
         const req = transaction.request();
         await insertUserSql(
             req, newUserId, name, email, 1, role,hashedPassword,
