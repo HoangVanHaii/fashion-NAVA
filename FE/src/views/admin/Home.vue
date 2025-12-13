@@ -2,7 +2,7 @@
 import { ref, computed, onMounted } from "vue";
 import { Bar } from "vue-chartjs";
 import Navbar from "../../components/admin/Navbar.vue";
-import { useProductAdminStore } from '../../stores/admin/productStore';
+import { useProductAdminStore } from "../../stores/admin/product";
 
 const productAdmin = useProductAdminStore();
 
@@ -33,9 +33,8 @@ ChartJS.register(
 
 // --- 2. MOCK DATA ---
 onMounted(async () => {
-    await productAdmin.getAllProductPayloadStore();
-})
-
+  await productAdmin.getAllProductPayloadStore();
+});
 
 // Dữ liệu biểu đồ doanh thu
 const revenueData = ref([

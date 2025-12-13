@@ -7,7 +7,9 @@
     import { useProductStore } from "../stores/product";
     import AddToCart from "../components/AddToCard.vue";
     import { useRouter } from "vue-router";
-    // import Loading from "../components/Loading.vue";
+    import Loading from "@/components/Loading.vue";
+    import Header from "@/components/Header.vue";
+    import Footer from "@/components/Footer.vue";
     // import { useFavouriteStore } from "../stores/favourite";
     
     // const favourite = useFavouriteStore();
@@ -264,6 +266,7 @@
                 </div>
             </main>
           </div>
+          <Footer />
     </template>
     
     <style scoped>

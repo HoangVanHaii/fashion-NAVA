@@ -1,16 +1,16 @@
 <script setup lang="ts">
-    // import Header from "../components/Header.vue";
-    // import Footer from "../components/Footer.vue"; // Added Footer
+    import Header from "../components/Header.vue";
+    import Footer from "../components/Footer.vue"; // Added Footer
     import type { IProductMongoDetail } from "../interfaces/product";
     import { ref, onMounted, computed, onBeforeUnmount } from "vue";
     import { useRoute, useRouter } from "vue-router";
     import { useProductStore } from "../stores/product";
-    import { useCategoryStore } from "../stores/categoryStore";
+    import { useCategoryStore } from "../stores/category";
     import { getMinProductPrice, getMaxProductPrice, checkProductSale, formatPrice, getMainProductImage } from "../utils/format";
     import AddToCart from "../components/AddToCard.vue";
 import { get } from "mongoose";
     // import { useFavouriteStore } from "../stores/favourite";
-    // import Loading from "../components/Loading.vue";
+    import Loading from "../components/Loading.vue";
     
     const route = useRoute();
     const router = useRouter();

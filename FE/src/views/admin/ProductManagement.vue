@@ -3,7 +3,7 @@ import Navbar from "../../components/admin/Navbar.vue";
 import { ref, onMounted, onUnmounted, nextTick, computed } from "vue";
 import { formatPrice } from "../../utils/format";
 import { useRouter } from "vue-router";
-import { useProductAdminStore } from "../../stores/admin/productStore";
+import { useProductAdminStore } from "../../stores/admin/product";
 import FormAdd from "../../components/admin/ProductFormAdd.vue";
 import FormEdit from "../../components/admin/ProductFormEdit.vue";
 import * as IProduct from "../../interfaces/product";

@@ -133,7 +133,7 @@ const clickPolicy = () => {
                         <p class="leading-relaxed text-gray-500 text-xs">
                             NAVA mang đến phong cách thời trang hiện đại, tối giản nhưng đầy tinh tế. Chúng tôi cam kết chất lượng sản phẩm và dịch vụ khách hàng tuyệt vời nhất.
                         </p>
-                        <img src="../assets/logo.jpg" class="mt-3 h-8 opacity-50 grayscale hover:grayscale-0 transition-all duration-500" alt="NAVA Logo">
+                        <img src="../assets/logo.svg" class="mt-3 h-8 opacity-50 grayscale hover:grayscale-0 transition-all duration-500" alt="NAVA Logo">
                     </div>
                 </div>
 

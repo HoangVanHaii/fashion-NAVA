@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, watch, nextTick } from "vue";
-import { useProductAdminStore } from "../../stores/admin/productStore";
+import { useProductAdminStore } from "../../stores/admin/product";
 import * as IProduct from "../../interfaces/product";
 import type { Category } from "@/interfaces/category";
 import * as Brand from "../../interfaces/brand";
-import { useBrandStore } from "@/stores/brandStore";
-import { useCategoryStore } from "@/stores/categoryStore";
+import { useBrandStore } from "@/stores/brand";
+import { useCategoryStore } from "@/stores/category";
 const listBrand = ref<Brand.IBrandResponse[]>([]);
 const listCategory = ref<Category[]>([]);
 

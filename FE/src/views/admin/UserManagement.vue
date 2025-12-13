@@ -1,7 +1,7 @@
 <script setup lang="ts">
     import { ref, computed, watch, onMounted } from "vue";
     import Navbar from "../../components/admin/Navbar.vue";
-    import { useUserAdminStore } from '../../stores/admin/userStore';
+    import { useUserAdminStore } from '../../stores/admin/user';
     import type { CreateAccountPayload, User, UserAdmin } from "@/interfaces/user";
     // --- 1. INTERFACES ---
     

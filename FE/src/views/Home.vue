@@ -7,6 +7,8 @@
 // import bannerItem3 from "../assets/homes/banner-item3.jpg";
 // import bannerItem4 from "../assets/homes/banner-item4.jpg";
 // import flashSale from "../assets/homes/flash-sale.jpg";
+import Header from "@/components/Header.vue";
+import Footer from "@/components/Footer.vue";
 import PoLo from "../assets/homes/PoLoTrangHome.jpg";
 import DoDa from "../assets/homes/DoDaTrangHome.jpg";
 import {
@@ -27,8 +29,7 @@ import AddToCart from "../components/AddToCard.vue";
 import { useRouter } from "vue-router";
 import { Colors } from "chart.js";
 // import { useVoucherStore } from "../stores/userVoucher";
-// import Loading from "../components/Loading.vue";
-
+import Loading from "@/components/Loading.vue";
 // const favourite = useFavouriteStore();
 const router = useRouter();
 const loadingHome = ref(false);
@@ -796,6 +797,7 @@ const getSoldPercentage = (product: any): number => {
       <!-- End Main Container -->
     </div>
   </div>
+  <Footer />
 </template>
 
 <style scoped>
