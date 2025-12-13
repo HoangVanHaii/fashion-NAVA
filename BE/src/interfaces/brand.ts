@@ -20,3 +20,7 @@ export interface IBrandResponse {
     status: string;
     created_at: Date;
 }
+export interface BrandRatingResult {
+    average_rating: number;
+    total_reviews: number;
+}

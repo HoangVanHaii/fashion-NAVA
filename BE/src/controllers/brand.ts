@@ -33,7 +33,7 @@ export const getBrandById = async (req: Request, res: Response, next: NextFuncti
         res.json({
             success: true,
             message: "Get brand successfully",
-            brand
+            data: brand
         });
     } catch (error) {
         next(error);
@@ -81,5 +81,47 @@ export const getBrandByIdForGuest = async (req: Request, res: Response, next: Ne
 
     } catch (error) {
         next(error);
+    }
+};
+export const getBrandRating = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const brandId = req.params.id;
+        const dbBranch = req.dbBranch; // Giả sử kết nối DB được truyền qua middleware
+
+        if (!dbBranch || !dbBranch.connected) {
+            throw new AppError(`Database connection failed`, 503);
+        }
+
+        const ratingData = await brandService.getBrandAverageRating(brandId, dbBranch);
+
+        return res.status(200).json({
+            success: true,
+            data: ratingData,
+            message: `Brand rating for ID ${brandId} retrieved successfully`
+        });
+    }
+    catch (err) {
+        next(err);
+    }
+};
+export const getBrandRatingForGuest = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const brandId = req.params.id;
+        const dbBranch = getBranchPool('DN');
+
+        if (!dbBranch || !dbBranch.connected) {
+            throw new AppError(`Database connection failed`, 503);
+        }
+
+        const ratingData = await brandService.getBrandAverageRating(brandId, dbBranch);
+
+        return res.status(200).json({
+            success: true,
+            data: ratingData,
+            message: `Brand rating for ID ${brandId} retrieved successfully`
+        });
+    }
+    catch (err) {
+        next(err);
     }
 };

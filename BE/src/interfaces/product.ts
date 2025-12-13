@@ -87,7 +87,7 @@ export interface IProductMongoDetail {
     product_id_sql: string;
     name?: string;
     description: string;
-    brand_id?: string 
+    brand_id?: string;
     category_id?: string;
     status?: string;
     attributes?: {

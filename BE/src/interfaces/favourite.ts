@@ -1,3 +1,5 @@
+import mongoose from "mongoose";
+
 export interface FavouritePayload {
     user_id: string;
     product_id: string;
@@ -6,7 +8,7 @@ export interface FavouritePayload {
 
 export interface FavouriteResponse {
     favourite_id: string;
-    user_id: string;
+    product_id: string;
 }
 
 export interface FavouriteDetail {
@@ -32,7 +34,7 @@ export interface IInventoryItem {
     sale_sold: number;
 }
 export interface IProductColorResponse {
-    _id: string;
+    _id: string | mongoose.Types.ObjectId;
     color?: string;
     is_main: boolean;
     image_main: string;
@@ -41,7 +43,7 @@ export interface IProductColorResponse {
 }
   
 export interface IProductSizeResponse {
-    _id: string;
+    _id: string | mongoose.Types.ObjectId;
     size: string;
     price: number | null;
     stock: number;
@@ -49,3 +51,4 @@ export interface IProductSizeResponse {
     sale_stock?: number;
     sale_sold?: number;
 }
+

@@ -1,5 +1,5 @@
 import { ConnectionPool, pool } from "mssql";
-import { IBrandCreate, IBrandResponse, IBrandUpdate } from "../interfaces/brand";
+import { BrandRatingResult, IBrandCreate, IBrandResponse, IBrandUpdate } from "../interfaces/brand";
 import { AppError } from "../utils/appError";
 import cloudinary from "../config/cloudinary";
 
@@ -79,12 +79,11 @@ export const getBrandById = async (pool: ConnectionPool, id: string, role: strin
                 WHERE ID = @id`;
         const req = pool.request()
             .input("id", id)
-        if (role === 'customer') {
-            req.input("status", 'active')
-            query += ' AND status = @status'
-        }
+        // if (role === 'customer') {
+        //     req.input("status", 'active')
+        //     query += ' AND status = @status'
+        // }
         const result = await req.query(query);
-
         if (result.recordset.length === 0) return null;
         return result.recordset[0];
     } catch (error) {
@@ -133,5 +132,42 @@ export const deleteBrand = async (pool: ConnectionPool, id: string): Promise<voi
         `);
     } catch (error) {
         throw new AppError("Failed to soft delete brand", 500, false);
+    }
+};
+
+export const getBrandAverageRating = async (brandId: string, dbBranch: ConnectionPool): Promise<BrandRatingResult> => {
+    try {
+        const query = `
+            SELECT 
+                CAST(AVG(r.rating * 1.0) AS DECIMAL(3, 2)) AS average_rating,
+                COUNT(r.ID) AS total_reviews
+            FROM reviews r
+            INNER JOIN order_items oi ON r.order_item_id = oi.ID 
+            INNER JOIN products p ON oi.product_id = p.id
+            INNER JOIN brands b ON p.brand_id = b.ID
+            WHERE b.ID = @brandId;
+        `;
+
+        const result = await dbBranch.request()
+            .input('brandId', brandId) 
+            .query(query);
+
+        const data = result.recordset[0];
+
+        if (data.total_reviews === 0 || data.average_rating === null) {
+            return {
+                average_rating: 0,
+                total_reviews: 0
+            };
+        }
+
+        return {
+            average_rating: parseFloat(data.average_rating),
+            total_reviews: data.total_reviews as number
+        };
+
+    } catch (error) {
+        console.error("Error in getBrandAverageRating:", error);
+        throw new AppError("Failed to get brand rating data", 500);
     }
 };

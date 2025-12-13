@@ -40,7 +40,7 @@ export const getFavouritesOfmeDetail = async (req: Request, res: Response, next:
         res.status(200).json({
             success: true,
             message: "Get favourites detail successfully",
-            favourites
+            data: favourites
         });
     } catch (error) {
         next(error);
@@ -56,7 +56,7 @@ export const getFavouriteIdsOfme = async (req: Request, res: Response, next: Nex
         res.status(200).json({
             success: true,
             message: "Get favourite ids successfully",
-            favourites
+            data: favourites
         });
     } catch (error) {
         next(error);

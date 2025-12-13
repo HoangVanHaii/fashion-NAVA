@@ -18,7 +18,7 @@ router.get(
     orderController.statisticalOrder
 )
 router.get(
-    '/daily-comparison',
+    '/daily-comparison/type',
     authMiddleware,
     adminOrEmployee,
     orderController.getDailyOrderComparison
