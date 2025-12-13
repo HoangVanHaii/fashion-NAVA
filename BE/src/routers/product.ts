@@ -33,6 +33,11 @@ router.get(
     productController.getAllProductsByCategoryId
 );
 router.get(
+    "/getBySize/:size_id",
+    authMiddleware,
+    productController.getProductBySize
+);
+router.get(
     "/public/category/gender",
     productController.getAllProductsByGenderForGuest
 );

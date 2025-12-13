@@ -1003,6 +1003,35 @@ export const getAllProducts = async (pool: ConnectionPool, branch_id: string, ro
     }
 };
 
+export const getProductBySize = async (pool: ConnectionPool, branch_id: string, role: string, size_id: string): Promise<IProduct.IProductMongoDetail> => {
+    try {
+        let query = queryGlobal;
+        query += ' WHERE p.status = @status AND bi.size_id_mongo = @size_id';
+        const req = pool.request()
+            .input("branch_id", branch_id)
+            .input("status", "active")
+            .input('size_id', size_id)
+
+        const sqlResult = await req.query(query)
+
+        const productSql = sqlResult.recordset;
+
+        const mongoIds = productSql
+            .map(p => p.mongodb_id)
+            .filter(Boolean);
+
+        const mongoProducts = await getMongoProductsByIds(mongoIds);
+
+        const inventoryMap = buildInventoryMap(productSql);
+
+        const productResult = mergeSqlMongoProducts(productSql, mongoProducts, inventoryMap);
+        return productResult[0];
+
+    } catch (err) {
+        console.error("Failed to fetch all products", err);
+        throw new AppError("Failed to fetch all products", 500, false);
+    }
+};
 export const getProductDetail = async (pool: ConnectionPool, product_id_sql: string, branch_id: string, role: string):Promise<IProduct.IProductMongoDetail> => {
     try {
         let query = queryGlobal + ' WHERE p.id = @product_id_sql'

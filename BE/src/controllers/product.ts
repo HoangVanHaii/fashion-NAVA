@@ -29,11 +29,30 @@ export const getAllProducts = async (req: Request, res: Response, next: NextFunc
             message: "Get all products successfully",
             products
         });
-        
+
     } catch (err) {
         next(err);
     }
 }
+export const getProductBySize = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        if (!req.dbBranch! || !req.dbBranch!.connected) {
+            throw new AppError("Central DB is not connected", 503);
+        }
+        const size_id = req.params.size_id
+        if (!size_id) {
+            throw new AppError('Size is required', 400)
+        }
+        const branch_id = await productService.getBranchIdByCode(req.dbBranch!, req.user?.branch_code || 'DN');
+        if (!branch_id) {
+            throw new AppError("branch_id not found", 404);
+        }
+        const product = await productService.getProductBySize(req.dbBranch!, branch_id, req.user?.role || "customer", size_id);
+        return res.status(200).json({
+            success: true,
+            message: "Get size product successfully",
+            product
+        });
 
 export const getAllProductsByGender = async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -72,7 +91,7 @@ export const getAllProductsByCategoryId = async (req: Request, res: Response, ne
             message: "Get all products By category_id successfully",
             products
         });
-        
+
     } catch (err) {
         next(err);
     }
@@ -92,29 +111,29 @@ export const getAllProductsByBrandId = async (req: Request, res: Response, next:
         return res.status(200).json({
             success: true,
             message: "Get all products By brand_id successfully",
-            products
+            data: products
         });
-        
+
     } catch (err) {
         next(err);
     }
 }
 
 export const getProductDetail = async (req: Request, res: Response, next: NextFunction) => {
-    try {      
+    try {
         const product_id_sql = req.params.id;
         const branch_id = await productService.getBranchIdByCode(req.dbBranch!, req.user?.branch_code || 'DN');
         if (!branch_id) {
             throw new AppError("branch_id not found", 404);
         }
-        const product = await productService.getProductDetail(req.dbBranch!, product_id_sql, branch_id, req.user?.role || "customedr")
-        
+        const product = await productService.getProductDetail(req.dbBranch!, product_id_sql.toUpperCase(), branch_id, req.user?.role || "customedr")
+
         return res.status(200).json({
             success: true,
             message: `Get product detail successfully`,
-            product
+            data: product
         })
-        
+
     } catch (err) {
         next(err);
     }
@@ -216,7 +235,7 @@ export const getAllProductsByCategoryIdForGuests = async (req: Request, res: Res
             message: "Get all products by categoryId successfully For Guests ",
             products
         });
-        
+
     } catch (err) {
         next(err);
     }
@@ -237,9 +256,9 @@ export const getAllProductsByBrandIdForGuests = async (req: Request, res: Respon
         return res.status(200).json({
             success: true,
             message: "Get all products by brandId successfully For Guests ",
-            products
+            data: products
         });
-        
+
     } catch (err) {
         next(err);
     }
@@ -262,7 +281,7 @@ export const getAllProductsForGuests = async (req: Request, res: Response, next:
             message: "Get all products for guest successfully",
             products
         });
-        
+
     } catch (err) {
         next(err);
     }
@@ -285,7 +304,7 @@ export const getTopProductsNewForGuests = async (req: Request, res: Response, ne
             message: "Get all products New for guest successfully",
             products
         });
-        
+
     } catch (err) {
         next(err);
     }
@@ -307,14 +326,14 @@ export const getTopProductsBestSellerForGuests = async (req: Request, res: Respo
             message: "Get all products best seller for guest successfully",
             products
         });
-        
+
     } catch (err) {
         next(err);
     }
 }
 
 export const getProductDetailForGuests = async (req: Request, res: Response, next: NextFunction) => {
-    try {      
+    try {
         const pool = getBranchPool("DN");
         if (!pool) {
             throw new AppError("Central DB is not connected", 503);
@@ -325,13 +344,13 @@ export const getProductDetailForGuests = async (req: Request, res: Response, nex
         }
         const product_id_sql = req.params.id;
         const product = await productService.getProductDetail(pool, product_id_sql, branch_id, "customer")
-        
+
         return res.status(200).json({
             success: true,
             message: `Get product detail for guest successfully`,
             product
         })
-        
+
     } catch (err) {
         next(err);
     }

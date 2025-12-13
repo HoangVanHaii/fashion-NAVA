@@ -1,4 +1,5 @@
 import express, { Request, Response, NextFunction } from 'express';
+import cors from 'cors'
 import * as dotenv from 'dotenv';
 import { connectDatabases } from './src/config/database';
 import authRouter from './src/routers/user'
@@ -27,8 +28,8 @@ import cors from 'cors';
 dotenv.config();
 
 const app = express();
-app.use(cors());
 app.use(express.json());
+app.use(cors())
 app.use(express.urlencoded({ extended: true }));
 app.use('/api/auth', authRouter);
 // app.use('/api/review', reviewRouter);

@@ -59,7 +59,7 @@ export const getCategoryById = async (req: Request, res: Response, next: NextFun
         res.json({
             success: true,
             message: "Get category successfully",
-            category
+            data: category
         });
     } catch (error) {
         next(error);

@@ -8,7 +8,7 @@ export interface FavouritePayload {
 
 export interface FavouriteResponse {
     favourite_id: string;
-    user_id: string;
+    product_id: string;
 }
 
 export interface FavouriteDetail {

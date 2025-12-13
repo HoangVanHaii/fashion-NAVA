@@ -147,6 +147,7 @@ export const createOrderByEmployee = async (req: Request, res: Response, next: N
     try {
         
         const { orderItems } = req.body;
+        // console.log(orderItems);
         const employeeId = req.user?.id as string;
         const branch_id = req.user?.branch_id as string;
         const dbBranch = req.dbBranch;
@@ -161,6 +162,7 @@ export const createOrderByEmployee = async (req: Request, res: Response, next: N
             order: {
                 user_id: employeeId, 
                 total: total,
+                discount_value: 0,
                 payment_method: 'cod',
                 address: undefined,
                 method_order: 'offline',
@@ -187,7 +189,7 @@ export const getDailyOrderComparison = async (req: Request, res: Response, next:
         if (!dbBranch || !dbBranch.connected) {
             throw new AppError(`${branch_code} is not connected`, 503);
         }
-        let { type } = req.body
+        let type = req.params.type
         if (!type) {
             type = 'hôm nay'
         }

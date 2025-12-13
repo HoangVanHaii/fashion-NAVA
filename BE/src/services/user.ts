@@ -133,7 +133,7 @@ export const registerUser = async (name: string, email: string, password: string
     const newMongoId = new mongoose.Types.ObjectId();
 
     const transaction = pool.transaction();
-
+    console.log('service');
     try {
         await transaction.begin();
         const req = transaction.request();
@@ -154,9 +154,11 @@ export const registerUser = async (name: string, email: string, password: string
         await sendOtp(email, otp);
 
     } catch (err) {
+        console.log(1);
+
         await transaction.rollback();
         await UserProfileModel.findByIdAndDelete(newMongoId);
-
+        
         if (err instanceof AppError) throw err;
         console.error(err);
 
@@ -385,7 +387,7 @@ export const getUserProfile = async (email: string) => {
             .input("email", email)
             .query(`
             SELECT 
-                u.ID as user_id, u.name, u.email, u.phone, u.date_of_birth, u.gender, u.avatar, u.mongodb_id
+                u.ID as user_id, u.name, u.email, u.phone, u.date_of_birth, u.gender, u.role, u.avatar, u.mongodb_id
             FROM users u
             WHERE u.email = @email
         `);
@@ -421,7 +423,7 @@ const uploadToCloudinary = (file: any) => {
     )
 }
 
-export const updateAvatar = async (email: string, avatarUrl: Express.Multer.File) => {
+export const updateAvatar = async (email: string, avatarUrl: Express.Multer.File) : Promise<string> => {
     const centralPool = dbPools.central;
     if (!centralPool) throw new AppError("Mất kết nối tới Central Database.", 503);
 
@@ -447,6 +449,7 @@ export const updateAvatar = async (email: string, avatarUrl: Express.Multer.File
                 SET avatar = @avatar
                 WHERE email = @email
             `);
+        return avatarUrlStr;
     } catch (err) {
         if (err instanceof AppError) throw err;
         console.error(err);

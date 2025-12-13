@@ -7,12 +7,13 @@ import { OrderDetail } from "../models/order.mongo";
 import { AppError } from "../utils/appError";
 import { Address } from "../interfaces/address";
 const insertOrder = async (tranRequest: Transaction, orderIdSql: string, orderData: Order, mongoOrderId: mongoose.Types.ObjectId): Promise<void> => {
-    const query = `INSERT INTO orders (ID, user_id, total, voucher_id, mongodb_id, method_order, status)
-    VALUES (@orderId, @user_id, @total, @voucher_id, @mongodb_id, @method_order, @status)`;
+    const query = `INSERT INTO orders (ID, user_id, total, discount_value, voucher_id, mongodb_id, method_order, status)
+    VALUES (@orderId, @user_id, @total, @discount_value, @voucher_id, @mongodb_id, @method_order, @status)`;
     await tranRequest.request()
         .input('orderId', orderIdSql)
         .input('user_id', orderData.user_id)
         .input('total', orderData.total)
+        .input('discount_value', orderData.discount_value)
         .input('voucher_id', orderData.voucher_id || null)
         .input('mongodb_id', mongoOrderId.toString())
         .input('method_order', orderData.method_order || 'online')
@@ -169,8 +170,10 @@ export const getOrdersByUserId = async (userId: string, dbBranch: ConnectionPool
         user_id: order.user_id,
         voucher_id: order.voucher_id,
         total: order.total,
+        discount_value: order.discount_value,
         mongo_id: order.mongodb_id,
         payment_method: order.payment_method,
+        method_order: order.method_order,
         address: {
             name: order.shipping_name,
             phone: order.shipping_phone,
@@ -186,7 +189,9 @@ export const getOrdersByUserId = async (userId: string, dbBranch: ConnectionPool
     return orderResuts;
 }
 export const getOrderById = async (orderId: string, dbBranch: ConnectionPool): Promise<GetOrder | null> => {
-    const query = `SELECT * FROM orders WHERE ID = @order_id`;
+    const query = `SELECT o.*, p.status as payment_status, p.method as payment_method
+             FROM orders o INNER JOIN payments p ON o.id = p.order_id
+            WHERE o.ID = @order_id`;
     const result = await dbBranch.request()
         .input('order_id', orderId)
         .query(query);
@@ -200,19 +205,16 @@ export const getOrderById = async (orderId: string, dbBranch: ConnectionPool): P
         user_id: order.user_id,
         voucher_id: order.voucher_id,
         total: order.total,
+        discount_value: order.discount_value || 0,
         mongo_id: order.mongodb_id,
         payment_method: order.payment_method,
-        address: {
-            name: order.shipping_name,
-            phone: order.shipping_phone,
-            province: order.shipping_province,
-            district: order.shipping_district,
-            ward: order.shipping_ward,
-            street_address: order.shipping_street
-        },
+        payment_status: order.payment_status,
+        method_order: order.method_order,
+        address: mongoOrder ? mongoOrder?.shipping_address : {},
         status: order.status,
         created_at: order.created_at,
-        items: mongoOrder ? mongoOrder.items : []
+        items: mongoOrder ? mongoOrder.items : [],
+        note: mongoOrder ? mongoOrder.note : "Không có ghi chú"
     };
     return orderDetail;
 }
@@ -283,33 +285,31 @@ export const getOrderOfBranch = async (dbBranch: ConnectionPool, method_order: s
         const orderSqlIds = result.recordset.map(order => order.ID);
         const lowerCaseOrderSqlIds = orderSqlIds.map((id: string) => id.toString().toLowerCase());
         const mongoOrders = await OrderDetail.find({ order_id_sql: { $in: lowerCaseOrderSqlIds } }).lean();
-
+        // console.log("aa", mongoOrders)
         const orders = result.recordset.map(order => {
             const mongoOrder = mongoOrders.find(mongoOrder => mongoOrder.order_id_sql === order.ID.toString().toLowerCase());
             return {
                 ...order,
-                items: mongoOrder ? mongoOrder.items : []
+                items: mongoOrder ? mongoOrder.items : [],
+                shipping_address: mongoOrder ? mongoOrder.shipping_address : {},
+                note: mongoOrder ? mongoOrder.note : "Không có ghi chú"
             };
         });
+        // console.log("1", orders)
         const orderResuts: GetOrder[] = orders.map(order => ({
             id: order.ID,
             user_id: order.user_id,
             voucher_id: order.voucher_id,
             total: order.total,
+            discount_value: order.discount_value,
             mongo_id: order.mongodb_id,
             payment_method: order.payment_method,
             user_name_buyer: order.user_name_buyer,
-            address: {
-                name: order.shipping_name,
-                phone: order.shipping_phone,
-                province: order.shipping_province,
-                district: order.shipping_district,
-                ward: order.shipping_ward,
-                street_address: order.shipping_street
-            },
+            address: order.shipping_address,
             status: order.status,
             created_at: order.created_at,
-            items: order.items
+            items: order.items,
+            note: order.note
         }));
         return orderResuts;
 

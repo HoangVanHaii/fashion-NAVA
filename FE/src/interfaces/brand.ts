@@ -1,7 +1,7 @@
 export interface IBrandCreate {
     name: string;
     description: string;
-    logo: string | File;
+    logo: string;
     status?: string;
 }
 
@@ -19,4 +19,8 @@ export interface IBrandResponse {
     logo: string;
     status: string;
     created_at: Date;
+}
+export interface BrandRatingResult {
+    average_rating: number;
+    total_reviews: number;
 }

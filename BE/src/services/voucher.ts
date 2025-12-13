@@ -230,7 +230,9 @@ export const getUserVouchers = async (userId: string, branch_code:string): Promi
 
 export const validateVoucher = async (code: string, orderTotal: number, shop_id?: number): Promise<number> => {
     try {
-        const pool = dbPools.central;
+        const pool = getBranchPool('CT');
+        if (!pool) throw new AppError("Database connection failed", 500); 
+
         const query = `SELECT * FROM vouchers WHERE code = @code`;
         const result = await pool
             .request()

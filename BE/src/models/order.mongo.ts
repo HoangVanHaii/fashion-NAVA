@@ -1,6 +1,5 @@
 import { IOrderDetail } from "../interfaces/order";
 import mongoose, { Schema } from 'mongoose';
-import { Address } from "../interfaces/address";
 
 const OrderItemSchema = new Schema({
     product_id_sql: { type: String, required: true }, 

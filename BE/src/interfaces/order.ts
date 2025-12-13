@@ -6,6 +6,7 @@ export interface Order {
     user_id: string;
     voucher_id?: string;
     total: number;
+    discount_value: number;
     payment_method: 'cod' | 'credit_card' | 'paypal' | 'vnpay' | 'momo';
     address?: Address
     status?: 'pending' | 'confirmed' | 'shipped' | 'completed' | 'cancelled';
@@ -49,7 +50,8 @@ export interface IOrderItem {
 export interface IOrderDetail extends Document {
     order_id_sql: string;
     items: IOrderItem[];
-    
+    shipping_address: Address
+    note?: string;
     created_at: Date;
     updatedAt: Date;
 }
@@ -59,14 +61,17 @@ export interface GetOrder {
     user_id: string;
     voucher_id?: string;
     total: number;
+    discount_value: number;
     user_name_buyer?: string;
     mongo_id?: string;
     payment_method: 'cod' | 'credit_card' | 'paypal' | 'vnpay' | 'momo';
-    address: Address;
+    payment_status?: string;
+    address: any;
     status?: 'pending' | 'confirmed' | 'shipped' | 'completed' | 'cancelled';
     created_at?: Date;
     items: IOrderItem[];
-
+    method_order?: string;
+    note?: string
 }
 
 export interface StatisticalOrder {

@@ -4,6 +4,7 @@ import {PROVINCE_TO_BRANCH_CODE_MAP} from '../utils/province'
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken'
 import * as utilJwt from '../utils/token'
+import { User } from '../interfaces/user';
 export const register = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const { name, email, password, phone, date_of_birth, gender, province, district, ward, street_address, bio, preferences } = req.body;
@@ -83,7 +84,7 @@ export const getProfile = async (req: Request, res: Response, next: NextFunction
     try {
         
         const userEmail = req.user?.email;
-        const fullProfile = await authService.getUserProfile(userEmail as string);
+        const fullProfile:User = await authService.getUserProfile(userEmail as string);
 
         return res.status(200).json({
             message: 'Get profile success',
