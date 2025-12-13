@@ -2,6 +2,14 @@ import { Response, Request, NextFunction } from "express";
 import * as productService from '../services/product';
 import { AppError } from "../utils/appError";
 import { getBranchPool } from "../config/database";
+const productHasPrice = (product: any): boolean => {
+
+    return product.colors?.some((color: any) =>
+        color.sizes?.some((size: any) =>
+            typeof size.price === 'number'
+        )
+    );
+};
 
 export const getAllProducts = async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -12,7 +20,10 @@ export const getAllProducts = async (req: Request, res: Response, next: NextFunc
         if (!branch_id) {
             throw new AppError("branch_id not found", 404);
         }
-        const products = await productService.getAllProducts(req.dbBranch!, branch_id, req.user?.role || "customer");
+        let products = await productService.getAllProducts(req.dbBranch!, branch_id, req.user?.role || "customer");
+        if (req.user?.role !== 'admin' ) {
+            products = products.filter(productHasPrice);
+        }
         return res.status(200).json({
             success: true,
             message: "Get all products successfully",
@@ -24,6 +35,27 @@ export const getAllProducts = async (req: Request, res: Response, next: NextFunc
     }
 }
 
+export const getAllProductsByGender = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        if (!req.dbBranch! || !req.dbBranch!.connected) {
+            throw new AppError("Central DB is not connected", 503);
+        }
+        const gender = req.query.gender as string;
+        const branch_id = await productService.getBranchIdByCode(req.dbBranch!, req.user?.branch_code || 'DN');
+        if (!branch_id) {
+            throw new AppError("branch_id not found", 404);
+        }
+        const products = await productService.getAllProductsByGender(req.dbBranch!, branch_id, gender);
+        return res.status(200).json({
+            success: true,
+            message: "Get all products By gender successfully",
+            products
+        });
+        
+    } catch (err) {
+        next(err);
+    }
+}
 export const getAllProductsByCategoryId = async (req: Request, res: Response, next: NextFunction) => {
     try {
         if (!req.dbBranch! || !req.dbBranch!.connected) {
@@ -88,9 +120,84 @@ export const getProductDetail = async (req: Request, res: Response, next: NextFu
     }
 }
 
+export const getTopProductsNew = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        if (!req.dbBranch! || !req.dbBranch!.connected) {
+            throw new AppError("Central DB is not connected", 503);
+        }
+        const topCount = parseInt(req.query.top as string) || 20;
+
+        const branch_id = await productService.getBranchIdByCode(req.dbBranch!, 'DN');
+        if (!branch_id) {
+            throw new AppError("branch_id not found", 404);
+        }
+        let products = await productService.getTopProductsNews(req.dbBranch, branch_id, topCount);
+        if (req.user?.role === 'admin' ) {
+            products = products.filter(productHasPrice);
+        }
+        return res.status(200).json({
+            success: true,
+            message: "Get all products New for guest successfully",
+            products
+        });
+        
+    } catch (err) {
+        next(err);
+    }
+}
+export const getTopProductsBestSeller = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const topCount = parseInt(req.query.top as string) || 20;
+        if (!req.dbBranch! || !req.dbBranch!.connected) {
+            throw new AppError("Central DB is not connected", 503);
+        }
+        const branch_id = await productService.getBranchIdByCode(req.dbBranch, 'DN');
+        if (!branch_id) {
+            throw new AppError("branch_id not found", 404);
+        }
+        let products = await productService.getTopProductsBestseller(req.dbBranch, branch_id, topCount);
+        if (req.user?.role === 'admin' ) {
+            products = products.filter(productHasPrice);
+        }
+        
+        return res.status(200).json({
+            success: true,
+            message: "Get all products best seller for guest successfully",
+            products
+        });
+        
+    } catch (err) {
+        next(err);
+    }
+}
+
+
 
 
 ///////////////////////////////
+
+export const getAllProductsByGenderForGuest = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const pool = getBranchPool("DN");
+        if (!pool) {
+            throw new AppError("DaNang DB is not connected", 503);
+        }
+        const gender = req.query.gender as string;
+        const branch_id = await productService.getBranchIdByCode(pool, req.user?.branch_code || 'DN');
+        if (!branch_id) {
+            throw new AppError("branch_id not found", 404);
+        }
+        const products = await productService.getAllProductsByGender(pool, branch_id, gender);
+        return res.status(200).json({
+            success: true,
+            message: "Get all products By gender successfully",
+            products
+        });
+        
+    } catch (err) {
+        next(err);
+    }
+}
 
 export const getAllProductsByCategoryIdForGuests = async (req: Request, res: Response, next: NextFunction) => {
     try {

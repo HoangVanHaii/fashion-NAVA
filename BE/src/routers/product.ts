@@ -7,12 +7,34 @@ import { validateRequest } from "../middlewares/validateRequest";
 const router = express.Router();
 
 router.get("/", authMiddleware, productController.getAllProducts);
+
+router.get(
+    "/best-seller",
+    authMiddleware,
+    productController.getTopProductsBestSeller
+);
+router.get(
+    "/new",
+    authMiddleware,
+    productController.getTopProductsNew
+);
+
+
+router.get(
+    "/category/gender",
+    authMiddleware,
+    productController.getAllProductsByGender
+);
 router.get(
     "/category/:category_id",
     authMiddleware,
     productMiddleware.getByCategoryValidation,
     validateRequest,
     productController.getAllProductsByCategoryId
+);
+router.get(
+    "/public/category/gender",
+    productController.getAllProductsByGenderForGuest
 );
 router.get(
     "/brand/:brand_id",
@@ -22,6 +44,16 @@ router.get(
     productController.getAllProductsByBrandId
 );
 
+router.get(
+    "/best-seller",
+    authMiddleware,
+    productController.getTopProductsBestSeller
+);
+router.get(
+    "/new",
+    authMiddleware,
+    productController.getTopProductsNew
+);
 ///
 
 router.get("/public", productController.getAllProductsForGuests);
