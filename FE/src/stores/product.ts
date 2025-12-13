@@ -1,23 +1,19 @@
 import { defineStore } from "pinia";
-import { getProductByCategory,
-        searchByCategoryGender,
-        getProductByName,
-        getProductById,
-        getProductBestSeller,
-        getProductLatest,
-        getAllProductActive,
-        getProductIdBySize,
-        getCategoryNameById,
-        getBrandNameById,
-        getProductByBrandId,
-        getRatingOfbrand,
+import {
+    searchByCategoryId,
+    getProductById,
+    getCategoryNameById,
+    getBrandNameById,
+    getProductByBrandId,
+    getRatingOfbrand,
         
-        getProductByCategory,
-        searchByCategoryGender,
-        getProductByName,
-        getProductBestSeller,
-        getProductLatest 
-} from '../services/product'
+    getProductByCategory,
+    searchByCategoryGender,
+    getProductByName,
+    getProductBestSeller,
+    getProductLatest
+} from '@/services/product';
+
 import { ref } from "vue";
 import type { IProductMongoDetail } from "../interfaces/product";
 import type { Category } from "@/interfaces/category";
@@ -42,7 +38,7 @@ export const useProductStore = defineStore('product', () => {
     const searchByCategoryIdStore = async (catId: string) => {
         loading.value = true;
         try {
-            const res = await searchByCategoryGender(catId);
+            const res = await searchByCategoryId(catId);
             return res.products as IProductMongoDetail[];
         } catch (error) {
             loading.value = false;
@@ -162,9 +158,9 @@ export const useProductStore = defineStore('product', () => {
       getProductByBrandIdStore, 
       getRatingOfbrandStore,
       
+      getProductByNameStore,
       searchByCategoryStore,
       searchByCategoryGenderStore,
-      getProductByIdStore,
       getProductBestSellerStore,
       getProductLatestStore, loading
     };

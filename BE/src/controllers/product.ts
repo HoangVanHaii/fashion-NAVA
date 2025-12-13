@@ -48,12 +48,17 @@ export const getProductBySize = async (req: Request, res: Response, next: NextFu
             throw new AppError("branch_id not found", 404);
         }
         const product = await productService.getProductBySize(req.dbBranch!, branch_id, req.user?.role || "customer", size_id);
+        
         return res.status(200).json({
             success: true,
             message: "Get size product successfully",
             product
         });
-
+    }
+    catch (err) {
+        next(err)
+    }
+}
 export const getAllProductsByGender = async (req: Request, res: Response, next: NextFunction) => {
     try {
         if (!req.dbBranch! || !req.dbBranch!.connected) {
@@ -64,7 +69,10 @@ export const getAllProductsByGender = async (req: Request, res: Response, next: 
         if (!branch_id) {
             throw new AppError("branch_id not found", 404);
         }
-        const products = await productService.getAllProductsByGender(req.dbBranch!, branch_id, gender);
+        let products = await productService.getAllProductsByGender(req.dbBranch!, branch_id, gender);
+        if (req.user?.role !== 'admin' ) {
+            products = products.filter(productHasPrice);
+        }
         return res.status(200).json({
             success: true,
             message: "Get all products By gender successfully",
@@ -85,7 +93,11 @@ export const getAllProductsByCategoryId = async (req: Request, res: Response, ne
         if (!branch_id) {
             throw new AppError("branch_id not found", 404);
         }
-        const products = await productService.getAllProductsByCategory(req.dbBranch!, branch_id, req.user?.role || "customer", category_id);
+        let products = await productService.getAllProductsByCategory(req.dbBranch!, branch_id, req.user?.role || "customer", category_id);
+        if (req.user?.role !== 'admin' ) {
+            products = products.filter(productHasPrice);
+        }
+
         return res.status(200).json({
             success: true,
             message: "Get all products By category_id successfully",
@@ -107,7 +119,10 @@ export const getAllProductsByBrandId = async (req: Request, res: Response, next:
         if (!branch_id) {
             throw new AppError("branch_id not found", 404);
         }
-        const products = await productService.getAllProductsByBrand(req.dbBranch!, branch_id, req.user?.role || "customer", brand_id);
+        let products = await productService.getAllProductsByBrand(req.dbBranch!, branch_id, req.user?.role || "customer", brand_id);
+        if (req.user?.role !== 'admin' ) {
+            products = products.filter(productHasPrice);
+        }
         return res.status(200).json({
             success: true,
             message: "Get all products By brand_id successfully",
@@ -151,7 +166,7 @@ export const getTopProductsNew = async (req: Request, res: Response, next: NextF
             throw new AppError("branch_id not found", 404);
         }
         let products = await productService.getTopProductsNews(req.dbBranch, branch_id, topCount);
-        if (req.user?.role === 'admin' ) {
+        if (req.user?.role !== 'admin' ) {
             products = products.filter(productHasPrice);
         }
         return res.status(200).json({
@@ -175,7 +190,7 @@ export const getTopProductsBestSeller = async (req: Request, res: Response, next
             throw new AppError("branch_id not found", 404);
         }
         let products = await productService.getTopProductsBestseller(req.dbBranch, branch_id, topCount);
-        if (req.user?.role === 'admin' ) {
+        if (req.user?.role !== 'admin' ) {
             products = products.filter(productHasPrice);
         }
         
@@ -206,7 +221,8 @@ export const getAllProductsByGenderForGuest = async (req: Request, res: Response
         if (!branch_id) {
             throw new AppError("branch_id not found", 404);
         }
-        const products = await productService.getAllProductsByGender(pool, branch_id, gender);
+        let products = await productService.getAllProductsByGender(pool, branch_id, gender);
+        products = products.filter(productHasPrice);
         return res.status(200).json({
             success: true,
             message: "Get all products By gender successfully",
@@ -229,7 +245,8 @@ export const getAllProductsByCategoryIdForGuests = async (req: Request, res: Res
             throw new AppError("branch_id not found", 404);
         }
         const category_id = req.params.category_id;
-        const products = await productService.getAllProductsByCategory(pool, branch_id, "customer", category_id);
+        let products = await productService.getAllProductsByCategory(pool, branch_id, "customer", category_id);
+        products = products.filter(productHasPrice);
         return res.status(200).json({
             success: true,
             message: "Get all products by categoryId successfully For Guests ",
@@ -252,7 +269,9 @@ export const getAllProductsByBrandIdForGuests = async (req: Request, res: Respon
             throw new AppError("branch_id not found", 404);
         }
         const brand_id = req.params.brand_id;
-        const products = await productService.getAllProductsByBrand(pool, branch_id, "customer", brand_id);
+        let products = await productService.getAllProductsByBrand(pool, branch_id, "customer", brand_id);
+        products = products.filter(productHasPrice);
+
         return res.status(200).json({
             success: true,
             message: "Get all products by brandId successfully For Guests ",
@@ -275,7 +294,9 @@ export const getAllProductsForGuests = async (req: Request, res: Response, next:
         if (!branch_id) {
             throw new AppError("branch_id not found", 404);
         }
-        const products = await productService.getAllProducts(pool, branch_id, "customer");
+        let products = await productService.getAllProducts(pool, branch_id, "customer");
+        products = products.filter(productHasPrice);
+
         return res.status(200).json({
             success: true,
             message: "Get all products for guest successfully",
@@ -298,7 +319,9 @@ export const getTopProductsNewForGuests = async (req: Request, res: Response, ne
         if (!branch_id) {
             throw new AppError("branch_id not found", 404);
         }
-        const products = await productService.getTopProductsNews(pool, branch_id, topCount);
+        let products = await productService.getTopProductsNews(pool, branch_id, topCount);
+        products = products.filter(productHasPrice);
+
         return res.status(200).json({
             success: true,
             message: "Get all products New for guest successfully",
@@ -320,7 +343,9 @@ export const getTopProductsBestSellerForGuests = async (req: Request, res: Respo
         if (!branch_id) {
             throw new AppError("branch_id not found", 404);
         }
-        const products = await productService.getTopProductsBestseller(pool, branch_id, topCount);
+        let products = await productService.getTopProductsBestseller(pool, branch_id, topCount);
+        products = products.filter(productHasPrice);
+
         return res.status(200).json({
             success: true,
             message: "Get all products best seller for guest successfully",

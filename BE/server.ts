@@ -21,8 +21,6 @@ import adminCatetory from './src/routers/admin/category'
 import adminBrand from './src/routers/admin/brand';
 import brandRouter from './src/routers/brand'
 import flashSaleRouter from "./src/routers/flashSale";
-import cors from 'cors';
-
 
 
 dotenv.config();
@@ -32,7 +30,7 @@ app.use(express.json());
 app.use(cors())
 app.use(express.urlencoded({ extended: true }));
 app.use('/api/auth', authRouter);
-// app.use('/api/review', reviewRouter);
+app.use('/api/review', reviewRouter);
 app.use('/api/admin', adminRouter);
 app.use("/api/product", productRouter);
 app.use("/api/cart", cartRouter);

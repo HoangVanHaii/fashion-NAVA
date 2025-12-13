@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import * as reviewController from '../controllers/review'
-import {uploadReview} from '../utils/uploadReview'
+import { uploadReview } from '../utils/uploadReview';
 import { authMiddleware } from '../middlewares/authMiddleware'; 
 import { validateRequest } from '../middlewares/validateRequest';
 import * as reviewValidator from '../middlewares/review';

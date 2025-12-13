@@ -113,7 +113,7 @@ const loadData = async () => {
   sizeChose.value = colorChose.value?.sizes[0];
   url_main.value = colorChose.value?.image_main;
 
-  let result = await product.searchByCategoryGenderStore(productId.value?.category_id || "");
+  let result = await product.searchByCategoryIdStore(productId.value?.category_id || "");
   listpProducts.value = result;
   listpProducts.value = result.filter((p) => p._id !== productId.value?._id);
 

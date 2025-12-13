@@ -2,7 +2,7 @@
     import { ref, computed, watch, onMounted } from "vue";
     import Navbar from "../../components/admin/Navbar.vue";
     import { useUserAdminStore } from '../../stores/admin/userStore';
-    import type { CreateAccountPayload, User } from "@/interfaces/user";
+    import type { CreateAccountPayload, User, UserAdmin } from "@/interfaces/user";
     // --- 1. INTERFACES ---
     
     
@@ -16,7 +16,7 @@
 
     
     // --- 2. STATE ---
-    const users = ref<User[]>([]); // Dữ liệu chính hiển thị ra bảng
+    const users = ref<UserAdmin[]>([]); // Dữ liệu chính hiển thị ra bảng
     const provinces = ref<LocationOption[]>([]);
     const districts = ref<LocationOption[]>([]);
     const wards = ref<LocationOption[]>([]);
@@ -68,7 +68,7 @@
         console.log(users.value);
       fetchProvinces();
     });
-    const mapToUserUI = (u: any): User => {
+    const mapToUserUI = (u: any): UserAdmin => {
         return {
             id: u.ID, // Map ID hoa sang id thường
             name: u.name,
@@ -105,7 +105,7 @@
     const isEditing = ref(false);
     const isViewing = ref(false);
     
-    const defaultUserForm: User = {
+    const defaultUserForm: UserAdmin = {
       id: "",
       name: "",
       email: "",
@@ -127,7 +127,7 @@
       branch: ""
     };
     
-    const formUser = ref<User>({ ...defaultUserForm });
+    const formUser = ref<UserAdmin>({ ...defaultUserForm });
     
     // -- LOGIC WATCH ĐỊA CHỈ --
     watch(() => formUser.value.city_code, async (newVal, oldVal) => {
@@ -170,7 +170,7 @@
       formUser.value.ward_name = "";
     };
     
-    const openModal = async (user?: User, viewMode: boolean = false) => {
+    const openModal = async (user?: UserAdmin, viewMode: boolean = false) => {
       isViewing.value = viewMode;
     
       if (user) {

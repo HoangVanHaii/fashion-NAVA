@@ -13,15 +13,24 @@ export const getProductById = async (id: string) => {
     return response.data;
 }
 
-export const searchByCategoryGender = async (genderId: string) => {
+export const searchByCategoryId = async (cat_id: string) => {
     const authStore = useAuthStore();
 
     const endpoint = authStore.isLogin
-        ? `/product/category/${genderId}`
-        : `/product/public/category/${genderId}`;
+        ? `/product/category/${cat_id}`
+        : `/product/public/category/${cat_id}`;
 
     const response = await api.get(endpoint);
     return response.data;
+};
+export const searchByCategoryGender = async (gender: string) => {
+    const authStore = useAuthStore();
+    const endpoint = authStore.isLogin
+        ? `/product/category/gender?gender=${gender}`
+        : `/product/public/category/gender?gender=${gender}`;
+
+    const response = await api.get(endpoint);
+  return response.data;
 };
 export const getCategoryNameById = async (id: string) => {
     const authStore = useAuthStore();
@@ -79,18 +88,7 @@ export const getProductByCategory = async (categoryName: string) => {
     const response = await api.get(`/product/searchByCategory?categoryNames=${categoryName}`);
     return response.data;
 }
-export const getProductBestSeller = async (id: string) => {
-    const result = await api.get(`/product/best-sellers?limit=${id}`);
-    return result.data;
-}
-export const getProductLatest = async (id: string) => {
-    const result = await api.get(`/product/latest?limit=${id}`);
-    return result.data;
-}
-export const getProductByName = async (name: string) => {
-    const result = await api.get(`/product/searchByName?name=${name}`);
-    return result.data;
-}
+
 export const getAllProductActive = async () => {
     const result = await api.get(`/product/actives`);
     return result.data;

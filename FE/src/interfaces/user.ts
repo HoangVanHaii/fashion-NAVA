@@ -24,7 +24,7 @@ export interface UserProfile {
     createdAt: string;
     updatedAt: string;
     __v: number;
-    
+}
 export interface UserAdmin {
     id: string; // Map từ ID
     name: string;
