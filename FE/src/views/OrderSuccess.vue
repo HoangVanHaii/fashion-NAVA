@@ -21,7 +21,7 @@ const isLoading = ref(false);
 onMounted(async () => {
   isLoading.value = true;
   // Fetch similar products (e.g., category "áo" or random recommendations)
-//   products.value = await product.getProductByNameStore("áo");
+  products.value = await product.searchByCategoryGenderStore("Nam");
   await favourite.getFavouriteOfMeStore();
   isLoading.value = false;
 });

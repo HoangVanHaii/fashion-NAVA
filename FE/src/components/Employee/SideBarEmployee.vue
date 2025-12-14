@@ -26,7 +26,7 @@
         { key: 'order', label: 'Quản lý đơn hàng', routeName: 'order-employee', icon: 'fa-solid fa-box-open' },
         { key: 'flashsale', label: 'Quản lý Flash Sale', routeName: 'FlashsaleEmployee', icon: 'fa-solid fa-bolt' },
         { key: 'voucher', label: 'Quản lý Voucher', routeName: 'VoucherEmployee', icon: 'fa-solid fa-ticket' },
-        { key: 'review', label: 'Chăm sóc khách hàng', routeName: 'reviewEmployee', icon: 'fa-solid fa-message' },
+        { key: 'review', label: 'Chăm sóc khách hàng', routeName: 'dash_board', icon: 'fa-solid fa-message' },
     ];
     
     const routeToKeyMap: Record<string, string> = menuItems.reduce((acc, item) => {

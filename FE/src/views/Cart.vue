@@ -1,5 +1,6 @@
 <template>
-  <div class="bg-gray-50 min-h-screen pt-28 pb-20">
+  <Header></Header>
+  <div class="bg-gray-50 min-h-screen pt-[10px]">
     <Loading :loading="cartStore.loading" />
     <Notification :isSuccess="isNotification" :text="toastText" />
 
@@ -11,7 +12,7 @@
     />
 
     <main class="max-w-[1400px] mx-auto px-6">
-      <div class="mb-6 text-sm text-gray-400">
+      <!-- <div class="mb-6 text-sm text-gray-400">
         <span class="hover:text-black cursor-pointer" @click="router.push('/')">
           Trang chủ
         </span>
@@ -19,7 +20,7 @@
         <span class="text-black font-semibold">
           Giỏ hàng ({{ cartStore.totalQuantity }})
         </span>
-      </div>
+      </div> -->
 
       <div v-if="!cartStore.cart && !cartStore.loading" class="bg-white rounded-xl border p-20 text-center shadow-lg">
         <i class="fa-solid fa-cart-shopping text-5xl text-gray-300 mb-6"></i>
@@ -168,13 +169,14 @@
       </div>
     </main>
   </div>
+  <Footer></Footer>
 </template>
 
 <script setup lang="ts">
 import { onMounted, computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
-
-// --- IMPORTS ---
+import Header from '@/components/Header.vue'
+import Footer from '@/components/Footer.vue'
 import Loading from '../components/Loading.vue' 
 import Notification from '../components/Notification.vue' 
 import VoucherModal from '../components/Voucher.vue'
