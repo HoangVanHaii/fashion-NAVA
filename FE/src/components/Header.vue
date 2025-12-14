@@ -246,23 +246,23 @@ onBeforeUnmount(() => {
                    :class="isActive('/home') || isActive('/') ? 'text-red-600' : 'text-gray-900 hover:text-gray-500'">
                    Trang chủ
                 </a>
-                <a href="/dealHot" 
+                <a href="/deal-hot" 
                    class="text-sm font-bold uppercase tracking-wide transition-colors"
-                   :class="isActive('/dealHot') ? 'text-red-600' : 'text-gray-900 hover:text-gray-500'">
+                   :class="isActive('/deal-hot') ? 'text-red-600' : 'text-gray-900 hover:text-gray-500'">
                    Ưu đãi Hot
                 </a>
 
                 <!-- Dropdown Nam -->
                 <div class="relative group" @mouseenter="showNamDropdown = true" @mouseleave="showNamDropdown = false">
-                    <a href="/CategoryGender?gender=Nam" 
+                    <a href="/category-gender?gender=Nam" 
                        class="text-sm font-bold uppercase tracking-wide transition-colors flex items-center gap-1"
-                       :class="isActive('/CategoryGender', 'gender', 'Nam') ? 'text-red-600' : 'text-gray-900 hover:text-gray-500'">
+                       :class="isActive('/category-gende', 'gender', 'Nam') ? 'text-red-600' : 'text-gray-900 hover:text-gray-500'">
                         Nam <span class="text-[10px] mt-0.5">▼</span>
                     </a>
                     <div v-if="showNamDropdown" class="absolute top-full left-0 w-48 bg-white border border-gray-100 shadow-xl rounded-b-md py-2 animate-fade-in-up">
                         <a v-for="nameCateMen in categoryMale" 
                            :key="nameCateMen"
-                           :href="`/CategoryGender?gender=Nam&name=${nameCateMen}`"
+                           :href="`/category-gender?gender=Nam&name=${nameCateMen}`"
                            class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-black transition-colors">
                            {{ nameCateMen }}
                         </a>
@@ -271,15 +271,15 @@ onBeforeUnmount(() => {
 
                 <!-- Dropdown Nu -->
                 <div class="relative group" @mouseenter="showNuDropdown = true" @mouseleave="showNuDropdown = false">
-                    <a href="/CategoryGender?gender=Nữ" 
+                    <a href="/category-gender?gender=Nữ" 
                        class="text-sm font-bold uppercase tracking-wide transition-colors flex items-center gap-1"
-                       :class="isActive('/CategoryGender', 'gender', 'Nữ') ? 'text-red-600' : 'text-gray-900 hover:text-gray-500'">
+                       :class="isActive('/category-gender', 'gender', 'Nữ') ? 'text-red-600' : 'text-gray-900 hover:text-gray-500'">
                         Nữ <span class="text-[10px] mt-0.5">▼</span>
                     </a>
                     <div v-if="showNuDropdown" class="absolute top-full left-0 w-48 bg-white border border-gray-100 shadow-xl rounded-b-md py-2 animate-fade-in-up">
                         <a v-for="nameCateFemale in categoryFemale" 
                            :key="nameCateFemale"
-                           :href="`/CategoryGender?gender=Nữ&name=${nameCateFemale}`"
+                           :href="`/category-gender?gender=Nữ&name=${nameCateFemale}`"
                            class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-black transition-colors">
                            {{ nameCateFemale }}
                         </a>
@@ -395,10 +395,10 @@ onBeforeUnmount(() => {
     <div v-if="showMenuPhone" class="lg:hidden absolute top-full left-0 w-full bg-white border-b border-gray-200 shadow-xl z-40 animate-fade-in">
         <div class="flex flex-col p-4 space-y-4">
             <a href="/home" class="text-base font-medium text-gray-900 border-b border-gray-100 pb-2">Trang chủ</a>
-            <a href="/dealHot" class="text-base font-medium text-red-600 border-b border-gray-100 pb-2">Ưu đãi cực hot</a>
-            <a href="/CategoryGender?gender=Nam" class="text-base font-medium text-gray-900 border-b border-gray-100 pb-2">Nam</a>
-            <a href="/CategoryGender?gender=Nữ" class="text-base font-medium text-gray-900 border-b border-gray-100 pb-2">Nữ</a>
-            <a href="/CategoryGender?gender=Nữ" class="text-base font-medium text-gray-900">Phụ kiện</a>
+            <a href="/deal-hot" class="text-base font-medium text-red-600 border-b border-gray-100 pb-2">Ưu đãi cực hot</a>
+            <a href="/category-gender?gender=Nam" class="text-base font-medium text-gray-900 border-b border-gray-100 pb-2">Nam</a>
+            <a href="/category-gender?gender=Nữ" class="text-base font-medium text-gray-900 border-b border-gray-100 pb-2">Nữ</a>
+            <a href="/category-gender?gender=Nữ" class="text-base font-medium text-gray-900">Phụ kiện</a>
              <!-- Mobile Search -->
             <div class="relative mt-4">
                  <input 

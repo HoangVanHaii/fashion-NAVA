@@ -25,10 +25,9 @@ import { useProductStore } from "../stores/product";
 import { voucherStore } from "../stores/voucher";
 import { flashSaleStore } from "../stores/flashSale";
 import AddToCart from "../components/AddToCard.vue";
-// import { useFavouriteStore } from "../stores/favourite";
+import { useFavouriteStore } from "../stores/favourite";
 import { useRouter } from "vue-router";
 import { Colors } from "chart.js";
-// import { useVoucherStore } from "../stores/userVoucher";
 import Loading from "@/components/Loading.vue";
 // const favourite = useFavouriteStore();
 const router = useRouter();
@@ -51,6 +50,9 @@ const showAll = ref(false);
 const showMoreBestSeller = ref(false);
 const showMoreNewArrivals = ref(false);
 const showFormAdd = ref(false);
+import { useAuthStore } from "@/stores/auth";
+const userStore = useAuthStore();
+const favourite = useFavouriteStore();
 const copiedList = ref<boolean[]>([]);
 
 const textTmp = `Tối giản nhưng không đơn điệu – Dòng sản phẩm Polo của Giovanni Outlet chinh phục quý ông bởi sự tinh tế trong từng chi tiết. Chất liệu cotton thượng hạng kết hợp với đường may sắc sảo.`;
@@ -96,7 +98,6 @@ const handleCart = async (product: IProductMongoDetail) => {
 
 onMounted(async () => {
     loadingHome.value = true;
-    const result = await useProduct.searchByCategoryGenderStore('Nam');
   const [vouchersData, flashSaleData] = await Promise.all([
     useVoucher.getTop4VoucherGlobal(),
     useFlashSale.getFlashSaleHome(),
@@ -105,7 +106,7 @@ onMounted(async () => {
   flashSaleHomes.value = flashSaleData;
   localStorage.setItem(
     "excludeIdHome",
-    flashSaleHomes.value?.ID ? flashSaleHomes.value.ID.toString() : "aa"
+    flashSaleHomes.value?.ID ? flashSaleHomes.value.ID.toString() : ""
     );
     console.log(flashSaleHomes.value);
   const promises = [
@@ -116,14 +117,14 @@ onMounted(async () => {
   productBestSeller.value = bestSellerData ?? [];
   productLatests.value = latestData ?? [];
 
-  const token = localStorage.getItem("accessToken");
-  if (token) {
-    // await favourite.getFavouriteOfMeStore()
+  
+  if (userStore.isLogin) {
+    await favourite.getFavouriteOfMeStore()
     }
     loadingHome.value = false;
 
-//   setTime();
-//   countdown = setInterval(setTime, 1000);
+  setTime();
+  countdown = setInterval(setTime, 1000);
 
 //   timer = setInterval(() => {
 //     currentIndex.value = (currentIndex.value + 1) % banners.length;
@@ -398,20 +399,19 @@ const getSoldPercentage = (product: any): number => {
                     >
                       <i class="fa-solid fa-cart-plus text-sm"></i>
                     </button>
-                    <!-- favourite.toggleFavouriteInstant(prod.id) -->
+                    
                     <button
-                      @click.stop=""
+                      @click.stop="favourite.toggleFavouriteInstant(prod.product_id_sql)"
                       class="w-9 h-9 bg-white text-black rounded-full shadow-lg flex items-center justify-center hover:bg-red-50 hover:text-red-500 transition-colors"
                     >
                       <i
                         :class="
-                          1
+                          favourite.isFavourite(prod.product_id_sql)
                             ? 'fa-solid fa-heart text-red-500'
                             : 'fa-regular fa-heart text-sm'
                         "
                       ></i>
                     </button>
-                    <!-- favourite.isFavourite(prod.id) -->
                   </div>
                 </div>
 
@@ -605,10 +605,9 @@ const getSoldPercentage = (product: any): number => {
                   </button>
                 </div>
                 <!-- Heart Icon -->
-                <!-- favourite.toggleFavouriteInstant(prod.id) -->
-                <button @click.stop="" class="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/90 backdrop-blur text-black flex items-center justify-center hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100 shadow-sm">
-                    <i :class="1111 ? 'fa-solid fa-heart text-red-500' : 'fa-regular fa-heart'"></i>
-                    <!-- favourite.isFavourite(prod.id) -->
+                <!--  -->
+                <button @click.stop="favourite.toggleFavouriteInstant(prod.product_id_sql)" class="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/90 backdrop-blur text-black flex items-center justify-center hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100 shadow-sm">
+                    <i :class=" favourite.isFavourite(prod.product_id_sql) ? 'fa-solid fa-heart text-red-500' : 'fa-regular fa-heart'"></i>
                 </button>
               </div>
 
@@ -773,10 +772,8 @@ const getSoldPercentage = (product: any): number => {
                   >
                     <i class="fa-solid fa-cart-plus text-sm"></i>
                   </button>
-                  <!-- favourite.toggleFavouriteInstant(prod.id) -->
-                  <button @click.stop="" class="w-9 h-9 bg-white text-black rounded-full shadow-md flex items-center justify-center hover:bg-red-50 hover:text-red-500 transition-colors">
-                        <i :class="1111 ? 'fa-solid fa-heart text-red-500' : 'fa-regular fa-heart text-sm'"></i>
-                        <!-- favourite.isFavourite(prod.id) -->
+                  <button @click.stop="favourite.toggleFavouriteInstant(prod.product_id_sql)" class="w-9 h-9 bg-white text-black rounded-full shadow-md flex items-center justify-center hover:bg-red-50 hover:text-red-500 transition-colors">
+                        <i :class=" favourite.isFavourite(prod.product_id_sql) ? 'fa-solid fa-heart text-red-500' : 'fa-regular fa-heart text-sm'"></i>
                     </button>
                 </div>
               </div>
