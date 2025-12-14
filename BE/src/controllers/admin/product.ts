@@ -20,8 +20,8 @@ export const createProduct = async (req: Request, res: Response, next: NextFunct
         const { category_id, brand_id, name, description, colors, attributes } = req.body;
         const productSql: IProducts.IProductSQL = {
             id: idProductSql,
-            category_id: "DD033F36-18DA-4937-9CF0-2CF9AC3381FC", // category_id,
-            brand_id: "3704D1D6-0EA3-495F-AF06-082F115B89AD",  // brand_id,
+            category_id: category_id,
+            brand_id: brand_id,
             name: name,
             mongodb_id: idProductMongo,
             status: 'active'
@@ -52,6 +52,28 @@ export const createProduct = async (req: Request, res: Response, next: NextFunct
     }
 }
 
+
+export const AddProductColor = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        if (!req.dbBranch! || !req.dbBranch!.connected) {
+            throw new AppError("Central DB is not connected", 503);
+        }
+        const product_id_sql = req.params.id;
+        const branchId = await productService.getBranchIdByCode(req.dbBranch!, req.user?.branch_code || "");
+        if (!branchId) {
+            throw new AppError("branch_id not found", 404);
+        }
+        await productService.AddColorProduct(req.dbBranch!, branchId, product_id_sql, req.body);
+
+        return res.status(201).json({
+            success: true,
+            message: "Product Color successfully"
+        })
+        
+    } catch (err) {
+        next(err);
+    }
+}
 
 export const changeStatusProduct = async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -109,7 +131,7 @@ export const updateProductColor = async (req: Request, res: Response, next: Next
         if (!req.dbBranch! || !req.dbBranch!.connected) {
             throw new AppError("Central DB is not connected", 503);
         }
-        
+        console.log(2222);
         const branchId = await productService.getBranchIdByCode(req.dbBranch!, req.user?.branch_code || "");
         if (!branchId) {
             throw new AppError("branch_id not found", 404);
@@ -124,12 +146,94 @@ export const updateProductColor = async (req: Request, res: Response, next: Next
         });
   
     } catch (err) {
-        console.log(err);
         next(err);
     }
 };
 
+export const deleteProductColor = async (req: Request, res: Response, next: NextFunction) => {
 
+    try {
+        if (!req.dbBranch! || !req.dbBranch!.connected) {
+            throw new AppError("Central DB is not connected", 503);
+        }
+        
+        const branchId = await productService.getBranchIdByCode(req.dbBranch!, req.user?.branch_code || "");
+        if (!branchId) {
+            throw new AppError("branch_id not found", 404);
+        }
+        await productService.deleteColor(req.dbBranch, branchId, req.body.product_id_sql, req.body.color_id_mongo);
+        res.status(200).json({
+            success: true,
+            message: "Delete product color successfully",
+        });
+  
+    } catch (err) {
+        next(err);
+    }
+};
+
+export const deleteBranchInnventory = async (req: Request, res: Response, next: NextFunction) => {
+
+    try {
+        if (!req.dbBranch! || !req.dbBranch!.connected) {
+            throw new AppError("Central DB is not connected", 503);
+        }
+        
+        const branchId = await productService.getBranchIdByCode(req.dbBranch!, req.user?.branch_code || "");
+        if (!branchId) {
+            throw new AppError("branch_id not found", 404);
+        }
+        await productService.deleteBranchInnventory(req.dbBranch, branchId, req.body.branch_inventory);
+        console.log(1);
+        res.status(200).json({
+            success: true,
+            message: "Delete product Inventory successfully",
+        });
+  
+    } catch (err) {
+        next(err);
+    }
+};
+
+export const updateProductStatusALL = async (req: Request, res: Response, next: NextFunction) => {
+
+    try {
+        if (!req.dbBranch! || !req.dbBranch!.connected) {
+            throw new AppError("Central DB is not connected", 503);
+        }
+        if (req.user?.branch_code !== 'CT' && req.user?.role !== 'admin') {
+            throw new AppError("You do not have permission to perform this action", 403);  
+        }
+        await productService.updateProductStatusALL(req.dbBranch, req.body.status);
+        res.status(200).json({
+            success: true,
+            message: "Update product status successfully",
+        });
+  
+    } catch (err) {
+        next(err);
+    }
+};
+export const updateProductStockALL = async (req: Request, res: Response, next: NextFunction) => {
+
+    try {
+        if (!req.dbBranch! || !req.dbBranch!.connected) {
+            throw new AppError("Central DB is not connected", 503);
+        }
+        const branchId = await productService.getBranchIdByCode(req.dbBranch!, req.user?.branch_code || "");
+        if (!branchId) {
+            throw new AppError("branch_id not found", 404);
+        }
+        await productService.updateStockAll(req.dbBranch, branchId, req.body.stock);
+        res.status(200).json({
+            success: true,
+            message: "Update product stock successfully",
+        });
+  
+    } catch (err) {
+        next(err);
+    }
+};
 
 
 const buildListInventory = (productId: string, colors: IProducts.IProductColorPayload[], branchId: string) => {
@@ -139,7 +243,6 @@ const buildListInventory = (productId: string, colors: IProducts.IProductColorPa
         for (const item of element.sizes) {
             item._id = new mongoose.Types.ObjectId().toString();
             const branchInventory: IProducts.IBranchInventorySQL = {
-                id: UUID(),
                 branch_id: branchId,
                 product_id: productId,
                 color_id_mongo: element._id,

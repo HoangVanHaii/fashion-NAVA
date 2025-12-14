@@ -12,6 +12,7 @@ const validatePhone = body("phone")
   .isMobilePhone("vi-VN").withMessage("Invalid phone number")
   .bail();
 
+
 // -- CÁC FIELD ĐỊA CHỈ MỚI --
 const validateProvince = body("province")
   .notEmpty().withMessage("Province is required")

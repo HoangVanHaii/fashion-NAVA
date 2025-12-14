@@ -18,7 +18,7 @@ watch(() => props.text, (newVal) => {
         if (timer) clearTimeout(timer);
         
         // Auto hide after duration (default 3s for better readability)
-        const time = props.duration || 3000;
+        const time = props.duration || 1500;
         timer = setTimeout(() => {
             show.value = false;
         }, time);
@@ -65,7 +65,7 @@ const closeToast = () => {
                 <div 
                     class="absolute bottom-0 left-0 h-[2px] bg-current opacity-20 w-full origin-left animate-progress"
                     :class="isSuccess ? 'text-green-1000' : 'text-red-500'"
-                    :style="{ animationDuration: `${props.duration || 3000}ms` }"
+                    :style="{ animationDuration: `${props.duration || 1500}ms` }"
                 ></div>
             </div>
         </transition>

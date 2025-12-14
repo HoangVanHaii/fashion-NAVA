@@ -45,12 +45,8 @@ export const mapColorFileUpdate = (req: Request, res: Response, next: NextFuncti
         if (mainFile) {
             color.image_main = mainFile;
         }
-        else if (typeof color.image_main === "string") {
-            color.image = color.image_main;
-        }
         const uploadFiles = files?.filter(f => f.fieldname === "color_images") || [];
         let resultImages: (string | Express.Multer.File)[] = [];
-
         if (color.color_images) {
             if (Array.isArray(color.color_images)) {
                 for (const item of color.color_images) {
@@ -58,8 +54,6 @@ export const mapColorFileUpdate = (req: Request, res: Response, next: NextFuncti
                         resultImages.push(item);
                     }
                 }
-            } else if (typeof color.color_images === "string") {
-                resultImages.push(color.color_images);
             }
         }
         for (const file of uploadFiles) {
@@ -69,6 +63,7 @@ export const mapColorFileUpdate = (req: Request, res: Response, next: NextFuncti
         req.body = color;
         next();
     } catch (err) {
+        console.log(err);
         throw new AppError("Failed to map images", 400, false);
     }
 };
@@ -206,6 +201,7 @@ export const updateProductColorValidation = [
         .withMessage("Product ID is required"),
 
     body("color_id_mongo")
+        .optional()
         .notEmpty()
         .withMessage("Color ID is required"),
 
@@ -215,31 +211,50 @@ export const updateProductColorValidation = [
         .withMessage("Color must be a string"),
 
     body("is_main")
-        .optional()
         .isBoolean()
         .withMessage("is_main must be boolean"),
 
     body("sizes")
-        .optional()
         .isArray()
         .withMessage("Sizes must be an array"),
 
-    body("sizes.*.size_id_mongo")
-        .notEmpty()
-        .withMessage("size_id_mongo is required for each size"),
+    // body("sizes.*.size_id_mongo")
+    //     .notEmpty()
+    //     .withMessage("size_id_mongo is required for each size"),
 
     body("sizes.*.size")
-        .optional()
         .isString()
         .withMessage("Size must be a string"),
 
     body("sizes.*.price")
-        .optional()
         .isNumeric()
         .withMessage("Price must be a number"),
 
     body("sizes.*.stock")
+        .isNumeric()
+        .withMessage("Stock must be a number"),
+]
+export const AddProductColorValidation = [
+    param("id")
+        .notEmpty()
+        .withMessage("Product ID is required"),
+
+    body("color")
         .optional()
+        .isString()
+        .withMessage("Color must be a string"),
+    body("sizes")
+        .isArray()
+        .withMessage("Sizes must be an array"),
+    body("sizes.*.size")
+        .isString()
+        .withMessage("Size must be a string"),
+
+    body("sizes.*.price")
+        .isNumeric()
+        .withMessage("Price must be a number"),
+
+    body("sizes.*.stock")
         .isNumeric()
         .withMessage("Stock must be a number"),
 ]
@@ -260,4 +275,25 @@ export const getByBrandValidation = [
         .isString().withMessage("Brand ID must be a string")
         .notEmpty().withMessage("Brand ID is required")
         .isUUID().withMessage("Brand ID must be a valid UUID"),
+];
+
+export const deleteColorValidation = [
+    body("product_id_sql")
+        .isString().withMessage("Id must be a string")
+        .notEmpty().withMessage("Id is required")
+        .isUUID().withMessage("Id must be a valid UUID"),
+    body("color_id_mongo")
+        .isString().withMessage("Id must be a string")
+        .notEmpty().withMessage("Id is required")    
+];
+export const statusAllValidation = [
+    body("status")
+        .isString().withMessage('Status must be a string')
+        .notEmpty().withMessage('Status is required')
+        .isIn(['hidden', 'active', 'banned']).withMessage('Status must be one of: hidden, active, banned'),   
+];
+export const stockAllValidation = [
+    body("stock")
+        .isNumeric()
+        .withMessage("Stock must be a number"),
 ];

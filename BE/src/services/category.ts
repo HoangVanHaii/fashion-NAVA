@@ -31,9 +31,9 @@ export const getAllActiveCategories = async(pool: ConnectionPool): Promise<Categ
         throw new AppError("Failed to get active categories", 500, false);
     }
 };
-export const getCategoryNamByGender = async (pool: ConnectionPool, gender: string) : Promise<string[] | null> => {
+export const getCategoryNamByGender = async (pool: ConnectionPool, gender: string) => {
     try {
-        const query = `SELECT category_name
+        const query = `SELECT category_id, category_name
                     FROM categories 
                     WHERE gender = @gender`;
         const result = await pool.request()
@@ -41,8 +41,7 @@ export const getCategoryNamByGender = async (pool: ConnectionPool, gender: strin
             .query(query);
 
         if(!result) return null;
-        const categoryNames = result.recordset.map(row => row.category_name);
-        return categoryNames as string[];
+        return result.recordset;
     } catch (error) {
         console.log("Failed to fetching category name",error);
         throw new AppError('Failed to fetching category name', 500, false);

@@ -6,12 +6,12 @@ import { authMiddleware, isEmployee, isAdmin } from '../../middlewares/authMiddl
 
 const router = Router();
 router.post(
-    '/register-employee',
+    '/create-user',
     authMiddleware,
     isAdmin,
-    userMiddleware.registerEmployee,
+    userMiddleware.createAccount,
     validateRequest,
-    admincontroller.registerEmployee
+    admincontroller.registerAccount
 );
 router.put(
     '/change-role',
@@ -20,6 +20,12 @@ router.put(
     userMiddleware.changeRole,
     validateRequest,
     admincontroller.changeRole
+);
+router.get(
+    '/user',
+    authMiddleware,
+    isAdmin,
+    admincontroller.getAllUserForAdmin
 );
 
 export default router;

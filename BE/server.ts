@@ -1,10 +1,11 @@
 import express, { Request, Response, NextFunction } from 'express';
+import cors from 'cors'
 import * as dotenv from 'dotenv';
 import { connectDatabases } from './src/config/database';
 import authRouter from './src/routers/user'
 import reviewRouter from './src/routers/review'
 import adminRouter from './src/routers/admin/user'
-import adminaProduct from './src/routers/admin/product'
+import adminProduct from './src/routers/admin/product'
 import { errorHandler } from './src/middlewares/errorHandler';
 import productRouter from './src/routers/product'
 import cartRouter from './src/routers/cart'
@@ -22,15 +23,11 @@ import brandRouter from './src/routers/brand'
 import flashSaleRouter from "./src/routers/flashSale";
 import cors from 'cors';
 
-
 dotenv.config();
 
 const app = express();
-app.use(cors({
-    origin: 'http://localhost:5173', // Cho phép Frontend (Vite mặc định là port 5173)
-    credentials: true // Cho phép gửi cookie/token nếu cần
-}));
 app.use(express.json());
+app.use(cors())
 app.use(express.urlencoded({ extended: true }));
 app.use('/api/auth', authRouter);
 app.use('/api/review', reviewRouter);
@@ -42,7 +39,7 @@ app.use("/api/voucher", voucherRouter);
 
 app.use("/api/order", orderRouter);
 app.use("/api/payment", vnpayRouter);
-app.use('/api/admin/product', adminaProduct);
+app.use('/api/admin/product', adminProduct);
 app.use('/api/product', productRouter);
 app.use('/api/category', categoryRouter);
 app.use('/api/admin/category', adminCatetory);

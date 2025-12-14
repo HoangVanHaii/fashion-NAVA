@@ -7,7 +7,9 @@ const router = Router();
 
 router.get("/all", authMiddleware, brandController.getAllBrands);
 router.get("/detail/:id", authMiddleware, brandsValidator.brandByIdValidator, validateRequest, brandController.getBrandById);
+router.get("/rating/:id", authMiddleware, brandController.getBrandRating);
 
+router.get("/public/rating/:id", brandController.getBrandRating);
 router.get("/public", brandController.getAllBrandsForGuest);
 router.get("/public/detail/:id", brandsValidator.brandByIdValidator, validateRequest, brandController.getBrandByIdForGuest);
 
