@@ -37,7 +37,7 @@ const useProduct = useProductStore();
 const useVoucher = voucherStore();
 const useFlashSale = flashSaleStore();
 const currentIndex = ref(0);
-let timer: number;
+let timer: number = 1;
 const hours = ref(0);
 const minutes = ref(0);
 const seconds = ref(0);
@@ -208,7 +208,7 @@ const getTotalStock = (product: any): number => {
 
   return totalSold;
 };
-const copyText = async (text: string, index: number, voucher_id: number) => {
+const copyText = async (text: string, index: number, voucher_id: string) => {
   navigator.clipboard.writeText(text);
   copiedList.value[index] = true;
 
