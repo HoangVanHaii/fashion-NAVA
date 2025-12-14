@@ -21,7 +21,7 @@ import adminCatetory from './src/routers/admin/category'
 import adminBrand from './src/routers/admin/brand';
 import brandRouter from './src/routers/brand'
 import flashSaleRouter from "./src/routers/flashSale";
-
+import cors from 'cors';
 
 dotenv.config();
 

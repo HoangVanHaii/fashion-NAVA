@@ -1,6 +1,6 @@
 import { UserVoucherDetail, Voucher } from "../interfaces/voucher";
 import { AppError } from "../utils/appError";
-import { getBranchPool } from "../config/database";
+import { getBranchPool,dbPools } from "../config/database";
 import { ConnectionPool, Transaction } from "mssql";
 
 export const createVoucher = async (voucher:Voucher,branch_code:string)=>{
@@ -228,14 +228,15 @@ export const getUserVouchers = async (userId: string, branch_code:string): Promi
     }
   };
 
-export const validateVoucher = async (code: string, orderTotal: number, shop_id?: number): Promise<number> => {
+export const validateVoucher = async (code: string, orderTotal: number, dbBranch: any): Promise<{ discount: number, voucher_id: string }> => {
     try {
-        const pool = getBranchPool('CT');
-        if (!pool) throw new AppError("Database connection failed", 500); 
 
-        const query = `SELECT * FROM vouchers WHERE code = @code`;
-        const result = await pool
-            .request()
+        if (!dbBranch || !dbBranch.connected) {
+            throw new AppError("Database connection failed", 500);
+        }
+
+        const query = `SELECT * FROM vouchers WHERE code = @code `;
+        const result = await dbBranch.request()
             .input("code", code)
             .query(query);
 
@@ -244,39 +245,50 @@ export const validateVoucher = async (code: string, orderTotal: number, shop_id?
         }
 
         const voucher = result.recordset[0];
+
         const now = new Date();
+        now.setHours(now.getHours() + 7); 
 
         const startDate = new Date(voucher.start_date);
         const endDate = new Date(voucher.end_date);
 
-        if (startDate.getTime() > now.getTime() || endDate.getTime() < now.getTime()) {
-            throw new AppError("Voucher is not valid at this time", 400);
-        }
-        if (voucher.quantity <= voucher.used) {
+        if (now < startDate) throw new AppError("Voucher is not valid at this time", 400);
+        if (now > endDate) throw new AppError("Voucher has expired", 400);
+
+        const quantity = Number(voucher.quantity) || 0;
+        const used = Number(voucher.used) || 0;
+        const minOrder = Number(voucher.min_order_value) || 0;
+    
+        if (quantity <= used) {
             throw new AppError("Voucher is no longer available", 400);
         }
-        if (orderTotal < voucher.min_order_value) {
-            throw new AppError(`Order total must be at least ${voucher.min_order_value} to use this voucher`, 400);
-        }
-        if (voucher.scope == "SHOP" && voucher.shop_id !== shop_id) {
-            throw new AppError("Voucher is not valid for this shop", 400);
-        }
 
+        if (orderTotal < minOrder) {
+            throw new AppError(`Order total must be at least ${minOrder} to use this voucher`, 400);
+        }
         let discount = 0;
+        const discountVal = Number(voucher.discount_value) || 0;
+        const maxDiscount = Number(voucher.max_discount) || 0;
+
         if (voucher.discount_type === "PERCENT") {
-            discount = (orderTotal * voucher.discount_value) / 100;
-            if (voucher.max_discount && discount > voucher.max_discount) {
-                discount = voucher.max_discount;
+            discount = (orderTotal * discountVal) / 100;
+            if (maxDiscount > 0 && discount > maxDiscount) {
+                discount = maxDiscount;
             }
         } else if (voucher.discount_type === "FIXED") {
-            discount = voucher.discount_value;
+            discount = discountVal;
         }
 
-        return discount;
+        return {
+            discount: Math.floor(discount), 
+            voucher_id: voucher.id 
+        };
+
     } catch (error: any) {
         if (error instanceof AppError) {
             throw error;
         }
+        console.log(error);
         throw new AppError('Failed to validate voucher', 500, false);
     }
 };

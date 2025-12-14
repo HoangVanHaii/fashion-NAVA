@@ -7,12 +7,19 @@ import CartItemMongo  from "../models/cart.mongo";
 import {ICartFull, ICartItem, ICartItemColor, ICartItemFull, ICartItemSize} from "../interfaces/cart"
 import { ProductDetailModel } from "../models/product";
 
-export const addtoCart = async (user_id: string, data:ICartItem, branch_code: string) => {
+export const addtoCart = async (user_id: string, data: ICartItem, branch_code: string) => {
     const pool: ConnectionPool | null = getBranchPool(branch_code);
     if (!pool) throw new AppError("SQL pool cannot connect", 503);
 
+    if (!data.product_id_sql || !data.size_id_mongo) {
+        throw new AppError("Missing product_id_sql or size_id_mongo", 400);
+    }
+
+    const inputProductId = data.product_id_sql.toLowerCase();
+    const inputSizeId = data.size_id_mongo.toString();
+    data.product_id_sql = inputProductId;
     const productDetail = await ProductDetailModel.findOne({ 
-        product_id_sql: data.product_id_sql 
+        product_id_sql: inputProductId 
     }).lean();
 
     if (!productDetail) {
@@ -20,13 +27,11 @@ export const addtoCart = async (user_id: string, data:ICartItem, branch_code: st
     }
     
     let isSizeValid = false;
-
     if (productDetail.colors) {
         for (const color of productDetail.colors) {
             const sizeExists = color.sizes.find((s: any) => 
-                s._id.toString() === data.size_id_mongo.toString()
+                s._id.toString() === inputSizeId 
             );
-
             if (sizeExists) {
                 isSizeValid = true;
                 break; 
@@ -39,8 +44,8 @@ export const addtoCart = async (user_id: string, data:ICartItem, branch_code: st
     }
 
     const stockQuery = await pool.request()
-        .input("product_id", data.product_id_sql)
-        .input("size_id", data.size_id_mongo)
+        .input("product_id", inputProductId) 
+        .input("size_id", inputSizeId)       
         .query(`
             SELECT stock
             FROM branch_inventories
@@ -57,6 +62,7 @@ export const addtoCart = async (user_id: string, data:ICartItem, branch_code: st
     try {
         let cart_id_sql; 
         let item_mongo_id;
+        
         const result = await pool.request()
             .input("user_id", user_id)
             .query(`
@@ -70,6 +76,7 @@ export const addtoCart = async (user_id: string, data:ICartItem, branch_code: st
         if (!cart) {
             const id_sql = uuidv4();
             const id_mongo = new mongoose.Types.ObjectId();
+            
             await pool.request()
                 .input("id", id_sql)
                 .input("user_id", user_id)
@@ -86,7 +93,7 @@ export const addtoCart = async (user_id: string, data:ICartItem, branch_code: st
                 _id: item_mongo_id,
                 cart_id_sql,
                 user_id_sql: user_id,
-                items: [data]
+                items: [data] 
             });
 
         } else {
@@ -98,7 +105,11 @@ export const addtoCart = async (user_id: string, data:ICartItem, branch_code: st
                 throw new AppError("Cart Mongo not found", 500);
             }
 
-            const existingItem = cartMongo.items.find(item =>item.product_id_sql === data.product_id_sql && item.size_id_mongo.toString() === data.size_id_mongo.toString());
+            const existingItem = cartMongo.items.find(item => 
+                item.product_id_sql?.toLowerCase() === inputProductId && 
+                item.size_id_mongo?.toString() === inputSizeId
+            );
+
             if (existingItem) {
                 const newQty = existingItem.quantity + data.quantity;
 
@@ -106,11 +117,21 @@ export const addtoCart = async (user_id: string, data:ICartItem, branch_code: st
                     const maxCanAdd = stock - existingItem.quantity;
                     throw new AppError(`Only addMax ${maxCanAdd} items in stock`, 400);
                 }
+                
+             
                 await CartItemMongo.updateOne(
-                    { _id: item_mongo_id, "items.size_id_mongo": data.size_id_mongo, "items.product_id_sql": data.product_id_sql },
-                    { $inc: { "items.$.quantity": data.quantity } , $set: { updated_at: new Date() }}    
+                    { 
+                        _id: item_mongo_id, 
+                        "items.size_id_mongo": data.size_id_mongo, 
+                        "items.product_id_sql": inputProductId 
+                    },
+                    { 
+                        $inc: { "items.$.quantity": data.quantity }, 
+                        $set: { updated_at: new Date() }
+                    }    
                 );
             } else {
+        
                 await CartItemMongo.findByIdAndUpdate(
                     item_mongo_id,
                     { $push: { items: data } },
@@ -120,14 +141,18 @@ export const addtoCart = async (user_id: string, data:ICartItem, branch_code: st
         }
     } catch (error) {
         console.error("ADD TO CART REAL ERROR:", error);
-        throw new AppError("Error checking/creating cart", 500,false);
+        if (error instanceof AppError) throw error;
+        throw new AppError("Error checking/creating cart", 500, false);
     }
 };
 
-export const getCartItems = async (user_id: string, branch_code: string): Promise<ICartFull> => {
+export const getCartItems = async (
+    user_id: string,
+    branch_code: string
+): Promise<ICartFull> => {
     try {
         const cartMongo = await CartItemMongo.findOne({ user_id_sql: user_id });
-        
+
         if (!cartMongo) {
             return {
                 cart_id_sql: "",
@@ -144,40 +169,53 @@ export const getCartItems = async (user_id: string, branch_code: string): Promis
         const itemPromises = cartMongo.items.map(async (item) => {
             if (!item.product_id_sql) return null;
 
+            // ===== SQL PRODUCT =====
             const result = await pool.request()
-                .input('product_id', item.product_id_sql)
-                .input('size_id', item.size_id_mongo)
+                .input("product_id", item.product_id_sql)
+                .input("size_id", item.size_id_mongo)
                 .query(`
                     SELECT 
-                        p.id, p.name, bi.price AS base_price, fsi.flash_sale_price
+                        p.id,
+                        p.name,
+                        bi.price AS base_price,
+                        fsi.flash_sale_price
                     FROM products p
                     JOIN branch_inventories bi ON p.id = bi.product_id
-                    LEFT JOIN flash_sale_items fsi ON fsi.product_id = p.id
+                    LEFT JOIN flash_sale_items fsi 
+                        ON fsi.product_id = p.id
                         AND fsi.size_id_mongo = @size_id
                         AND fsi.status = 'active'
                     WHERE p.id = @product_id
                 `);
-            
+
             const product = result.recordset[0];
             if (!product) return null;
 
             const price = product.flash_sale_price ?? product.base_price;
             const total_price = price * item.quantity;
 
-            const productDetail = await ProductDetailModel.findOne({ product_id_sql: item.product_id_sql }).lean();
-            
-            let variantColor: ICartItemColor | undefined = undefined;
-            let variantSize: ICartItemSize | undefined = undefined;
+            const productDetail = await ProductDetailModel
+                .findOne({ product_id_sql: item.product_id_sql })
+                .lean();
 
-            if (productDetail && productDetail.colors?.length) {
+            let variantSize: ICartItemSize | undefined;
+            let variantColor: ICartItemColor | undefined;
+
+            if (productDetail?.colors?.length) {
                 for (const color of productDetail.colors) {
-                    const sizeExists = color.sizes.find((s: any) => s._id.toString() === item.size_id_mongo.toString());
-                    
+                    const sizeExists = color.sizes.find(
+                        (s: any) => s._id.toString() === item.size_id_mongo.toString()
+                    );
+
                     if (sizeExists) {
-                        variantSize = { size_id_mongo: item.size_id_mongo, size: sizeExists.size };
-                        variantColor = { 
-                            color_id_mongo: color._id!.toString(), 
-                            color: color.color, 
+                        variantSize = {
+                            size_id_mongo: item.size_id_mongo,
+                            size: sizeExists.size
+                        };
+
+                        variantColor = {
+                            color_id_mongo: color._id!.toString(),
+                            color: color.color,
                             image_main: color.image_main as string
                         };
                         break;
@@ -186,6 +224,7 @@ export const getCartItems = async (user_id: string, branch_code: string): Promis
             }
 
             return {
+                _id: item._id!.toString(), 
                 product_id_sql: item.product_id_sql,
                 name: product.name,
                 quantity: item.quantity,
@@ -200,10 +239,19 @@ export const getCartItems = async (user_id: string, branch_code: string): Promis
         });
 
         const results = await Promise.all(itemPromises);
-        const itemsFull = results.filter((item): item is ICartItemFull => item !== null);
+        const itemsFull = results.filter(
+            (item): item is ICartItemFull => item !== null
+        );
 
-        const total_quantity = itemsFull.reduce((sum, item) => sum + item.quantity, 0);
-        const total_amount = itemsFull.reduce((sum, item) => sum + item.total_price, 0);
+        const total_quantity = itemsFull.reduce(
+            (sum, item) => sum + item.quantity,
+            0
+        );
+
+        const total_amount = itemsFull.reduce(
+            (sum, item) => sum + item.total_price,
+            0
+        );
 
         return {
             cart_id_sql: cartMongo.cart_id_sql || "",
@@ -212,13 +260,13 @@ export const getCartItems = async (user_id: string, branch_code: string): Promis
             total_quantity,
             total_amount
         };
-
     } catch (error) {
         if (error instanceof AppError) throw error;
-        console.error("GetCart Error:", error); 
-        throw new AppError("Error get cart", 500,false); 
+        console.error("GetCart Error:", error);
+        throw new AppError("Error get cart", 500, false);
     }
-}
+};
+
 
 export const updateCartItemQuantity = async (cartItem_mongo_id: string, newQuantity: number, branch_code:string)=>{
     try {

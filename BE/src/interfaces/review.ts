@@ -32,3 +32,17 @@ export interface IChildReview {
   videos?: { secure_url: string; public_id: string }[];
   createdAt?: Date;
 }
+
+export interface ProductStat {
+    product_id: string;
+    product_name: string;
+    total_reviews: number;
+    avg_star: number;
+    sum_rating?: number;      
+    product_image: string;   
+    total_5_star: number;
+    total_4_star: number;
+    total_3_star: number;
+    total_2_star: number;
+    total_1_star: number;
+}

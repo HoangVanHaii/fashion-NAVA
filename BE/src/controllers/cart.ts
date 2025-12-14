@@ -46,8 +46,8 @@ export const updateCartItemQuantity = async (req: Request, res: Response, next: 
     try {
         const cartItem_mongo_id = req.params.id;
         const branch_code = req.user!.branch_code;
-        const { quantity } = req.body;
-        await cartService.updateCartItemQuantity(cartItem_mongo_id, quantity,branch_code);
+        const { newQuantity } = req.body;
+        await cartService.updateCartItemQuantity(cartItem_mongo_id, newQuantity,branch_code);
         return res.status(200).json({
             success: true,
             message: "Cart item quantity updated successfully"

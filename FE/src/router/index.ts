@@ -19,6 +19,13 @@ import Home from '@/views/Home.vue';
 import DealHot from '@/views/DealHot.vue';
 import CategoryGender from '@/views/CategoryGender.vue';
 
+import HomeView from '../views/HomeView.vue'
+import OrderTest from '../views/OrderTest.vue'
+import ReviewDashboard from '../views/ReviewDashboard.vue'
+import ProductReviewDetail from '../views/ProductReviewDetail.vue'
+import Cart from '../views/Cart.vue'
+import Payment from '../views/Payment.vue'
+
 const routes = [
   { path: '/', redirect: '/home' },
   { path: '/employee/order', name: 'order-employee', component: OrderEmployee },
@@ -42,6 +49,25 @@ const routes = [
   { path: '/admin/voucher-management', name: 'VoucherAdmin', component: VoucherManagement },
   { path: '/admin/user-management', name: 'UserAdmin', component: UserManagement },
   { path: '/admin/flashsale-management', name: 'FlashSaleAdmin', component: FlashSaleManagement },
+  
+  
+  { path: '/', name: 'home-view', component: HomeView },
+  { path: '/test-review', name: 'test-review', component: OrderTest },
+  { path: '/dash_board', name: 'dash_board', component: ReviewDashboard },
+  { path: '/dashboard/reviews/product/:product_id',
+    name: 'ProductReviewDetail',
+    component: ProductReviewDetail,
+    props: route => ({
+      product_id: route.params.product_id,
+      branch: route.query.branch
+    })
+  },
+  { path: '/cart', name: 'cart', component: Cart },
+  { path: '/payment',
+    name: 'payment',
+    component: Payment,
+    meta: { requiresAuth: true }
+  },
 
 ]
 const router = createRouter({ history: createWebHistory(), routes });
