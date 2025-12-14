@@ -4,6 +4,7 @@ import { v4 as uuidv4 } from "uuid";
 import mongoose, { Types } from "mongoose";
 import { IChildReview, ReviewDTO } from "../interfaces/review";
 import * as reviewService from "../services/review";
+import { AppError } from "../utils/appError";
 
 export const createReviewController = async (req: Request, res: Response,next: NextFunction) => {
   const uploadedFiles = req.files as Express.Multer.File[];
@@ -140,8 +141,8 @@ export const updateReviewController = async (req: Request, res: Response,next: N
         images: images.length > 0 ? images : undefined,
         videos: videos.length > 0 ? videos : undefined,
       };
-
-      const updatedReview = await reviewService.updateReview(updateData);
+      const branch_code = req.user!.branch_code || "CENTRAL";
+      const updatedReview = await reviewService.updateReview(updateData,branch_code);
       return res.status(200).json({
         success: true,
         message: "Child review updated successfully",
@@ -207,7 +208,7 @@ export const updateChildReviewController = async (req: Request, res: Response,ne
 
 export const deleteReviewController = async (req: Request, res: Response,next: NextFunction) => {
   const { review_id_sql,mongodb_id} = req.params;
-  const brand_code="HN"
+  const brand_code=req.user!.branch_code
   const user_id=req.user!.id
   try {
     await reviewService.deleteReview(review_id_sql,mongodb_id,brand_code,user_id);
@@ -241,8 +242,13 @@ export const deleteChildReviewController = async (req: Request, res: Response,ne
 export const getReviewsByProductId = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const product_id = req.params.product_id;
-        const user_id= req.user!.id;
-        const reviews = await reviewService.getReviewsByProductId(product_id,user_id);
+        const user_id = req.user!.id;
+        
+        const branch_query = req.query.branch as string;
+        const branch_code = branch_query || req.user!.branch_code;
+
+        const reviews = await reviewService.getReviewsByProductId(product_id, user_id, branch_code);
+        
         res.status(200).json({
             success: true,
             message: "Reviews fetched successfully",
@@ -253,3 +259,78 @@ export const getReviewsByProductId = async (req: Request, res: Response, next: N
         next(err);
     }
 }
+
+export const getAllProductStats = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+
+        const currentUser = req.user!;
+
+        let targetBranch = currentUser.branch_code;
+        type BranchType = "HN" | "DN" | "HCM" | "CT";
+
+        if (currentUser.role === 'admin' && req.query.branch) {
+            targetBranch = (req.query.branch as string) as BranchType;
+        }
+
+        console.log(`User ${currentUser.branch_code} đang xem dữ liệu của: ${targetBranch}`); // Log ra để kiểm chứng
+
+        const data = await reviewService.getAllProductStats(targetBranch);
+
+        return res.status(200).json({
+            success: true,
+            count: data.length, 
+            data: data
+        });
+    } catch (err) {
+        next(err);
+    }
+};
+export const getCentralProductStats = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const data = await reviewService.getAllProductStatsCentral();
+
+        return res.status(200).json({
+            success: true,
+            count: data.length,
+            data: data
+        });
+    } catch (err) {
+        next(err);
+    }
+};
+
+export const getTopDiscussedByProduct = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const branch_code = req.user!.branch_code; 
+        const { product_id } = req.params; 
+
+        const data = await reviewService.getTopDiscussedReviewsByProduct(product_id, branch_code);
+
+        return res.status(200).json({
+            success: true,
+            count: data.length,
+            data: data
+        });
+    } catch (err) {
+        next(err);
+    }
+};
+
+export const getReviewsByOrderItemIdOfMe = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const order_item_id =req.params.order_id;
+        const user_id = req.user!.id; 
+        const branch_code = req.user!.branch_code
+
+        const reviews = await reviewService.getReviewsByOrderItemIdOfMe(order_item_id, user_id,branch_code);
+
+        return res.status(200).json({
+            success: true,
+            message: "Your reviews for this order fetched successfully",
+            data: reviews
+        });
+
+    } catch (err: any) {
+        next(err);
+    }
+};

@@ -1,7 +1,5 @@
-import mongoose from "mongoose";
-
 export interface ICartItem {
-    _id?: mongoose.Types.ObjectId;
+    _id?: string; 
     product_id_sql?: string;
     size_id_mongo: string;
     quantity: number;
@@ -19,17 +17,17 @@ export interface ICartItemColor {
 }
 
 export interface ICartItemFull {
-    _id: string;                
-    product_id_sql: string;
-    name: string;
-    quantity: number;
-    base_price?: number;
-    price: number;
-    total_price: number;
-    variant: {
-        size?: ICartItemSize;
+    _id: string;
+    product_id_sql: string;         
+    name: string;                   
+    quantity: number;                
+    base_price?: number;    
+    price: number;                   
+    total_price: number;             
+    variant?: {
         color?: ICartItemColor;
-    };
+        size?: ICartItemSize;
+    }
 }
 
 export interface ICartFull {

@@ -70,35 +70,43 @@ const makeOrderItem = async (orderItems: any, dbBranch: ConnectionPool, branch_i
 }
 export const createOrder = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        
         const { orderItems, voucherCode, address, methodPayment, note } = req.body;
 
         const userId = req.user?.id as string;
         const branch_id = req.user?.branch_id as string;
         const dbBranch = req.dbBranch;
         const branch_code = req.user?.branch_code;
+        
         if (!dbBranch || !dbBranch.connected) {
             throw new AppError(`${branch_code} is not connected`, 503);
         }
+        
         const { orderItemsData, total } = await makeOrderItem(orderItems, dbBranch, branch_id);
 
         let discount_value = 0;
+        let validVoucherId = null; 
+
         if (voucherCode) {
-            discount_value = await voucherService.validateVoucher(voucherCode, total);
+            const voucherResult = await voucherService.validateVoucher(voucherCode, total, dbBranch);
+            
+            discount_value = voucherResult.discount;
+            validVoucherId = voucherResult.voucher_id; 
         }
+
         const orderPayload: OderPayLoad = {
             order: {
                 user_id: userId, 
-                voucher_id: voucherCode ? voucherCode : undefined,
-                total: total-discount_value,
+                voucher_id: validVoucherId ? validVoucherId : undefined,
+                total: total - discount_value,
                 payment_method: methodPayment,
                 address: address,
                 note: note
             },
             orderItems: orderItemsData
         };
+
         const newOrder = await orderService.createOrder(orderPayload, dbBranch, branch_id);
-        // console.log("Order Payload: ", orderPayload);
+
         if (methodPayment === 'vnpay') {
             if (total < 5000) {
                 throw new AppError("Minimum order amount for VNPAY is 5000", 400);
@@ -109,6 +117,7 @@ export const createOrder = async (req: Request, res: Response, next: NextFunctio
             );
             return res.status(201).json({ paymentUrl });
         }
+
         return res.status(201).json({
             success: true,
             message: "Order created successfully",
@@ -116,6 +125,7 @@ export const createOrder = async (req: Request, res: Response, next: NextFunctio
         });
 
     } catch (err) {
+        console.log(err)
         next(err);
     }
 }

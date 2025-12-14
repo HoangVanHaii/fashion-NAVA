@@ -6,6 +6,7 @@ import mongoose from "mongoose";
 import { OrderDetail } from "../models/order.mongo";
 import { AppError } from "../utils/appError";
 import { Address } from "../interfaces/address";
+import CartItemMongo  from "../models/cart.mongo";
 const insertOrder = async (tranRequest: Transaction, orderIdSql: string, orderData: Order, mongoOrderId: mongoose.Types.ObjectId): Promise<void> => {
     const query = `INSERT INTO orders (ID, user_id, total, voucher_id, mongodb_id, method_order, status)
     VALUES (@orderId, @user_id, @total, @voucher_id, @mongodb_id, @method_order, @status)`;
@@ -117,26 +118,43 @@ const insertPayment = async (tranRequest: Transaction, orderIdSql: string, order
         .input('status', 'pending')
         .query(query);
 }
+
+const removeItemsFromCart = async (userIdSql: string, orderItems: OrderItem[]): Promise<void> => {
+    const sizeIdsToRemove = orderItems.map(item => item.size_id_mongo);
+    await CartItemMongo.updateOne(
+        { user_id_sql: userIdSql },
+        { 
+            $pull: { 
+                items: { 
+                    size_id_mongo: { $in: sizeIdsToRemove } 
+                } 
+            } 
+        }
+    );
+};
+
 export const createOrder = async (orderPayload: OderPayLoad, dbBranch: ConnectionPool, branch_id: string): Promise<string> => {
     const tranRequest: Transaction = dbBranch.transaction();
     const orderIdSql = uuidv4();
     const mongoOrderId = new mongoose.Types.ObjectId();
     try {
         await tranRequest.begin();
-        // function insert order
         await insertOrder(tranRequest, orderIdSql, orderPayload.order, mongoOrderId);
-        // function insert order items
         await insertOrderItems(tranRequest, orderIdSql, orderPayload.orderItems);
-        // update stock
         await updateStockAfterOrder(tranRequest, orderPayload.orderItems, branch_id);
-        // insert detail order in mongoDB
         await insertOrderDetailMongoDB(mongoOrderId, orderIdSql ,orderPayload.orderItems, orderPayload.order.address!, orderPayload.order.note);
-
-        // function insert payment
         await insertPayment(tranRequest, orderIdSql, orderPayload.order);
         await tranRequest.commit();
+
+        try {
+            await removeItemsFromCart(orderPayload.order.user_id, orderPayload.orderItems);
+        } catch (error) {
+            console.error(error);
+        }
+
         return orderIdSql as string;
     } catch (err) {
+        console.error(" LỖI SQL GỐC (NGUYÊN NHÂN 500):", err);
         await tranRequest.rollback();
         await OrderDetail.findByIdAndDelete(mongoOrderId);
 

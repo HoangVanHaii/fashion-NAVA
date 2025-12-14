@@ -1,4 +1,4 @@
-import { body, param } from "express-validator";
+import { body, param ,query} from "express-validator";
 
 // Validate tạo review
 export const createReview = [
@@ -118,11 +118,17 @@ export const deleteChildReview = [
     .withMessage("child_id must be a valid MongoDB ObjectId"),
 ];
 
-// Validate get reviews by product id
 export const getReviewsByProductId = [
+
   param("product_id")
     .exists({ checkFalsy: true })
     .withMessage("product_id is required")
     .isString()
     .withMessage("product_id must be a string"),
+
+  query("branch")
+    .optional() 
+    .isString().withMessage("Branch code must be a string")
+    .isIn(['HN', 'HCM', 'DN', 'CENTRAL']) // Chỉ cho phép các mã này
+    .withMessage("Invalid branch code (Must be HN, HCM, DN or CENTRAL)"),
 ];
