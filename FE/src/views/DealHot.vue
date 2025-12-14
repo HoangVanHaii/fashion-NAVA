@@ -10,9 +10,12 @@
     import Loading from "@/components/Loading.vue";
     import Header from "@/components/Header.vue";
     import Footer from "@/components/Footer.vue";
-    // import { useFavouriteStore } from "../stores/favourite";
+import { useFavouriteStore } from "../stores/favourite";
+import { useAuthStore } from "@/stores/auth";
+import  type { FavouriteDetail } from "../interfaces/favourite";
+const userStore = useAuthStore();
     
-    // const favourite = useFavouriteStore();
+    const favourite = useFavouriteStore();
     const router = useRouter();
     const flashSale1 = ref<FlashSale | null>(null);
     const flashSale2 = ref<FlashSale | null>(null);
@@ -22,7 +25,7 @@
     const showFormAdd = ref(false);
     const showMoreHotDeal1 = ref(false);
     const showMoreHotDeal2 = ref(false);
-    const loading = ref(false);
+const loading = ref(false);
     
     onMounted(async () => {
         loading.value = true;
@@ -32,7 +35,6 @@
     
         excludeIds = ""//////x///
         flashSale1.value = await useFlashSale.getFlashSaleHotDeal1NotIN(excludeIds);
-        // await favourite.getFavouriteOfMeStore();
         if (flashSale1.value && flashSale1.value.ID) {
             const id = flashSale1.value.ID.toString();
     
@@ -44,6 +46,10 @@
         }
         excludeIds = ''/////////////
         flashSale2.value = await useFlashSale.getFlashSaleHotDeal2NotIN(excludeIds);
+        if (userStore.isLogin) {
+            await favourite.getFavouriteOfMeStore();
+            
+        }
         loading.value = false;
     });
     
@@ -157,10 +163,10 @@
                                         <button @click.stop="handleCart(product)" class="w-9 h-9 bg-white text-black rounded-full shadow-md flex items-center justify-center hover:bg-black hover:text-white transition-colors">
                                             <i class="fa-solid fa-cart-plus text-sm"></i>
                                         </button>
-                                        <!-- favourite.toggleFavouriteInstant(product.id) -->
-                                        <button @click.stop="" class="w-9 h-9 bg-white text-black rounded-full shadow-md flex items-center justify-center hover:bg-red-50 hover:text-red-500 transition-colors">
-                                            <i :class="1 ? 'fa-solid fa-heart text-red-500' : 'fa-regular fa-heart text-sm'"></i>
-                                            <!-- favourite.isFavourite(product.id) -->
+                                        <!--  -->
+                                        <button @click.stop="favourite.toggleFavouriteInstant(product.product_id_sql)" class="w-9 h-9 bg-white text-black rounded-full shadow-md flex items-center justify-center hover:bg-red-50 hover:text-red-500 transition-colors">
+                                            <i :class="favourite.isFavourite(product.product_id_sql) ? 'fa-solid fa-heart text-red-500' : 'fa-regular fa-heart text-sm'"></i>
+                                            <!--  -->
                                         </button>
                                     </div>
                                 </div>
@@ -225,8 +231,8 @@
                                             <i class="fa-solid fa-cart-plus text-sm"></i>
                                         </button>
                                         <!-- favourite.toggleFavouriteInstant(product.id) -->
-                                        <button @click.stop="" class="w-9 h-9 bg-white text-black rounded-full shadow-md flex items-center justify-center hover:bg-red-50 hover:text-red-500 transition-colors">
-                                            <i :class="1 ? 'fa-solid fa-heart text-red-500' : 'fa-regular fa-heart text-sm'"></i>
+                                        <button @click.stop="favourite.toggleFavouriteInstant(product.product_id_sql)" class="w-9 h-9 bg-white text-black rounded-full shadow-md flex items-center justify-center hover:bg-red-50 hover:text-red-500 transition-colors">
+                                            <i :class="favourite.isFavourite(product.product_id_sql) ? 'fa-solid fa-heart text-red-500' : 'fa-regular fa-heart text-sm'"></i>
                                             <!-- favourite.isFavourite(product.id) -->
                                         </button>
                                     </div>

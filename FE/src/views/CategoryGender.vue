@@ -9,9 +9,10 @@
     import { getMinProductPrice, getMaxProductPrice, checkProductSale, formatPrice, getMainProductImage } from "../utils/format";
     import AddToCart from "../components/AddToCard.vue";
 import { get } from "mongoose";
-    // import { useFavouriteStore } from "../stores/favourite";
+    import { useFavouriteStore } from "../stores/favourite";
     import Loading from "../components/Loading.vue";
-    
+    import { useAuthStore } from "@/stores/auth";
+const userStore = useAuthStore();
     const route = useRoute();
     const router = useRouter();
     const product = useProductStore();
@@ -23,7 +24,7 @@ import { get } from "mongoose";
     const selectedCategories = ref<string[]>([]);
 const showFormAdd = ref(false);
 const loadingPage = ref(false);
-    // const favourite = useFavouriteStore();
+    const favourite = useFavouriteStore();
     const showMobileFilter = ref(false); // State for mobile filter drawer
     
     const sortOptions = [
@@ -39,8 +40,12 @@ onMounted(async () => {
     loadingPage.value = true;
     productGender.value = await product.searchByCategoryGenderStore(gender);
         const queryName = route.query.name as string | string[] | undefined;
-        listCategory.value = await category.getCategoryNameStore(gender);
-    //   favourite.getFavouriteOfMeStore();
+    listCategory.value = await category.getCategoryNameStore(gender);
+
+    if (userStore.isLogin) {
+          favourite.getFavouriteOfMeStore();
+        
+    }
     loadingPage.value = false;
     });
     
@@ -245,8 +250,8 @@ const sortProducts = (products: IProductMongoDetail[], sortKey: string) => {
                                             <i class="fa-solid fa-cart-plus text-sm"></i>
                                         </button>
                                         <!-- favourite.toggleFavouriteInstant(prod.id) -->
-                                        <button @click.stop="" class="w-9 h-9 bg-white text-black rounded-full shadow-lg flex items-center justify-center hover:bg-red-50 hover:text-red-500 transition-colors">
-                                            <i :class="1111 ? 'fa-solid fa-heart text-red-500' : 'fa-regular fa-heart text-sm'"></i>
+                                        <button @click.stop="favourite.toggleFavouriteInstant(prod.product_id_sql)" class="w-9 h-9 bg-white text-black rounded-full shadow-lg flex items-center justify-center hover:bg-red-50 hover:text-red-500 transition-colors">
+                                            <i :class="favourite.isFavourite(prod.product_id_sql) ? 'fa-solid fa-heart text-red-500' : 'fa-regular fa-heart text-sm'"></i>
                                             <!-- favourite.isFavourite(prod.id) -->
                                         </button>
                                     </div>
