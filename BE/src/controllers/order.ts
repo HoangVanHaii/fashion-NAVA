@@ -98,6 +98,7 @@ export const createOrder = async (req: Request, res: Response, next: NextFunctio
                 user_id: userId, 
                 voucher_id: validVoucherId ? validVoucherId : undefined,
                 total: total - discount_value,
+                discount_value: 0,
                 payment_method: methodPayment,
                 address: address,
                 note: note
@@ -111,9 +112,11 @@ export const createOrder = async (req: Request, res: Response, next: NextFunctio
             if (total < 5000) {
                 throw new AppError("Minimum order amount for VNPAY is 5000", 400);
             }
+
             const paymentUrl = await paymentUtils.buildPaymentUrl(
                 newOrder,
-                total - discount_value
+                total - discount_value,
+                branch_code ? branch_code : 'DN'
             );
             return res.status(201).json({ paymentUrl });
         }

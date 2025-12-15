@@ -102,7 +102,7 @@ export const useCartStore = defineStore('cart', () => {
             if (cart.value.total_amount !== null) cart.value.total_amount += (itemPrice * quantityDiff);
         }
     };
-
+    const cartCount = ref<number>(0);
     const fetchCartAction = async () => {
         loading.value = true;
         error.value = null;
@@ -110,6 +110,7 @@ export const useCartStore = defineStore('cart', () => {
             const res = await getCartItems();
             if (res.success && res.data) cart.value = res.data;
             else cart.value = null; 
+            cartCount.value = cart.value?.items.length || 0;
         } catch (err: any) {
             console.error("Error fetching cart:", err);
             error.value = err.response?.data?.message || "Failed to load cart";
@@ -185,7 +186,7 @@ export const useCartStore = defineStore('cart', () => {
     };
 
     return {
-        cart, loading, error, totalQuantity, totalAmount, checkoutSession,
+        cart, loading, error, totalQuantity, totalAmount, checkoutSession, cartCount,
         fetchCartAction, addToCartAction, updateQuantityAction, updateVariantAction, removeItemAction, clearCartAction,
         setCheckoutSession, clearCheckoutSession
     };

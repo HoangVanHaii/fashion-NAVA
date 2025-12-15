@@ -20,7 +20,7 @@ const showOrderDetail = ref(false);
 const selectedOrderId = ref<string | null>(null);
 
 const toggle = ref(false)
-const selectedType = ref('order_id')
+const selectedType = ref('product_name')
 // const listNameUser = ref<string[]>([]);
 const showFormConfirm = ref<boolean>(false);
 const orderAction = ref<string | null>(null)

@@ -73,6 +73,16 @@ export const getProductByBrandId = async (id: string) => {
     return response.data;
 }
 
+export const getAllProduct = async () => {
+    const authStore = useAuthStore();
+
+    const endpoint = authStore.isLogin
+        ? `/product/`
+        : `/product/public/`;
+
+    const response = await api.get(endpoint);
+    return response.data;
+}
 
 export const getProductIdBySize = async (sizeId: string) =>{
     const res = await api.get(`/product/id-by-size/${sizeId}`);
