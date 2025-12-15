@@ -31,6 +31,7 @@ export const useCartStore = defineStore('cart', () => {
     const loading = ref(false); 
     const error = ref<string | null>(null);
     let snapshotCart: ICartFull | null = null; 
+    const success = ref(false);
 
     // --- STATE MỚI: CHECKOUT SESSION (ĐÃ FIX LỖI TYPE) ---
     
@@ -120,11 +121,17 @@ export const useCartStore = defineStore('cart', () => {
     const addToCartAction = async (payload: ICartItem): Promise<CartResult> => {
         loading.value = true;
         error.value = null;
+        success.value = false;
         try {
             const res = await addToCart(payload);
-            if (res.success) { await fetchCartAction(); return { success: true, message: "Product added!" }; }
+            success.value = true;
+            if (res.success) {
+                await fetchCartAction()
+                return { success: true, message: "Product added!" };
+            }
             throw new Error("Failed to add.");
         } catch (err: any) {
+            success.value = false;
             error.value = err.message;
             throw new Error(err.message); 
         } finally { loading.value = false; }
@@ -186,7 +193,7 @@ export const useCartStore = defineStore('cart', () => {
     };
 
     return {
-        cart, loading, error, totalQuantity, totalAmount, checkoutSession, cartCount,
+        cart, loading, error, totalQuantity, totalAmount, checkoutSession, success, cartCount,
         fetchCartAction, addToCartAction, updateQuantityAction, updateVariantAction, removeItemAction, clearCartAction,
         setCheckoutSession, clearCheckoutSession
     };

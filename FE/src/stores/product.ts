@@ -112,18 +112,18 @@ export const useProductStore = defineStore('product', () => {
         }
     }
     //-//
-    const getProductBestSellerStore = async () => {
+    const getProductBestSellerStore = async (top: number) => {
     try {
-      const result = await getProductBestSeller(20);
+      const result = await getProductBestSeller(top || 20);
       return result.products as IProductMongoDetail[];
     } catch (err) {
       console.log(err);
       return [];
     }
   };
-  const getProductLatestStore = async () => {
+  const getProductLatestStore = async (top: number) => {
     try {
-      const result = await getProductLatest(20);
+      const result = await getProductLatest(top || 20);
       return result.products as IProductMongoDetail[];
     } catch (err) {
       console.log(err);

@@ -6,7 +6,7 @@ import { ConnectionPool, Transaction } from "mssql";
 export const createVoucher = async (voucher:Voucher,branch_code:string)=>{
     try {
         const pool: ConnectionPool | null = getBranchPool(branch_code);
-        if (!pool) throw new AppError("Database connection failed", 500);
+        if (!pool) throw new AppError("Database connection failed", 503);
         const result = await pool.request()
             .input("id", voucher.id)
             .input("code", voucher.code)

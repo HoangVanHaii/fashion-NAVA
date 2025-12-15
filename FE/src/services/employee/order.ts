@@ -4,6 +4,10 @@ export const getOrderOfBranch = async (method_order: string) => {
     const response = await api.get(`/employee/order/orderOfBranch/${method_order}`);
     return response.data;
 };
+export const getTopOrderOfBranch = async (top: number) => {
+    const response = await api.get(`/employee/order/orderTopOfBranch/${top}`);
+    return response.data;
+};
 export const getOrderById = async (order_id: string) => {
     const response = await api.get(`/order/${order_id}`);
     return response.data;
@@ -18,6 +22,22 @@ export const getStatistical = async () => {
 };
 export const getDailyOrderComparison = async (type: string) => {
     const response = await api.get(`/employee/order/daily-comparison/${type}`);
+    return response.data;
+};
+export const getDailyOrderComparisonForAdmin = async (type: string) => {
+    const response = await api.get(`/employee/order/dashboard/daily-comparison/${type}`);
+    return response.data;
+};
+export const getTotalOrderComparisonForAdmin = async (type: string) => {
+    const response = await api.get(`/employee/order/total/daily-comparison/${type}`);
+    return response.data;
+};
+export const getTotalOrderCancelledForAdmin = async (type: string) => {
+    const response = await api.get(`/employee/order/total-cancelled/daily-comparison/${type}`);
+    return response.data;
+};
+export const getTotalOrderMonthForAdmin = async (year: string) => {
+    const response = await api.get(`/employee/order/total-month/${year}`);
     return response.data;
 };
 export const changeStatus = async (order_id: string, status: string) => {

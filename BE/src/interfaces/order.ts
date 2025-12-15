@@ -87,6 +87,23 @@ export interface RevenueOrder {
     total_order_offline: number;
     percentageChange: number
 }
+export interface IKpiResponse {
+    total: number;    
+    previousTotal: number;
+    changePercent?: number;
+}
+  
+
+export interface IRevenueMonth {
+    month: number;   // 1 -> 12
+    revenue: number; // tổng doanh thu
+  }
+  
+  export interface IRevenueYearResponse {
+    year: number;
+    monthlyRevenue: IRevenueMonth[];
+  }
+  
 //     order_id_sql: string;
 //     items: IOrderItem[];
 

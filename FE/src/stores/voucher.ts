@@ -1,6 +1,7 @@
-import type { Voucher } from "../interfaces/voucher";
-import { getTop4Voucher, getAllVoucher, getVoucherByCode, getAllVoucherByShopId, getVoucherById } from "../services/voucher";
+import type { Voucher, VoucherAdmin } from "../interfaces/voucher";
+import { getTop4Voucher, getAllVoucher, getVoucherByCode, getAllVoucherByShopId, getVoucherById, createVoucher, updateVoucher } from "../services/voucher";
 import { defineStore } from "pinia";
+import { ref } from "vue";
 
 export const voucherStore = defineStore("voucher", () => {
 
@@ -48,7 +49,34 @@ export const voucherStore = defineStore("voucher", () => {
             return null;
         }
     }
-    return { getTop4VoucherGlobal, getAllVoucherByShopIdStore, getAllVoucherStore, getVoucherByCodeStore, getVoucherByIdStore}
+    const success = ref(false);
+    const createVoucherStore = async(voucher: VoucherAdmin) => {
+        try {
+            success.value = false;
+            console.log("Chờ")
+            const result = await createVoucher(voucher)
+            success.value = true;
+            return result.vouchers;
+        } catch (err : any) {
+            console.log("Failed Error", err);
+            success.value = false;
+            return null;
+        }
+    }
+    const updateVoucherStore = async(voucher: VoucherAdmin) => {
+        try {
+            success.value = false;
+            console.log("Chờ", voucher)
+            const result = await updateVoucher(voucher)
+            success.value = true;
+            return result.vouchers;
+        } catch (err : any) {
+            console.log("Failed Error", err);
+            success.value = false;
+            return null;
+        }
+    }
+    return { getTop4VoucherGlobal,createVoucherStore, updateVoucherStore, success, getAllVoucherByShopIdStore, getAllVoucherStore, getVoucherByCodeStore, getVoucherByIdStore}
 })
 
 
