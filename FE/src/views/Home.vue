@@ -42,6 +42,7 @@ const hours = ref(0);
 const minutes = ref(0);
 const seconds = ref(0);
 const flashSaleHomes = ref<FlashSale | null>(null);
+const flashSaleProducts = ref<IProductMongoDetail[]>([]);
 const vouchers = ref<Voucher[]>([]);
 const totalSolds = ref<FlashSaleProductSold[]>([]);
 const productBestSeller = ref<IProductMongoDetail[]>([]);
@@ -59,10 +60,10 @@ const textTmp = `Tối giản nhưng không đơn điệu – Dòng sản phẩm
 const textAoda = `Sở hữu chất liệu cao cấp cùng kỹ thuật chế tác tinh tế, bộ sưu tập đồ da nam Giovanni Outlet thể hiện sự trau chuốt trong từng chi tiết, mang đến trải nghiệm khác biệt.`;
 
 const displayedProducts = computed(() => {
-  if (!flashSaleHomes.value?.Products) return [];
+  if (!flashSaleProducts.value.length) return [];
   return showAll.value
-    ? flashSaleHomes.value.Products
-    : flashSaleHomes.value.Products.slice(0, 5);
+    ? flashSaleProducts.value
+    : flashSaleProducts.value.slice(0, 5);
 });
 
 const displayedBestSellerProducts = computed(() => {
@@ -103,15 +104,16 @@ onMounted(async () => {
     useFlashSale.getFlashSaleHome(),
   ]);
   vouchers.value = vouchersData;
-  flashSaleHomes.value = flashSaleData;
+    flashSaleHomes.value = flashSaleData?.flash_sale;
+    flashSaleProducts.value = flashSaleData?.products;
   localStorage.setItem(
     "excludeIdHome",
-    flashSaleHomes.value?.ID ? flashSaleHomes.value.ID.toString() : ""
+    flashSaleHomes.value?.id ? flashSaleHomes.value.id.toString() : ""
     );
     console.log(flashSaleHomes.value);
   const promises = [
-    useProduct.getProductBestSellerStore(),
-    useProduct.getProductLatestStore(),
+    useProduct.getProductBestSellerStore(20),
+    useProduct.getProductLatestStore(20),
   ];
   const [bestSellerData, latestData] = await Promise.all(promises);
   productBestSeller.value = bestSellerData ?? [];
@@ -476,7 +478,7 @@ const getSoldPercentage = (product: any): number => {
         <div class="space-y-12">
           <!-- Sub Banners -->
           <!-- Vouchers Section Revised -->
-          <div v-if="vouchers.length >= 4" class="">
+          <div v-if="vouchers && vouchers.length >= 4" class="">
             <h2
               class="text-2xl font-bold text-center mb-8 uppercase tracking-widest text-gray-900"
             >

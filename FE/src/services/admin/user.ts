@@ -25,3 +25,10 @@ export const createAccount = async (account: CreateAccountPayload) => {
     });
     return response.data;
 };
+
+
+
+export const getTotalUserComparisonForAdmin = async (type: string) => {
+    const response = await api.get(`/admin/user/total/daily-comparison/${type}`);
+    return response.data;
+};

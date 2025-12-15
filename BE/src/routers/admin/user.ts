@@ -27,5 +27,10 @@ router.get(
     isAdmin,
     admincontroller.getAllUserForAdmin
 );
-
+router.get(
+    '/user/total/daily-comparison/:type',
+    authMiddleware,
+    isAdmin,
+    admincontroller.getTotalUserComparisonForAdmin
+);
 export default router;

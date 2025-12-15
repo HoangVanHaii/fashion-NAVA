@@ -2,11 +2,12 @@ import { NextFunction, Request, Response } from 'express'
 import *as orderService from '../../services/order'
 import { AppError } from '../../utils/appError';
 import *as productService from '../../services/product'
-import { StatisticalOrder } from '../../interfaces/order';
+import { IRevenueMonth, StatisticalOrder } from '../../interfaces/order';
 import { OderPayLoad, OrderItem } from "../../interfaces/order";
 import *as voucherService from "../../services/voucher";
 import { ConnectionPool } from "mssql";
 import { ProductDetailModel } from "../../models/product";
+import { getBranchPool } from '../../config/database';
 
 export const changeStatusOrder = async (req: Request, res: Response, next: NextFunction) => {
     const { order_id, status } = req.body
@@ -199,6 +200,254 @@ export const getDailyOrderComparison = async (req: Request, res: Response, next:
             success: true,
             data: comparisonData,
             message: "Daily order comparison retrieved successfully"
+        });
+    }
+    catch (err) {
+        next(err);
+    }
+};
+
+export const getTopOrderOfBranch = async (req: Request, res: Response, next: NextFunction) => {
+    const top  = parseInt(req.params.top as string) ||10
+
+    const dbBranch = req.dbBranch;
+    const branch_code = req.user?.branch_code;
+    if (!dbBranch || !dbBranch.connected) {
+        throw new AppError(`${branch_code} is not connected`, 503);
+    }
+    try {
+        const orders = await orderService.getTopOrderOfBranch(dbBranch, top);
+        return res.status(200).json({
+            success: true,
+            message: `get order successfully`,
+            orders
+        });
+    } catch (error) {
+        next(error);
+    }
+}
+
+
+const ALL_BRANCHES = ['HN', 'DN', 'HCM'];
+
+const calculateGrowth = (current: number, previous: number): number => {
+    if (previous === 0) return current > 0 ? 100 : 0;
+    return Number((((current - previous) / previous) * 100).toFixed(2));
+};
+
+export const getTotalOrderComparisonForAdmin = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const dbBranch = req.dbBranch;
+        const branch_code = req.user?.branch_code;
+
+        if (!dbBranch || !dbBranch.connected) {
+            throw new AppError(`${branch_code} is not connected`, 503);
+        }
+
+        const type = (req.params.type as string) || 'hôm nay';
+        console.log(type)
+        
+        let rawData = { total: 0, previousTotal: 0 };
+
+        if (req.user?.branch_code !== "CT") {
+            rawData = await orderService.getTotalOrderComparisonForAdmin(dbBranch, type);
+        } 
+        
+        else {
+            const promises = ALL_BRANCHES.map(async (bn) => {
+                const branchPool = getBranchPool(bn);
+                if (!branchPool || !branchPool.connected) return null;
+        
+                return await orderService.getTotalOrderComparisonForAdmin(branchPool, type);
+            });
+        
+            const results = await Promise.all(promises);
+        
+            rawData = results.reduce<{ total: number; previousTotal: number }>(
+                (acc, curr) => {
+                    if (!curr) return acc;
+                    acc.total += curr.total;
+                    acc.previousTotal += curr.previousTotal;
+        
+                    return acc;
+                },
+                { total: 0, previousTotal: 0 } 
+            );
+        }
+
+        const changePercent = calculateGrowth(rawData.total, rawData.previousTotal);
+
+        const finalResult = {
+            total: rawData.total,
+            changePercent: changePercent,
+        };
+
+        return res.status(200).json({
+            success: true,
+            message: "Get data order successfully",
+            results: finalResult
+        });
+    }
+    catch (err) {
+        next(err);
+    }
+};
+
+export const getTotalCancelledOrderForAdmin = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const dbBranch = req.dbBranch;
+        const branch_code = req.user?.branch_code;
+
+        if (!dbBranch || !dbBranch.connected) {
+            throw new AppError(`${branch_code} is not connected`, 503);
+        }
+
+        const type = (req.params.type as string) || 'hôm nay';
+        console.log(type)
+        
+        let rawData = { total: 0, previousTotal: 0 };
+
+        if (req.user?.branch_code !== "CT") {
+            rawData = await orderService.getTotalOrderCancelledForAdmin(dbBranch, type);
+        } 
+        
+        else {
+            const promises = ALL_BRANCHES.map(async (bn) => {
+                const branchPool = getBranchPool(bn);
+                if (!branchPool || !branchPool.connected) return null;
+        
+                return await orderService.getTotalOrderCancelledForAdmin(branchPool, type);
+            });
+        
+            const results = await Promise.all(promises);
+        
+            rawData = results.reduce<{ total: number; previousTotal: number }>(
+                (acc, curr) => {
+                    if (!curr) return acc;
+                    acc.total += curr.total;
+                    acc.previousTotal += curr.previousTotal;
+        
+                    return acc;
+                },
+                { total: 0, previousTotal: 0 } 
+            );
+        }
+
+        const changePercent = calculateGrowth(rawData.total, rawData.previousTotal);
+
+        const finalResult = {
+            total: rawData.total,
+            changePercent: changePercent,
+        };
+
+        return res.status(200).json({
+            success: true,
+            message: "Get data order successfully",
+            results: finalResult
+        });
+    }
+    catch (err) {
+        next(err);
+    }
+};
+export const getRevenueYearForAdmin = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const branch_code = req.user?.branch_code;
+      const year = parseInt(req.params.year as string) || new Date().getFullYear();
+  
+      let yearlyRevenue = { year, monthlyRevenue: Array(12).fill(0) };
+  
+      if (branch_code !== "CT") {
+        const dbBranch = req.dbBranch;
+        if (!dbBranch || !dbBranch.connected) {
+          throw new AppError(`${branch_code} is not connected`, 503);
+        }
+  
+        const data = await orderService.getRevenueByYear(dbBranch, year);
+        yearlyRevenue = data;
+      } else {
+        const promises = ALL_BRANCHES.map(async (bn) => {
+          const branchPool = getBranchPool(bn);
+          if (!branchPool || !branchPool.connected) return null;
+  
+          return await orderService.getRevenueByYear(branchPool, year);
+        });
+  
+        const results = await Promise.all(promises);
+        for (const data of results) {
+            if (!data) continue;
+          
+            data.monthlyRevenue.forEach((monthData) => {
+              const target = yearlyRevenue.monthlyRevenue.find(m => m.month === monthData.month);
+              if (target) {
+                target.revenue += monthData.revenue;
+              }
+            });
+          }
+      }
+  
+      res.status(200).json({
+          success: true,
+          message: "get dashBoard successfully",
+            year: yearlyRevenue.year,
+            monthlyRevenue: yearlyRevenue.monthlyRevenue
+      });
+    } catch (err) {
+      next(err);
+    }
+  };
+  
+
+export const getDailyOrderComparisonForAdmin = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const dbBranch = req.dbBranch;
+        const branch_code = req.user?.branch_code;
+
+        if (!dbBranch || !dbBranch.connected) {
+            throw new AppError(`${branch_code} is not connected`, 503);
+        }
+
+        const type = (req.params.type as string) || 'hôm nay';
+        
+        let rawData = { total: 0, previousTotal: 0 };
+
+        if (req.user?.branch_code !== "CT") {
+            rawData = await orderService.getRevenueOrderComparisonForAdmin(dbBranch, type);
+        } 
+        
+        else {
+            const promises = ALL_BRANCHES.map(async (bn) => {
+                const branchPool = getBranchPool(bn);
+                if (!branchPool || !branchPool.connected) return null;
+        
+                return await orderService.getRevenueOrderComparisonForAdmin(branchPool, type);
+            });
+        
+            const results = await Promise.all(promises);
+        
+            rawData = results.reduce<{ total: number; previousTotal: number }>(
+                (acc, curr) => {
+                    if (!curr) return acc;
+                    acc.total += curr.total;
+                    acc.previousTotal += curr.previousTotal;
+        
+                    return acc;
+                },
+                { total: 0, previousTotal: 0 } 
+            );
+        }
+
+        const changePercent = calculateGrowth(rawData.total, rawData.previousTotal);
+
+        const finalResult = {
+            total: rawData.total,
+            changePercent: changePercent,
+        };
+
+        return res.status(200).json({
+            success: true,
+            message: "Get data order successfully",
+            results: finalResult
         });
     }
     catch (err) {

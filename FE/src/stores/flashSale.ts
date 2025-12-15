@@ -18,11 +18,11 @@ export const flashSaleStore = defineStore("flashSale", () => {
         loading.value = true;
         try {
             const data = await getFlashSale();
-              
             return {
-                ...data.flash_sale,
-                Products: data.products  
-            }
+                flash_sale: data.flash_sale,
+                products: data.products
+            };
+
         } catch (err) {
             console.log(err);
         } finally {
@@ -35,10 +35,10 @@ export const flashSaleStore = defineStore("flashSale", () => {
         error.value = null;
         try {
             const data = await getFlashSaleNotIn(excludeId);
-            return  {
-                ...data.flash_sale,
-                Products: data.products
-            }
+            return {
+                flash_sale: data.flash_sale,
+                products: data.products
+            };
         } catch (err) {
             console.log(err);
         } finally {
@@ -52,9 +52,9 @@ export const flashSaleStore = defineStore("flashSale", () => {
         try {
             const data = await getFlashSaleNotIn(excludeId);
             return {
-                ...data.flash_sale,
-                Products: data.products
-            }
+                flash_sale: data.flash_sale,
+                products: data.products
+            };
         } catch (err) {
             console.log(err);
         } finally {

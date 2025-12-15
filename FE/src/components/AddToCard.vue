@@ -10,7 +10,10 @@ import { formatPrice } from "../utils/format";
 import { onMounted, ref, computed } from "vue";
 import { useRouter } from "vue-router";
 // import { useCartStore } from "../stores/cartStore";
-// import Notification from "./Notification.vue";
+import { useCartStore } from "@/stores/cartStore";
+import Notification from "./Notification.vue";
+import type { ICartItem } from "@/interfaces/cart";
+const useCart = useCartStore();
 
 const router = useRouter();
 const emit = defineEmits(["close"]);
@@ -104,22 +107,27 @@ const handleAddToCart = async () => {
   }
 
   if (loading.value) return;
-  loading.value = true;
+    loading.value = true;
+    const cartItem: ICartItem = {
+        size_id_mongo: sizeChose.value._id,
+        product_id_sql: props.product.product_id_sql,
+        quantity: quantity.value || 1
+    }
 
-  //   await cart.addToCartStore(sizeChose.value.id!, quantity.value || 1);
+    await useCart.addToCartAction(cartItem);
 
-  //   if (cart.success) {
-  //     showNotification.value = true;
-  //     toastText.value = "Thêm vào giỏ hàng thành công!";
-  //     setTimeout(() => {
-  //       loading.value = false;
-  //       handleClose();
-  //     }, 1000);
-  //   } else {
-  //     toastText.value = cart.error || "Thêm vào giỏ hàng thất bại!";
-  //     showNotification.value = true;
-  //     loading.value = false;
-  //   }
+    if (useCart.success) {
+      showNotification.value = true;
+      toastText.value = "Thêm vào giỏ hàng thành công!";
+      setTimeout(() => {
+        loading.value = false;
+        handleClose();
+      }, 1500);
+    } else {
+      toastText.value = "Thêm vào giỏ hàng thất bại!";
+      showNotification.value = true;
+      loading.value = false;
+    }
 };
 
 const viewDetail = () => {

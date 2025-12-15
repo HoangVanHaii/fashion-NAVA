@@ -44,6 +44,11 @@ export const getMainProductImage = (product: any): string => {
 
     return mainColor?.image_main || product.colors[0]?.image_main || "";
 };
+export const getColorMain = (product: any): IProductColorResponse | null => {
+    if (!product?.colors?.length) return null;
+    const mainColor = product.colors.find((c: IProductColorResponse) => c.is_main === true);
+    return mainColor || product.colors[0];
+};
 export const checkProductSale = (product: any): boolean => {
     if (!product?.colors) return false;
 

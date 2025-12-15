@@ -1,5 +1,5 @@
 import { ConnectionPool, Transaction } from "mssql";
-import { GetOrder, OderPayLoad, Order, OrderItem, RevenueOrder } from "../interfaces/order";
+import { GetOrder, IKpiResponse, IRevenueMonth, IRevenueYearResponse, OderPayLoad, Order, OrderItem, RevenueOrder } from "../interfaces/order";
 import { v4 as uuidv4 } from 'uuid';
 import { getProductSizesBySizeId } from "./product";
 import mongoose from "mongoose";
@@ -369,7 +369,7 @@ export const getRevenueOfBranch = async (dbBranch: ConnectionPool): Promise<numb
     }
 }
 
-const getDateRange = (type: string): { currentStart: string, currentEnd: string, previousStart: string, previousEnd: string } => {
+export const getDateRange = (type: string): { currentStart: string, currentEnd: string, previousStart: string, previousEnd: string } => {
     const today = 'CAST(GETDATE() AS DATE)';
     let currentStart = '';
     let previousStart = '';
@@ -381,15 +381,27 @@ const getDateRange = (type: string): { currentStart: string, currentEnd: string,
             previousStart = `DATEADD(DAY, -1, ${today})`; // 00:00:00 hôm qua
             return { currentStart, currentEnd, previousStart, previousEnd: today };
         case 'tuần này':
-            currentStart = `DATEADD(wk, DATEDIFF(wk, 0, GETDATE()), 0) - 6`;
-            previousStart = `DATEADD(wk, DATEDIFF(wk, 0, GETDATE()) - 1, 0) - 6`;
-
-            return { currentStart, currentEnd, previousStart, previousEnd: currentStart };
+            return {
+                currentStart: `DATEADD(DAY, -((DATEPART(WEEKDAY, GETDATE()) + @@DATEFIRST - 2) % 7), CAST(GETDATE() AS DATE))`,
+                currentEnd: `GETDATE()`,
+                previousStart: `DATEADD(WEEK, -1, DATEADD(DAY, -((DATEPART(WEEKDAY, GETDATE()) + @@DATEFIRST - 2) % 7), CAST(GETDATE() AS DATE)))`,
+                previousEnd: `DATEADD(DAY, -((DATEPART(WEEKDAY, GETDATE()) + @@DATEFIRST - 2) % 7), CAST(GETDATE() AS DATE))`
+            };
+              
+            
         case 'tháng này':
             currentStart = `DATEADD(mm, DATEDIFF(mm, 0, GETDATE()), 0)`;
             previousStart = `DATEADD(mm, DATEDIFF(mm, 0, GETDATE()) - 1, 0)`;
             return { currentStart, currentEnd, previousStart, previousEnd: currentStart };
-
+        case 'năm nay':
+            return {
+                currentStart: `DATEFROMPARTS(YEAR(GETDATE()), 1, 1)`,
+                currentEnd: `GETDATE()`,
+                previousStart: `DATEFROMPARTS(YEAR(GETDATE()) - 1, 1, 1)`,
+                previousEnd: `DATEFROMPARTS(YEAR(GETDATE()), 1, 1)`
+            };
+              
+              
         case 'từ trước tới nay':
             // Không có khoảng thời gian so sánh, chỉ lấy tổng
             currentStart = `'1900-01-01'`;
@@ -467,3 +479,220 @@ export const getRevenueOrderComparison = async (dbBranch: ConnectionPool, type: 
         throw new AppError("Failed to get revenue and order comparison data", 500);
     }
 };
+export const getRevenueOrderComparisonForAdmin = async ( dbBranch: ConnectionPool, type: string ): Promise<IKpiResponse> => {
+  
+    const { currentStart, currentEnd, previousStart, previousEnd } = getDateRange(type);
+    const isAllTime = type.toLowerCase() === 'từ trước tới nay';
+  
+    try {
+      // ======================
+      // 1. DOANH THU HIỆN TẠI
+      // ======================
+      const currentQuery = `
+        SELECT 
+          ISNULL(SUM(total), 0) AS total_revenue
+        FROM orders
+        WHERE status != 'cancelled'
+          AND created_at >= ${currentStart}
+          AND created_at < ${currentEnd};
+      `;
+  
+      const currentResult = await dbBranch.request().query(currentQuery);
+      const currentRevenue = currentResult.recordset[0]?.total_revenue || 0;
+  
+      // ======================
+      // 2. DOANH THU KỲ TRƯỚC
+      // ======================
+      let previousRevenue = 0;
+  
+      if (!isAllTime) {
+        const previousQuery = `
+          SELECT 
+            ISNULL(SUM(total), 0) AS previous_total_revenue
+          FROM orders
+          WHERE status != 'cancelled'
+            AND created_at >= ${previousStart}
+            AND created_at < ${previousEnd};
+        `;
+  
+        const previousResult = await dbBranch.request().query(previousQuery);
+        previousRevenue = previousResult.recordset[0]?.previous_total_revenue || 0;
+      }
+  
+      return {
+        total: currentRevenue,
+        previousTotal: previousRevenue
+      };
+  
+    } catch (error) {
+      if (error instanceof AppError) {
+        throw error;
+      }
+      throw new AppError("Failed to get revenue KPI data", 500);
+    }
+  };
+  
+  
+export const getTotalOrderCancelledForAdmin = async (dbBranch: ConnectionPool, type: string): Promise<IKpiResponse> => {
+  
+    const { currentStart, currentEnd, previousStart, previousEnd } = getDateRange(type);
+    const isAllTime = type.toLowerCase() === 'từ trước tới nay';
+  
+    try {
+      // --- 1. DỮ LIỆU HIỆN TẠI ---
+      const currentQuery = `
+        SELECT COUNT(ID) AS total_orders
+        FROM orders
+        WHERE status = 'cancelled'
+          AND created_at >= ${currentStart} AND created_at < ${currentEnd};
+      `;
+  
+      const currentResult = await dbBranch.request().query(currentQuery);
+      const currentTotalOrders = currentResult.recordset[0]?.total_orders || 0;
+  
+      // --- 2. DỮ LIỆU SO SÁNH (QUÁ KHỨ) ---
+      let previousTotalOrders = 0;
+  
+      if (!isAllTime) {
+        const previousQuery = `
+          SELECT COUNT(ID) AS previous_total_orders
+          FROM orders
+          WHERE status = 'cancelled'
+            AND created_at >= ${previousStart} AND created_at < ${previousEnd};
+        `;
+  
+        const previousResult = await dbBranch.request().query(previousQuery);
+        previousTotalOrders = previousResult.recordset[0]?.previous_total_orders || 0;
+      }
+      return {
+        total: currentTotalOrders,
+        previousTotal: previousTotalOrders
+      };
+  
+    } catch (error) {
+      if (error instanceof AppError) {
+        throw error;
+      }
+      throw new AppError("Failed to get order KPI data", 500);
+    }
+  };
+
+export const getTotalOrderComparisonForAdmin = async (dbBranch: ConnectionPool, type: string): Promise<IKpiResponse> => {
+  
+    const { currentStart, currentEnd, previousStart, previousEnd } = getDateRange(type);
+    const isAllTime = type.toLowerCase() === 'từ trước tới nay';
+  
+    try {
+      // --- 1. DỮ LIỆU HIỆN TẠI ---
+      const currentQuery = `
+        SELECT COUNT(ID) AS total_orders
+        FROM orders
+        WHERE status != 'cancelled'
+          AND created_at >= ${currentStart} AND created_at < ${currentEnd};
+      `;
+  
+      const currentResult = await dbBranch.request().query(currentQuery);
+      const currentTotalOrders = currentResult.recordset[0]?.total_orders || 0;
+  
+      // --- 2. DỮ LIỆU SO SÁNH (QUÁ KHỨ) ---
+      let previousTotalOrders = 0;
+  
+      if (!isAllTime) {
+        const previousQuery = `
+          SELECT COUNT(ID) AS previous_total_orders
+          FROM orders
+          WHERE status != 'cancelled'
+            AND created_at >= ${previousStart} AND created_at < ${previousEnd};
+        `;
+  
+        const previousResult = await dbBranch.request().query(previousQuery);
+        previousTotalOrders = previousResult.recordset[0]?.previous_total_orders || 0;
+      }
+      return {
+        total: currentTotalOrders,
+        previousTotal: previousTotalOrders
+      };
+  
+    } catch (error) {
+      if (error instanceof AppError) {
+        throw error;
+      }
+      throw new AppError("Failed to get order KPI data", 500);
+    }
+  };
+
+export const getTopOrderOfBranch = async (dbBranch: ConnectionPool, top: number) : Promise<GetOrder[]> => {
+    try {
+        const query = `SELECT TOP (@top)
+                o.*, 
+                u.name AS user_name_buyer
+            FROM orders o
+            INNER JOIN users u ON o.user_id = u.ID
+            ORDER BY o.created_at DESC
+        `;
+        const result = await dbBranch.request()
+            .input('top', top)
+            .query(query);
+        const orderSqlIds = result.recordset.map(order => order.ID);
+        const lowerCaseOrderSqlIds = orderSqlIds.map((id: string) => id.toString().toLowerCase());
+        const mongoOrders = await OrderDetail.find({ order_id_sql: { $in: lowerCaseOrderSqlIds } }).lean();
+        const orders = result.recordset.map(order => {
+            const mongoOrder = mongoOrders.find(mongoOrder => mongoOrder.order_id_sql === order.ID.toString().toLowerCase());
+            return {
+                ...order,
+                items: mongoOrder ? mongoOrder.items : [],
+                shipping_address: mongoOrder ? mongoOrder.shipping_address : {},
+                note: mongoOrder ? mongoOrder.note : "Không có ghi chú"
+            };
+        });
+        const orderResuts: GetOrder[] = orders.map(order => ({
+            id: order.ID,
+            user_id: order.user_id,
+            voucher_id: order.voucher_id,
+            total: order.total,
+            discount_value: order.discount_value,
+            mongo_id: order.mongodb_id,
+            payment_method: order.payment_method,
+            user_name_buyer: order.user_name_buyer,
+            address: order.shipping_address,
+            status: order.status,
+            created_at: order.created_at,
+            items: order.items,
+            note: order.note
+        }));
+        return orderResuts;
+
+    } catch (error) {
+        if (error instanceof AppError) {
+            throw error;
+        }
+        console.error(error);
+        throw new AppError("Failed to get order of branch", 500);
+    }
+}
+
+
+
+export const getRevenueByYear = async ( dbBranch: ConnectionPool, year: number): Promise<IRevenueYearResponse> => {
+    try {
+      const result = await dbBranch.request()
+        .input('year', year)
+        .query(`
+            SELECT MONTH(created_at) AS month, SUM(total) AS revenue
+            FROM orders
+            WHERE status != 'cancelled' AND YEAR(created_at) = @year
+            GROUP BY MONTH(created_at)
+            ORDER BY month
+        `);
+  
+      const monthlyRevenue: IRevenueMonth[] = Array.from({ length: 12 }, (_, i) => {
+        const monthData = result.recordset.find(r => r.month === i + 1);
+        return { month: i + 1, revenue: monthData?.revenue || 0 };
+      });
+  
+      return { year, monthlyRevenue };
+    } catch (error) {
+      console.error('Failed to get revenue by year:', error);
+      throw new AppError('Failed to fetch revenue data', 500);
+    }
+  };

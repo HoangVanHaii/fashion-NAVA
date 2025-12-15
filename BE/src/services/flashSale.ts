@@ -165,10 +165,11 @@ export const getFlashSaleActive = async (pool: ConnectionPool): Promise<FlashSal
             const is_participate = fl.is_participate === 1;
 
             return {
+                id: fl.ID,
                 title: fl.title,
                 start_date: fl.start_date,
                 end_date: fl.end_date,
-                status: fl.status,
+                status: fl.Status,
                 created_by: fl.created_by,
                 created_at: fl.created_at,
                 is_participate: is_participate, 

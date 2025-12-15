@@ -20,7 +20,9 @@ const userStore = useAuthStore();
     const flashSale1 = ref<FlashSale | null>(null);
     const flashSale2 = ref<FlashSale | null>(null);
     const useFlashSale = flashSaleStore();
-    const useProduct = useProductStore();
+const useProduct = useProductStore();
+const hotDeal1 = ref<IProductMongoDetail[]>([]);
+const hotDeal2 = ref<IProductMongoDetail[]>([]);
     
     const showFormAdd = ref(false);
     const showMoreHotDeal1 = ref(false);
@@ -34,9 +36,12 @@ const loading = ref(false);
         const ids = excludeIds ? excludeIds.split(",") : [];
     
         excludeIds = ""//////x///
-        flashSale1.value = await useFlashSale.getFlashSaleHotDeal1NotIN(excludeIds);
-        if (flashSale1.value && flashSale1.value.ID) {
-            const id = flashSale1.value.ID.toString();
+        const data1 = await useFlashSale.getFlashSaleHotDeal1NotIN(excludeIds);
+        flashSale1.value = data1?.flash_sale;
+        hotDeal1.value = data1?.products;
+
+        if (flashSale1.value && flashSale1.value.id) {
+            const id = flashSale1.value.id.toString();
     
             if (!ids.includes(id)) {
                 ids.push(id);
@@ -45,7 +50,9 @@ const loading = ref(false);
             }
         }
         excludeIds = ''/////////////
-        flashSale2.value = await useFlashSale.getFlashSaleHotDeal2NotIN(excludeIds);
+        const data2 = await useFlashSale.getFlashSaleHotDeal2NotIN(excludeIds);
+        flashSale2.value = data2?.flash_sale;
+        hotDeal2.value = data2?.products;
         if (userStore.isLogin) {
             await favourite.getFavouriteOfMeStore();
             
@@ -73,14 +80,14 @@ const loading = ref(false);
     const displayedProductHotDeal1 = computed<IProductMongoDetail[]>(() => {
         if (!flashSale1.value) return [];
         return showMoreHotDeal1.value
-            ? flashSale1.value.Products
-            : flashSale1.value.Products.slice(0, 10); // Show 10 initially to fill 2 rows of 5
+            ? hotDeal1.value
+            : hotDeal1.value.slice(0, 10); // Show 10 initially to fill 2 rows of 5
     });
     const displayedProductHotDeal2 = computed<IProductMongoDetail[]>(() => {
         if (!flashSale2.value) return [];
         return showMoreHotDeal2.value
-            ? flashSale2.value.Products
-            : flashSale2.value.Products.slice(0, 10);
+            ? hotDeal2.value
+            : hotDeal2.value.slice(0, 10);
     });
     const getMainProductImage = (product: any): string => {
   if (!product?.colors?.length) return "";

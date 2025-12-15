@@ -1,6 +1,6 @@
 import express from 'express';
 import * as orderController from '../../controllers/employee/order'
-import { authMiddleware, adminOrEmployee } from '../../middlewares/authMiddleware';
+import { authMiddleware, adminOrEmployee, isAdmin } from '../../middlewares/authMiddleware';
 import *as orderMiddleware from '../../middlewares/order'
 import { validateRequest } from '../../middlewares/validateRequest';
 const router = express.Router();
@@ -12,11 +12,41 @@ router.get(
     orderController.getOrderOfBranch
 );
 router.get(
+    '/orderTopOfBranch/:top',
+    authMiddleware,
+    adminOrEmployee,
+    orderController.getTopOrderOfBranch
+);
+router.get(
     '/statistical',
     authMiddleware,
     adminOrEmployee,
     orderController.statisticalOrder
 )
+router.get(
+    '/dashboard/daily-comparison/:type',
+    authMiddleware,
+    isAdmin,
+    orderController.getDailyOrderComparisonForAdmin
+);
+router.get(
+    '/total/daily-comparison/:type',
+    authMiddleware,
+    isAdmin,
+    orderController.getTotalOrderComparisonForAdmin
+);
+router.get(
+    '/total-month/:year',
+    authMiddleware,
+    isAdmin,
+    orderController.getRevenueYearForAdmin
+);
+router.get(
+    '/total-cancelled/daily-comparison/:type',
+    authMiddleware,
+    isAdmin,
+    orderController.getTotalCancelledOrderForAdmin
+);
 router.get(
     '/daily-comparison/type',
     authMiddleware,

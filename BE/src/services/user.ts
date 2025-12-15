@@ -9,6 +9,8 @@ import *as jwtUtils from '../utils/token'
 import mongoose from 'mongoose';
 import { AppError } from '../utils/appError';
 import cloudinary from '../config/cloudinary';
+import { IKpiResponse } from '../interfaces/order';
+import { getDateRange } from './order';
 
 const resendOTP = async (email: string, pool: ConnectionPool) => {
     const otp = generateOTP();
@@ -682,3 +684,50 @@ export const registerAccount = async (name: string, email: string, password: str
         throw new AppError("Failed to register employee", 500, false);
     }   
 };
+
+
+
+
+export const getTotalUserComparisonForAdmin = async (dbBranch: ConnectionPool, type: string): Promise<IKpiResponse> => {
+  
+    const { currentStart, currentEnd, previousStart, previousEnd } = getDateRange(type);
+    const isAllTime = type.toLowerCase() === 'từ trước tới nay';
+  
+    try {
+      // --- 1. DỮ LIỆU HIỆN TẠI ---
+      const currentQuery = `
+        SELECT COUNT(ID) AS total
+        FROM users
+        WHERE is_verified = 1 AND created_at >= ${currentStart}
+            AND created_at < ${currentEnd};
+        `;
+  
+      const currentResult = await dbBranch.request().query(currentQuery);
+      const currentTotalUsers = currentResult.recordset[0]?.total || 0;
+  
+      // --- 2. DỮ LIỆU SO SÁNH (QUÁ KHỨ) ---
+      let previousTotalUsers = 0;
+  
+      if (!isAllTime) {
+        const previousQuery = `
+            SELECT COUNT(ID) AS previous_total
+            FROM users
+            WHERE is_verified = 1 AND created_at >= ${previousStart}
+            AND created_at < ${previousEnd};
+        `;
+  
+        const previousResult = await dbBranch.request().query(previousQuery);
+        previousTotalUsers = previousResult.recordset[0]?.previous_total || 0;
+      }
+      return {
+        total: currentTotalUsers,
+        previousTotal: previousTotalUsers
+      };
+  
+    } catch (error) {
+      if (error instanceof AppError) {
+        throw error;
+      }
+      throw new AppError("Failed to get order KPI data", 500);
+    }
+  };

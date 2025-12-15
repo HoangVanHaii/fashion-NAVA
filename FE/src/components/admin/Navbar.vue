@@ -19,11 +19,11 @@
     }
     
     const menuItems: MenuItem[] = [
-        { key: 'home', label: 'Trang chủ', routeName: 'adminHome', icon: 'fa-solid fa-house' },
+        { key: 'home', label: 'Trang chủ', routeName: 'HomeAdmin', icon: 'fa-solid fa-house' },
         { key: 'users', label: 'Quản lý người dùng', routeName: 'UserAdmin', icon: 'fa-solid fa-user' },
         { key: 'products', label: 'Quản lý sản phẩm', routeName: 'ProductAdmin', icon: 'fa-solid fa-boxes' },
         { key: 'order', label: 'Quản lý đơn hàng', routeName: 'OrderAdmin', icon: 'fa-solid fa-box-open' },
-        { key: 'flashsale', label: 'Quản lý Flash Sale', routeName: 'FlashsaleAdmin', icon: 'fa-solid fa-bolt' },
+        { key: 'flashsale', label: 'Quản lý Flash Sale', routeName: 'FlashSaleAdmin', icon: 'fa-solid fa-bolt' },
         { key: 'voucher', label: 'Quản lý Voucher', routeName: 'VoucherAdmin', icon: 'fa-solid fa-ticket' },
         { key: 'settings', label: 'Cài đặt', routeName: 'adminSetting', icon: 'fa-solid fa-gear' },
     ];
