@@ -1,41 +1,32 @@
-import type { IProductMongoDetail } from "./product";
 export interface FlashSale {
-  ID?: number;
+  id: string;
   title: string;
   start_date: Date;
   end_date: Date;
-  status?: "active" | "cancelled";
-  created_by: number;
+  status?: string;
+  created_by: string;
   created_at?: Date;
-  Products: IProductMongoDetail[];
-}
-export interface FlashSaleSeller {
-  id?: number;
-  title: string;
-  start_date: Date;
-  end_date: Date;
-  status?: "active" | "cancelled";
-  created_by: number;
-  created_at?: Date;
-  shop_has_sale?: boolean;
   items?: FlashSaleItem[];
+  is_participate?: boolean
 }
-
 export interface FlashSaleItem {
-  id?: number;
-  flash_sale_id?: number;
-  product_id?: number;
-  product_image?: string;
+  flash_sale_id?: string;
+  product_id?: string;
+  color_id_mongo?: string;
+  size_id_mongo?: string
   product_name?: string;
-  original_price?: number;
   flash_sale_price: number;
   stock: number;
   sold?: number;
-  status?: "active" | "cancelled";
+  status?: string;
   created_at?: Date;
 }
+export interface ImageProducts {
+  color_id: string;
+  image_url: string;
+}
 export interface FlashSaleProductSold {
-  product_id: number;
+  product_id: string;
   total_flash_sale_sold: number;
   total_stock: number;
 }

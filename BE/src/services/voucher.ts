@@ -278,7 +278,15 @@ export const validateVoucher = async (code: string, orderTotal: number, dbBranch
         } else if (voucher.discount_type === "FIXED") {
             discount = discountVal;
         }
+        const updateQuery = `
+            UPDATE vouchers
+            SET used = used + 1
+            WHERE id = @id;
+        `;
 
+        await dbBranch.request()
+            .input("id", voucher.id)
+            .query(updateQuery);
         return {
             discount: Math.floor(discount), 
             voucher_id: voucher.id 

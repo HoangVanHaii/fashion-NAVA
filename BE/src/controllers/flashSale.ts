@@ -183,3 +183,21 @@ export const getFlashSaleHomePublic = async (req: Request, res: Response, next: 
         next(err);
     }
 }
+export const getProductActiveByFlashSaleId = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const dbBranch = req.dbBranch;
+        const branch_code = req.user?.branch_code;
+        const id = req.params.flash_id;
+        if (!dbBranch || !dbBranch.connected) {
+            throw new AppError(`${branch_code} is not connected`, 503);
+        }
+        const products = await FlashSaleService.getProductsActive(id, dbBranch, req.user?.branch_id!, req.user?.role!);
+        return res.status(200).json({
+            success: true,
+            message: 'Get product sale by id successfully',
+            data: products
+        })
+    } catch (err) {
+        next(err);
+    }
+}
