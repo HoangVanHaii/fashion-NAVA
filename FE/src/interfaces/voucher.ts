@@ -7,9 +7,10 @@ export interface Voucher {
     max_discount?: number; // Có thể null
     min_order_value: number;
     quantity: number;
-    start_date: string; // ISO String
-    end_date: string; // ISO String
-    // Các trường bổ sung cho FE hiển thị (nếu BE trả về user_vouchers join với vouchers)
+    used: number;
+    start_date: string; 
+    end_date: string;
+    status?: string;
     used_date?: string | null; 
     image_url?: string; // Tạm thời optional, nếu BE không có sẽ dùng ảnh mặc định
 }

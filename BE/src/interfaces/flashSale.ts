@@ -1,5 +1,5 @@
 export interface FlashSale {
-    id?: string
+    id?: string;
     title: string;
     start_date: Date;
     end_date: Date;

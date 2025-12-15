@@ -6,7 +6,7 @@ import Address from '@/views/Address.vue';
 import Order from '@/views/Order.vue';
 import Favourite from '@/views/Favourite.vue';
 import ProductDetail from '@/views/ProductDetail.vue';
-import HomeEmployee from '@/components/Employee/Home.vue';
+import HomeEmployee from '@/views/Employee/Home.vue';
 import OrderSuccess from '@/views/OrderSuccess.vue';
 import OrderFailed from '@/views/OrderFailed.vue';
 
@@ -25,6 +25,9 @@ import ReviewDashboard from '../views/ReviewDashboard.vue'
 import ProductReviewDetail from '../views/ProductReviewDetail.vue'
 import Cart from '../views/Cart.vue'
 import Payment from '../views/Payment.vue'
+import ProductView from '@/views/Employee/ProductView.vue';
+import FlashSale from '@/views/Employee/FlashSale.vue';
+import VoucherView from '@/views/Employee/VoucherView.vue';
 
 const routes = [
   { path: '/', redirect: '/home' },
@@ -40,6 +43,10 @@ const routes = [
   { path: '/orderFailed', name: 'OrderFailed', component: OrderFailed },
 
   { path: '/Employee/home', name: 'home-employee', component: HomeEmployee },
+  { path: '/Employee/home/product', name: 'ProductEmployee', component: ProductView },
+  { path: '/Employee/flash-sale', name: 'flashsaleEmployee', component: FlashSale },
+  { path: '/Employee/voucher', name: 'voucherEmployee', component: VoucherView },
+
   
   { path: '/home', name: 'Home', component: Home },
   { path: '/deal-hot', name: 'DealHot', component: DealHot },

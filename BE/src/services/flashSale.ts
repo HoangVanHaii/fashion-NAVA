@@ -156,11 +156,9 @@ export const getFlashSaleActive = async (pool: ConnectionPool): Promise<FlashSal
                         ELSE 0
                     END AS is_participate
                 FROM flash_sales fs
-                WHERE fs.status = 'active'
                 ORDER BY fs.start_date DESC;
             `;
         const result = await pool.request().query(query);
-
         const flash_sale_result: FlashSale[] = result.recordset.map(fl => {
             const is_participate = fl.is_participate === 1;
 
@@ -175,7 +173,6 @@ export const getFlashSaleActive = async (pool: ConnectionPool): Promise<FlashSal
                 is_participate: is_participate, 
             };
         });
-
         return flash_sale_result; 
 
     } catch (error) {

@@ -24,6 +24,7 @@ router.post(
 router.delete('/item/:item', authMiddleware, adminOrEmployee,flashSaleController.sortDeleteItem);
 router.delete('/sale/:flashSale', authMiddleware, adminOrEmployee, flashSaleController.sortDeleteFlashSale);
 
+router.get("/productActive/:flash_id", authMiddleware, flashSaleController.getProductActiveByFlashSaleId);
 router.get("/active-not-in", authMiddleware, flashSaleController.getFlashSaleHotDeal);
 router.get("/public/active-not-in", flashSaleController.getFlashSaleHotDealPublic);
 

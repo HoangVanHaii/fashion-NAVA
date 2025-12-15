@@ -108,13 +108,14 @@ export const useOrderEmployeeStore = defineStore("orderEmployee", () => {
             loading.value = false;
         }
     }
-    const getStatisticalStore = async (order_id: string, status: string) => {
+    const getStatisticalStore = async () => {
         loading.value = true;
         try {
             const result = await getStatistical();
             statistical.value = result.data;
         } catch (err: any) {
-            
+            loading.value = false;
+            console.log(err);
         } finally {
             loading.value = false;
         }
@@ -125,7 +126,8 @@ export const useOrderEmployeeStore = defineStore("orderEmployee", () => {
             const result = await getDailyOrderComparison(type);
             revenueOrder.value = result.data;
         } catch (err: any) {
-
+            loading.value = false;
+            console.log(err);
         } finally {
             loading.value = false;
         }
@@ -183,7 +185,8 @@ export const useOrderEmployeeStore = defineStore("orderEmployee", () => {
             const result = await getProductBySize(size_id);
             return result.product as IProductMongoDetail;
         } catch (err: any) {
-
+            console.log(err);
+            loading.value = false;
         } finally {
             loading.value = false;
         }
@@ -193,7 +196,8 @@ export const useOrderEmployeeStore = defineStore("orderEmployee", () => {
         try {
             await createOrderByEmployee(orderItems);
         } catch (err: any) {
-
+            loading.value = false;
+            console.log(err);
         } finally {
             loading.value = false;
         }

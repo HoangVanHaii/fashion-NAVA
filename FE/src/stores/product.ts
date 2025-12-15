@@ -11,7 +11,8 @@ import {
     searchByCategoryGender,
     getProductByName,
     getProductBestSeller,
-    getProductLatest
+    getProductLatest,
+    getAllProduct
 } from '@/services/product';
 
 import { ref } from "vue";
@@ -35,6 +36,20 @@ export const useProductStore = defineStore('product', () => {
             loading.value = false;
         }
     }
+  const getAllProductStore = async () => {
+    try {
+      loading.value = true;
+
+      const res = await getAllProduct();
+
+      return res.products as IProductMongoDetail[];
+    } catch (error) {
+      loading.value = false;
+      console.log("Failed to fetch product", error);
+    } finally {
+      loading.value = false;
+    }
+  }
     const searchByCategoryIdStore = async (catId: string) => {
         loading.value = true;
         try {
@@ -162,6 +177,8 @@ export const useProductStore = defineStore('product', () => {
       searchByCategoryStore,
       searchByCategoryGenderStore,
       getProductBestSellerStore,
-      getProductLatestStore, loading
+      getProductLatestStore,
+      getAllProductStore,
+      loading
     };
 })

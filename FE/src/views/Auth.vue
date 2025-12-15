@@ -210,7 +210,6 @@ const handleRegister = async () => {
 }
 
 const handleLogin = async () => {
-    alert(111);
     if (!email.value) {
         auth.error = "Email không được bỏ trống";
         triggerShake()
@@ -239,15 +238,15 @@ const handleLogin = async () => {
                 router.push(redirectPath.toString());
             }
             else {
-                if (auth.user?.role === 'seller') {
-                    router.push({ name: 'home-seller' });
+                if (auth.user?.role === 'employee') {
+                    router.push({ name: 'home-employee' });
                 } else if (auth.user?.role === 'admin') {
-                    router.push({ name: 'accountPermission-admin' })
+                    router.push({ name: 'HomeAdmin' })
                 } else {
                     router.push('/');
                 }
             }
-        }, 3000);
+        }, 1500);
     }
 }
 </script>
