@@ -1,5 +1,5 @@
 import api from './api';
-import type { Voucher } from '../interfaces/voucher';
+import type { Voucher, VoucherAdmin } from '../interfaces/voucher';
 
 export const getUserVouchers = async () => {
     const res = await api.get('/voucher/user/'); 
@@ -40,5 +40,42 @@ export const getVoucherById = async (id: number) => {
 }
 export const getAllVoucherByShopId = async (id: number) => {
     const result = await api.get(`voucher/${id}`)
+    return result.data;
+}
+export const createVoucher = async (voucher: VoucherAdmin) => {
+    const result = await api.post(`/voucher/createVoucher`, {
+        code: voucher.code,
+        description: voucher.description,
+        
+        discount_type: voucher.discount_type,
+        discount_value: voucher.discount_value,
+        
+        min_order_value: voucher.min_order_value,
+        max_discount: voucher.max_discount,
+        
+        // Frontend dùng 'quantity', nhưng Backend đợi 'usage_limit' -> Phải đổi tên ở đây
+        usage_limit: voucher.quantity, 
+        
+        start_date: voucher.start_date,
+        end_date: voucher.end_date
+    })
+    return result.data;
+}
+export const updateVoucher = async (voucher: VoucherAdmin) => {
+    const result = await api.put(`/voucher/updateVoucher/${voucher.ID}`, {
+        code: voucher.code,
+        description: voucher.description,
+        
+        discount_type: voucher.discount_type,
+        discount_value: voucher.discount_value,
+        
+        min_order_value: voucher.min_order_value,
+        max_discount: voucher.max_discount,
+        
+        usage_limit: voucher.quantity, 
+        
+        start_date: voucher.start_date,
+        end_date: voucher.end_date
+    })
     return result.data;
 }

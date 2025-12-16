@@ -54,6 +54,7 @@ router.get(
     authMiddleware,
     productController.getTopProductsBestSeller
 );
+
 router.get(
     "/new",
     authMiddleware,

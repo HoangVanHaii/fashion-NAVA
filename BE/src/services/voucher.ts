@@ -6,7 +6,7 @@ import { ConnectionPool, Transaction } from "mssql";
 export const createVoucher = async (voucher:Voucher,branch_code:string)=>{
     try {
         const pool: ConnectionPool | null = getBranchPool(branch_code);
-        if (!pool) throw new AppError("Database connection failed", 500);
+        if (!pool) throw new AppError("Database connection failed", 503);
         const result = await pool.request()
             .input("id", voucher.id)
             .input("code", voucher.code)
@@ -278,7 +278,14 @@ export const validateVoucher = async (code: string, orderTotal: number, dbBranch
         } else if (voucher.discount_type === "FIXED") {
             discount = discountVal;
         }
-
+        const updateQuery = `
+            UPDATE vouchers
+            SET used = used + 1
+            WHERE id = @id;
+        `;
+        await dbBranch.request()
+            .input("id", voucher.id)
+            .query(updateQuery);
         return {
             discount: Math.floor(discount), 
             voucher_id: voucher.ID

@@ -33,6 +33,7 @@ export const useCartStore = defineStore('cart', () => {
     const loading = ref(false); 
     const error = ref<string | null>(null);
     let snapshotCart: ICartFull | null = null; 
+    const success = ref(false);
 
     const getStoredSession = (): CheckoutSession | null => {
         if (typeof window !== 'undefined') {
@@ -95,7 +96,7 @@ export const useCartStore = defineStore('cart', () => {
             if (cart.value.total_amount !== null) cart.value.total_amount += (itemPrice * quantityDiff);
         }
     };
-
+    const cartCount = ref<number>(0);
     const fetchCartAction = async () => {
         loading.value = true;
         error.value = null;
@@ -103,6 +104,7 @@ export const useCartStore = defineStore('cart', () => {
             const res = await getCartItems();
             if (res.success && res.data) cart.value = res.data;
             else cart.value = null; 
+            cartCount.value = cart.value?.items.length || 0;
         } catch (err: any) {
             console.error("Error fetching cart:", err);
             error.value = err.response?.data?.message || "Failed to load cart";
@@ -112,14 +114,24 @@ export const useCartStore = defineStore('cart', () => {
     const addToCartAction = async (payload: ICartItem): Promise<CartResult> => {
         loading.value = true;
         error.value = null;
+        success.value = false;
         try {
             const res = await addToCart(payload);
+<<<<<<< HEAD
             if (res.success) { 
                 await fetchCartAction(); 
                 await getCartCountStore();
                 return { success: true, message: "Product added!" }; }
+=======
+            success.value = true;
+            if (res.success) {
+                await fetchCartAction()
+                return { success: true, message: "Product added!" };
+            }
+>>>>>>> 10758550931fc76141dbf5ebc9efb47f6b586527
             throw new Error("Failed to add.");
         } catch (err: any) {
+            success.value = false;
             error.value = err.message;
             throw new Error(err.message); 
         } finally { loading.value = false; }
@@ -192,7 +204,11 @@ export const useCartStore = defineStore('cart', () => {
     };
 
     return {
+<<<<<<< HEAD
         cart, loading, error, totalQuantity, totalAmount, checkoutSession,cartCount,
+=======
+        cart, loading, error, totalQuantity, totalAmount, checkoutSession, success, cartCount,
+>>>>>>> 10758550931fc76141dbf5ebc9efb47f6b586527
         fetchCartAction, addToCartAction, updateQuantityAction, updateVariantAction, removeItemAction, clearCartAction,
         setCheckoutSession, clearCheckoutSession, getCartCountStore
     };

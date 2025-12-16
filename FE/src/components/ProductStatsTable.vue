@@ -25,8 +25,8 @@ const goToDetail = (productId: string) => {
 </script>
 
 <template>
-    <div class="overflow-hidden bg-white rounded-xl shadow border border-gray-200">
-        <table class="min-w-full divide-y divide-gray-200 table-fixed">
+    <div class="overflow-x-auto bg-white rounded-xl shadow border border-gray-200 custom-scrollbar">
+        <table class="min-w-[1000px] w-full divide-y divide-gray-200 table-fixed">
             <thead class="bg-gray-50">
                 <tr>
                     <th class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider w-[120px]">
@@ -138,3 +138,21 @@ const goToDetail = (productId: string) => {
         </div>
     </div>
 </template>
+
+<style scoped>
+/* Scrollbar riêng cho bảng */
+.custom-scrollbar::-webkit-scrollbar {
+  height: 8px; /* Chiều cao cho scrollbar ngang */
+  width: 8px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #d1d5db; 
+  border-radius: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af; 
+}
+</style>

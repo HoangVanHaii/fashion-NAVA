@@ -2,11 +2,16 @@
 import { ref, computed, onMounted } from "vue";
 import { Bar } from "vue-chartjs";
 import Navbar from "../../components/admin/Navbar.vue";
+import Loading from "@/components/Loading.vue";
 import { useProductAdminStore } from "../../stores/admin/product";
-
-const productAdmin = useProductAdminStore();
+import { useProductStore } from "@/stores/product";
+import { useUserAdminStore } from "@/stores/admin/user";
+import { useOrderEmployeeStore } from "@/stores/order";
+import * as XLSX from "xlsx";
+import { useAuthStore } from "@/stores/auth"; // Import Auth Store
 
 // --- 1. IMPORT CHART.JS ---
+const loading = ref<boolean>(false);
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -18,6 +23,19 @@ import {
   Tooltip,
   Legend,
 } from "chart.js";
+import type { IProductMongoDetail } from "@/interfaces/product";
+import {
+  formatPrice,
+  getColorMain,
+  getMainProductImage,
+  getMinProductPrice,
+} from "@/utils/format";
+import {
+  type IRevenueMonth,
+  type GetOrder,
+  type IKpiResponse,
+  type IRevenueYearResponse,
+} from "@/interfaces/order";
 
 // Đăng ký các thành phần Chart.js
 ChartJS.register(
@@ -31,39 +49,98 @@ ChartJS.register(
   Legend
 );
 
-// --- 2. MOCK DATA ---
+const useProduct = useProductStore();
+const productAdmin = useProductAdminStore();
+const userAdmin = useUserAdminStore();
+const useOrder = useOrderEmployeeStore();
+const auth = useAuthStore(); // Sử dụng Auth Store
+
+const productBestSeller = ref<IProductMongoDetail[]>([]);
+const listOrders = ref<GetOrder[]>([]);
+const listRevenueData = ref<IRevenueYearResponse | null>(null);
+const selectedYear = ref(new Date().getFullYear());
+const currentFilter = ref<string>("hôm nay");
+
+// --- BRANCH CONFIG ---
+const branches = [
+    { code: 'CT', label: 'Toàn Hệ Thống' },
+    { code: 'HN', label: 'Chi Nhánh Hà Nội' },
+    { code: 'DN', label: 'Chi Nhánh Đà Nẵng' },
+    { code: 'HCM', label: 'Chi Nhánh TPHCM' }
+];
+const selectedBranch = ref<any>(branches[0]);
+const showBranchDropdown = ref(false);
+
+// Hàm xử lý mở dropdown (Chỉ cho phép CT)
+const toggleDropdown = () => {
+    if (auth.user?.branch === 'CT') {
+        showBranchDropdown.value = !showBranchDropdown.value;
+    }
+};
+
+// Hàm xử lý chọn chi nhánh
+const selectBranch = async (branch: typeof branches[0]) => {
+    selectedBranch.value = branch;
+    showBranchDropdown.value = false;
+    // Reload toàn bộ dữ liệu khi đổi chi nhánh
+    await fetchAllData();
+};
+
+// Hàm tải toàn bộ dữ liệu (Centralized Data Fetching)
+const fetchAllData = async () => {
+    const branchCode = selectedBranch.value.code;
+    
+    // 1. Tải số liệu thống kê (KPIs) - 4 API
+    await handleDashBoard(currentFilter.value);
+
+    // 2. Tải các phần còn lại - 3 API
+    const [bestSeller, topOrders, revenueData] = await Promise.all([
+        useProduct.getProductBestSellerForAdminStore(10, branchCode), // API 5
+        useOrder.getTopOrderOfBranchStore(10, branchCode),    // API 6
+        useOrder.getTotalOrderMonthForAdminStore(selectedYear.value.toString(), branchCode), // API 7
+    ]);
+
+    productBestSeller.value = bestSeller;
+    listOrders.value = topOrders;
+    listRevenueData.value = {
+        year: revenueData.year || new Date().getFullYear(),
+        monthlyRevenue: revenueData.monthlyRevenue || [],
+    };
+};
+
 onMounted(async () => {
-  await productAdmin.getAllProductPayloadStore();
+  loading.value = true;
+  
+  // 1. Set chi nhánh theo User trước
+  if (auth.user?.branch) {
+      const userBranch = branches.find(b => b.code === auth.user?.branch);
+      if (userBranch) {
+          selectedBranch.value = userBranch;
+      }
+  }
+
+  // 2. Sau đó mới fetch dữ liệu
+  await fetchAllData();
+  
+  loading.value = false;
 });
 
-// Dữ liệu biểu đồ doanh thu
-const revenueData = ref([
-  { month: "T1", value: 40 },
-  { month: "T2", value: 35 },
-  { month: "T3", value: 55 },
-  { month: "T4", value: 70 },
-  { month: "T5", value: 60 },
-  { month: "T6", value: 85 },
-  { month: "T7", value: 50 },
-  { month: "T8", value: 65 },
-  { month: "T9", value: 75 },
-  { month: "T10", value: 90 },
-  { month: "T11", value: 80 },
-  { month: "T12", value: 95 },
-]);
-
-// Cấu hình dữ liệu cho Chart.js (Computed để tự update khi data thay đổi)
+// Cấu hình dữ liệu cho Chart.js
 const chartData = computed(() => ({
-  labels: revenueData.value.map((item) => item.month),
+  labels:
+    listRevenueData.value?.monthlyRevenue.map(
+      (item) => `Tháng ${item.month}`
+    ) || [],
   datasets: [
     {
       label: "Doanh thu (Triệu VNĐ)",
-      backgroundColor: "#111827", // Màu gray-900 cho sang trọng
+      backgroundColor: "#111827",
       hoverBackgroundColor: "#374151",
       borderRadius: 4,
       barPercentage: 0.6,
       categoryPercentage: 0.8,
-      data: revenueData.value.map((item) => item.value),
+      data:
+        listRevenueData.value?.monthlyRevenue.map((item) => item.revenue) || [],
     },
   ],
 }));
@@ -72,7 +149,7 @@ const chartOptions = {
   responsive: true,
   maintainAspectRatio: false,
   plugins: {
-    legend: { display: false }, // Ẩn chú thích (legend)
+    legend: { display: false },
     tooltip: {
       backgroundColor: "#000",
       titleColor: "#fff",
@@ -81,7 +158,7 @@ const chartOptions = {
       cornerRadius: 8,
       displayColors: false,
       callbacks: {
-        label: (context: any) => `Doanh thu: ${context.raw} triệu ₫`,
+        label: (context: any) => `Doanh thu: ${formatPrice(context.raw)}`,
       },
     },
   },
@@ -90,7 +167,7 @@ const chartOptions = {
       beginAtZero: true,
       grid: {
         display: true,
-        color: "#f3f4f6", // Màu lưới nhạt
+        color: "#f3f4f6",
         drawBorder: false,
       },
       ticks: { font: { size: 11 }, color: "#9ca3af" },
@@ -102,217 +179,132 @@ const chartOptions = {
   },
 };
 
+const handleDashBoard = async (option: string) => {
+  currentFilter.value = option;
+  const branchCode = selectedBranch.value.code;
+
+  // Gọi 4 API thống kê với branchCode
+  // loading.value = true; // Bỏ loading ở đây để trải nghiệm mượt hơn khi click filter tab
+  const [dailyOrders, totalOrders, totalUsers, totalCancelled] =
+    await Promise.all([
+      useOrder.getDailyOrderComparisonForAdminStore(option, branchCode), // API 1
+      useOrder.getTotalOrderComparisonForAdminStore(option, branchCode), // API 2
+      userAdmin.getTotalUserComparisonForAdminStore(option, branchCode), // API 3
+      useOrder.getTotalOrderCancelledForAdminStore(option, branchCode),  // API 4
+    ]);
+
+  const responses = [dailyOrders, totalOrders, totalUsers, totalCancelled];
+  // loading.value = false;
+  
+  responses.forEach((data, idx) => {
+    if (stats.value[idx]) {
+      stats.value[idx].value = data.total ? (data.total) : "0";
+      const change = formatChangePercent(data.changePercent);
+      stats.value[idx].change = change.text;
+      stats.value[idx].isPositive = change.isPositive;
+    }
+  });
+};
+
+const formatChangePercent = (value?: number) => {
+  if (value === undefined || value === null) {
+    return { text: "0%", isPositive: true };
+  }
+
+  return {
+    text: `${value > 0 ? "+" : ""}${value.toFixed(2)}%`,
+    isPositive: value >= 0,
+  };
+};
+
+const fetchRevenue = async () => {
+  // API 7 (Gọi lại khi đổi năm)
+  loading.value = true;
+  const data = await useOrder.getTotalOrderMonthForAdminStore(
+    selectedYear.value.toString(),
+    selectedBranch.value.code // Truyền branchCode
+  );
+  loading.value = false;
+  listRevenueData.value = {
+    year: data.year || selectedYear.value,
+    monthlyRevenue: data.monthlyRevenue || [],
+  };
+};
+
+const exportKpiExcel = () => {
+  if (!stats.value || stats.value.length === 0) return;
+
+  const wsData = [
+    ["Báo cáo KPI - " + selectedBranch.value.label],
+    ["Thời gian lọc: " + currentFilter.value],
+    [""],
+    ["Tên KPI", "Giá trị", "Thay đổi"],
+    ...stats.value.map(item => [item.title, item.value, item.change])
+  ];
+
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "KPI Dashboard");
+
+  XLSX.writeFile(wb, `KPI_Dashboard_${selectedBranch.value.code}.xlsx`);
+};
+
 // Thống kê tổng quan (KPIs)
 const stats = ref([
   {
     title: "Tổng doanh thu",
-    value: "128.500.000 ₫",
-    change: "+12.5%",
+    value: "0 ₫",
+    change: "+0%",
     isPositive: true,
     icon: "fa-sack-dollar",
     color: "bg-green-100 text-green-600",
   },
   {
     title: "Đơn hàng mới",
-    value: "1,245",
-    change: "+8.2%",
+    value: "0",
+    change: "+0%",
     isPositive: true,
     icon: "fa-cart-shopping",
     color: "bg-blue-100 text-blue-600",
   },
   {
     title: "Khách hàng",
-    value: "5,820",
-    change: "-2.4%",
+    value: "0",
+    change: "-0%",
     isPositive: false,
     icon: "fa-users",
     color: "bg-purple-100 text-purple-600",
   },
   {
-    title: "Sản phẩm tồn kho",
-    value: "843",
-    change: "+1.0%",
+    title: "Đơn hàng bị hủy",
+    value: "0",
+    change: "+0%",
     isPositive: true,
-    icon: "fa-box-open",
+    icon: "fa-circle-xmark",
     color: "bg-orange-100 text-orange-600",
   },
 ]);
 
-// --- SẢN PHẨM BÁN CHẠY ---
-const topSellingProducts = ref([
-  {
-    id: 1,
-    name: "Nike Air Red",
-    category: "Giày thể thao",
-    sales: "3.2m ₫",
-    imageUrl:
-      "https://images.unsplash.com/photo-1542291026-7eec264c27ff?q=80&w=100&auto=format&fit=crop",
-  },
-  {
-    id: 2,
-    name: "Basic Tee",
-    category: "Áo thun",
-    sales: "850k ₫",
-    imageUrl:
-      "https://images.unsplash.com/photo-1600185365926-3a2ce3cdb9eb?q=80&w=100&auto=format&fit=crop",
-  },
-  {
-    id: 3,
-    name: "Headphone Pro",
-    category: "Điện tử",
-    sales: "4.1m ₫",
-    imageUrl:
-      "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?q=80&w=100&auto=format&fit=crop",
-  },
-  {
-    id: 4,
-    name: "Túi Xách Da Cao Cấp",
-    category: "Phụ kiện",
-    sales: "1.5m ₫",
-    imageUrl:
-      "https://images.unsplash.com/photo-1556740738-b6a63e27c4df?q=80&w=100&auto=format&fit=crop",
-  },
-  {
-    id: 5,
-    name: "Móc Khóa Mini",
-    category: "Đồ dùng cá nhân",
-    sales: "120k ₫",
-    imageUrl:
-      "https://images.unsplash.com/photo-1583783935246-83492576b251?q=80&w=100&auto=format&fit=crop",
-  },
-  {
-    id: 6,
-    name: "Chuột Gaming RGB",
-    category: "Điện tử",
-    sales: "600k ₫",
-    imageUrl:
-      "https://images.unsplash.com/photo-1594950942159-ef22a9009f48?q=80&w=100&auto=format&fit=crop",
-  },
-  {
-    id: 7,
-    name: "Bàn Phím Cơ",
-    category: "Điện tử",
-    sales: "1.8m ₫",
-    imageUrl:
-      "https://images.unsplash.com/photo-1587843828362-7313a298813c?q=80&w=100&auto=format&fit=crop",
-  },
-]);
-
 // --- ĐƠN HÀNG VÀ PHÂN TRANG ---
-const allOrders = ref([
-  {
-    id: "#ORD-001",
-    customer: "Nguyễn Văn A",
-    date: "2023-11-20",
-    total: "1.200.000 ₫",
-    status: "completed",
-    statusText: "Hoàn thành",
-  },
-  {
-    id: "#ORD-002",
-    customer: "Trần Thị B",
-    date: "2023-11-19",
-    total: "560.000 ₫",
-    status: "pending",
-    statusText: "Chờ xử lý",
-  },
-  {
-    id: "#ORD-003",
-    customer: "Lê Văn C",
-    date: "2023-11-19",
-    total: "2.500.000 ₫",
-    status: "shipping",
-    statusText: "Đang giao",
-  },
-  {
-    id: "#ORD-004",
-    customer: "Phạm Thị D",
-    date: "2023-11-18",
-    total: "890.000 ₫",
-    status: "cancelled",
-    statusText: "Đã hủy",
-  },
-  {
-    id: "#ORD-005",
-    customer: "Hoàng Văn E",
-    date: "2023-11-18",
-    total: "150.000 ₫",
-    status: "completed",
-    statusText: "Hoàn thành",
-  },
-  {
-    id: "#ORD-006",
-    customer: "Nguyễn Văn F",
-    date: "2023-11-17",
-    total: "780.000 ₫",
-    status: "pending",
-    statusText: "Chờ xử lý",
-  },
-  {
-    id: "#ORD-007",
-    customer: "Trần Thị G",
-    date: "2023-11-17",
-    total: "3.200.000 ₫",
-    status: "shipping",
-    statusText: "Đang giao",
-  },
-  {
-    id: "#ORD-008",
-    customer: "Lê Văn H",
-    date: "2023-11-16",
-    total: "450.000 ₫",
-    status: "completed",
-    statusText: "Hoàn thành",
-  },
-  {
-    id: "#ORD-009",
-    customer: "Phạm Thị I",
-    date: "2023-11-16",
-    total: "990.000 ₫",
-    status: "cancelled",
-    statusText: "Đã hủy",
-  },
-  {
-    id: "#ORD-010",
-    customer: "Hoàng Văn K",
-    date: "2023-11-15",
-    total: "2.100.000 ₫",
-    status: "completed",
-    statusText: "Hoàn thành",
-  },
-  {
-    id: "#ORD-011",
-    customer: "Nguyễn Thị L",
-    date: "2023-11-15",
-    total: "120.000 ₫",
-    status: "pending",
-    statusText: "Chờ xử lý",
-  },
-]);
-
 const currentPage = ref(1);
-const itemsPerPage = 5; // Tối đa 5 đơn hàng mỗi trang
+const itemsPerPage = 5;
 
-// Tính toán tổng số trang
 const totalPages = computed(() => {
-  return Math.ceil(allOrders.value.length / itemsPerPage);
+  return Math.ceil(listOrders.value.length / itemsPerPage);
 });
 
-// Tính toán danh sách đơn hàng cho trang hiện tại
 const currentOrders = computed(() => {
   const start = (currentPage.value - 1) * itemsPerPage;
   const end = start + itemsPerPage;
-  return allOrders.value.slice(start, end);
+  return listOrders.value.slice(start, end);
 });
 
-// Hàm chuyển trang
 const changePage = (page: number) => {
   if (page >= 1 && page <= totalPages.value) {
     currentPage.value = page;
   }
 };
 
-// Tạo mảng số trang để v-for
 const pageNumbers = computed(() => {
   const pages = [];
   for (let i = 1; i <= totalPages.value; i++) {
@@ -321,42 +313,126 @@ const pageNumbers = computed(() => {
   return pages;
 });
 
-const getStatusColor = (status: string) => {
-  switch (status) {
-    case "completed":
-      return "bg-green-100 text-green-700";
-    case "pending":
-      return "bg-yellow-100 text-yellow-700";
-    case "shipping":
-      return "bg-blue-100 text-blue-700";
-    case "cancelled":
-      return "bg-red-100 text-red-700";
-    default:
-      return "bg-gray-100 text-gray-700";
-  }
+type OrderStatus =
+  | "PENDING"
+  | "CONFIRMED"
+  | "SHIPPED"
+  | "COMPLETED"
+  | "CANCELLED";
+
+const STATUS_MAP: Record<OrderStatus, { text: string; color: string }> = {
+  PENDING: {
+    text: "Chờ xử lý",
+    color: "bg-yellow-100 text-yellow-700",
+  },
+  CONFIRMED: {
+    text: "Đã xác nhận",
+    color: "bg-blue-100 text-blue-700",
+  },
+  SHIPPED: {
+    text: "Đang giao hàng",
+    color: "bg-purple-100 text-purple-700",
+  },
+  COMPLETED: {
+    text: "Hoàn thành",
+    color: "bg-green-100 text-green-700",
+  },
+  CANCELLED: {
+    text: "Đã huỷ",
+    color: "bg-red-100 text-red-700",
+  },
 };
+const getOrderStatusUI = (status?: string) => {
+  const key = status?.toUpperCase() as OrderStatus;
+  return (
+    STATUS_MAP[key] ?? {
+      text: "Không xác định",
+      color: "bg-gray-100 text-gray-700",
+    }
+  );
+};
+
+const options = [
+  { label: "Ngày", value: "hôm nay" },
+  { label: "Tuần", value: "tuần này" },
+  { label: "Tháng", value: "tháng này" },
+  { label: "Năm", value: "năm nay" },
+  { label: "Tất cả", value: "từ trước tới nay" },
+];
 </script>
 
 <template>
+    <Loading :loading="loading"/> 
   <div class="flex h-screen bg-[#F3F4F6] font-sans">
     <Navbar />
 
     <div class="flex-1 flex flex-col h-screen overflow-hidden">
       <main class="flex-1 overflow-y-auto custom-scrollbar p-4 sm:p-8">
-        <div class="mb-8 flex justify-between items-end">
+        
+        <div class="mb-8 flex flex-col xl:flex-row xl:items-end justify-between gap-4">
           <div>
             <h2 class="text-2xl font-bold text-gray-900">
               Tổng quan (Dashboard)
             </h2>
-            <p class="text-gray-500 mt-1">
-              Báo cáo hoạt động kinh doanh hôm nay.
+            <p class="text-gray-500 mt-1 text-sm">
+              Báo cáo hoạt động kinh doanh
+              <span class="font-medium text-gray-700">{{ currentFilter }}</span>.
             </p>
           </div>
-          <div class="hidden sm:flex gap-2">
+
+          <div class="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+            
+            <div class="relative w-full sm:w-60 z-20">
+                <div 
+                    class="bg-white border border-gray-200 text-gray-700 font-bold py-2 px-4 rounded-lg flex justify-between items-center shadow-sm transition-colors h-[42px]"
+                    :class="auth.user?.branch === 'CT' ? 'cursor-pointer hover:border-black' : 'cursor-not-allowed opacity-60 bg-gray-50'"
+                    @click="toggleDropdown"
+                >
+                    <div class="flex items-center gap-2 truncate">
+                        <i class="fa-solid fa-building-columns text-gray-400"></i>
+                        <span class="truncate text-sm">{{ selectedBranch.label }}</span>
+                    </div>
+                    <i v-if="auth.user?.branch === 'CT'" class="fa-solid fa-chevron-down text-xs transition-transform" :class="{'rotate-180': showBranchDropdown}"></i>
+                </div>
+                
+                <div 
+                    v-if="showBranchDropdown" 
+                    class="absolute top-full left-0 w-full bg-white border border-gray-100 shadow-xl rounded-lg mt-1 overflow-hidden animate-fade-in"
+                >
+                    <div 
+                        v-for="branch in branches" 
+                        :key="branch.code"
+                        class="px-4 py-2.5 text-sm hover:bg-gray-50 cursor-pointer flex items-center justify-between group"
+                        @click="selectBranch(branch)"
+                    >
+                        <span :class="selectedBranch.code === branch.code ? 'font-bold text-black' : 'text-gray-600'">{{ branch.label }}</span>
+                        <i v-if="selectedBranch.code === branch.code" class="fa-solid fa-check text-green-500 text-xs"></i>
+                    </div>
+                </div>
+                <div v-if="showBranchDropdown" class="fixed inset-0 z-[-1]" @click="showBranchDropdown = false"></div>
+            </div>
+            
+            <div class="bg-gray-100 p-1 rounded-lg flex shadow-inner overflow-x-auto max-w-full">
+              <button
+                v-for="option in options"
+                :key="option.value"
+                @click="handleDashBoard(option.value)"
+                class="px-3 py-1.5 text-sm font-medium rounded-md transition-all duration-200 whitespace-nowrap"
+                :class="[
+                  currentFilter === option.value
+                    ? 'bg-white text-green-600 shadow-sm ring-1 ring-black/5'
+                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200',
+                ]"
+              >
+                {{ option.label }}
+              </button>
+            </div>
+
             <button
-              class="px-3 py-2 bg-white border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 shadow-sm"
+              @click="exportKpiExcel"
+              class="px-4 py-2 bg-white border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-green-600 hover:border-green-500 shadow-sm transition-colors flex items-center h-[42px] whitespace-nowrap"
             >
-              <i class="fa-solid fa-download mr-1"></i> Xuất báo cáo
+              <i class="fa-solid fa-download mr-2"></i> Xuất
             </button>
           </div>
         </div>
@@ -393,7 +469,8 @@ const getStatusColor = (status: string) => {
             <h3 class="text-gray-500 text-sm font-medium mb-1">
               {{ stat.title }}
             </h3>
-            <p class="text-2xl font-bold text-gray-900">{{ stat.value }}</p>
+            <p v-if="index == 0" class="text-2xl font-bold text-gray-900">{{ formatPrice(parseInt(stat.value)) }}</p>
+            <p v-else class="text-2xl font-bold text-gray-900">{{ stat.value }}</p>
           </div>
         </div>
 
@@ -406,8 +483,11 @@ const getStatusColor = (status: string) => {
                 Biểu đồ doanh thu năm nay
               </h3>
               <select
-                class="text-sm border-gray-300 border rounded-md px-2 py-1 text-gray-600 outline-none"
+                v-model="selectedYear"
+                @change="fetchRevenue"
+                class="text-sm border-gray-300 border rounded-md px-2 py-1 text-gray-600 outline-none focus:border-green-500"
               >
+                <option>2025</option>
                 <option>2024</option>
                 <option>2023</option>
               </select>
@@ -426,24 +506,34 @@ const getStatusColor = (status: string) => {
               class="space-y-4 h-[25rem] overflow-y-auto pr-2 custom-scrollbar-v2"
             >
               <div
-                v-for="product in topSellingProducts"
-                :key="product.id"
-                class="flex items-center gap-4"
-              >
-                <img
-                  :src="product.imageUrl"
-                  class="w-12 h-12 rounded-lg object-cover bg-gray-100"
-                />
-                <div class="flex-1">
-                  <h4 class="text-sm font-bold text-gray-900">
-                    {{ product.name }}
-                  </h4>
-                  <p class="text-xs text-gray-500">{{ product.category }}</p>
-                </div>
-                <span class="font-bold text-sm text-gray-900">{{
-                  product.sales
-                }}</span>
-              </div>
+                  v-for="product in productBestSeller"
+                  :key="product.product_id_sql"
+                  class="flex flex-row flex-wrap items-center gap-2"
+                  >
+                  <img
+                      :src="getMainProductImage(product)"
+                      class="w-12 h-12 rounded-lg object-cover bg-gray-100"
+                  />
+                  <div class="flex-1 min-w-0">
+                      <h4
+                      class="text-sm sm:text-base font-bold text-gray-900 truncate"
+                      :title="product.name"
+                      >
+                      {{ product.name }}
+                      </h4>
+                      <p
+                      class="text-xs sm:text-sm text-gray-500 truncate"
+                      :title="getColorMain(product)?.color || ''"
+                      >
+                      {{ getColorMain(product)?.color || "" }}
+                      </p>
+                  </div>
+                  <span
+                      class="font-bold text-xs sm:text-sm text-gray-900 whitespace-nowrap"
+                  >
+                      {{ formatPrice(getMinProductPrice(product) || 0) }}
+                  </span>
+                  </div>
             </div>
           </div>
         </div>
@@ -471,36 +561,41 @@ const getStatusColor = (status: string) => {
                 </tr>
               </thead>
               <tbody class="divide-y divide-gray-100">
+                <tr v-if="currentOrders.length === 0">
+                    <td colspan="5" class="text-center py-8 text-gray-500">
+                        Chưa có đơn hàng nào
+                    </td>
+                </tr>
                 <tr
                   v-for="order in currentOrders"
                   :key="order.id"
                   class="hover:bg-gray-50 transition-colors"
                 >
                   <td class="px-6 py-4 text-sm font-bold text-gray-900">
-                    {{ order.id }}
+                    #{{ order.id }}
                   </td>
                   <td class="px-6 py-4 text-sm text-gray-700">
                     <div class="flex items-center gap-2">
                       <div
                         class="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center text-[10px] font-bold text-gray-600"
                       >
-                        {{ order.customer.charAt(0) }}
+                        {{ order.user_name_buyer?.charAt(0) || "N" }}
                       </div>
-                      {{ order.customer }}
+                      {{ order.user_name_buyer }}
                     </div>
                   </td>
                   <td class="px-6 py-4 text-sm text-gray-500">
-                    {{ order.date }}
+                    {{ order.created_at }}
                   </td>
                   <td class="px-6 py-4 text-sm font-medium text-gray-900">
-                    {{ order.total }}
+                    {{ formatPrice(order.total) }}
                   </td>
                   <td class="px-6 py-4 text-center">
                     <span
-                      class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
-                      :class="getStatusColor(order.status)"
+                      class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium whitespace-nowrap"
+                      :class="getOrderStatusUI(order.status!).color"
                     >
-                      {{ order.statusText }}
+                      {{ getOrderStatusUI(order.status).text || "" }}
                     </span>
                   </td>
                 </tr>
@@ -512,11 +607,11 @@ const getStatusColor = (status: string) => {
             class="p-4 flex justify-between items-center bg-white border-t border-gray-100"
           >
             <div class="text-sm text-gray-600">
-              Hiển thị {{ (currentPage - 1) * itemsPerPage + 1 }} đến
-              {{ Math.min(currentPage * itemsPerPage, allOrders.length) }} trên
-              {{ allOrders.length }} đơn hàng
+              Hiển thị {{ listOrders.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0 }} đến
+              {{ Math.min(currentPage * itemsPerPage, listOrders.length) }} trên
+              {{ listOrders.length }} đơn hàng
             </div>
-            <div class="flex space-x-1">
+            <div class="flex space-x-1" v-if="totalPages > 1">
               <button
                 class="px-3 py-1 text-sm rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100 disabled:opacity-50"
                 :disabled="currentPage === 1"
@@ -528,9 +623,9 @@ const getStatusColor = (status: string) => {
               <button
                 v-for="page in pageNumbers"
                 :key="page"
-                class="px-3 py-1 text-sm rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100 hover:text-red-600"
+                class="px-3 py-1 text-sm rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100 hover:text-green-600"
                 :class="{
-                  'bg-gray-900 text-white font-bold': page === currentPage,
+                  'bg-gray-900 text-white font-bold hover:text-white': page === currentPage,
                 }"
                 @click="changePage(page)"
               >
@@ -553,6 +648,14 @@ const getStatusColor = (status: string) => {
 </template>
 
 <style scoped>
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-5px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in {
+    animation: fadeIn 0.15s ease-out forwards;
+}
+
 /* Custom scrollbar cho Main Content */
 .custom-scrollbar::-webkit-scrollbar {
   width: 6px;
@@ -571,13 +674,13 @@ const getStatusColor = (status: string) => {
 
 /* Custom scrollbar cho Sản phẩm bán chạy */
 .custom-scrollbar-v2::-webkit-scrollbar {
-  width: 6px; /* Độ rộng của thanh cuộn dọc */
+  width: 6px;
 }
 .custom-scrollbar-v2::-webkit-scrollbar-track {
   background: transparent;
 }
 .custom-scrollbar-v2::-webkit-scrollbar-thumb {
-  background: #e5e7eb; /* Màu nhạt hơn cho scrollbar trong box */
+  background: #e5e7eb;
   border-radius: 3px;
 }
 .custom-scrollbar-v2::-webkit-scrollbar-thumb:hover {

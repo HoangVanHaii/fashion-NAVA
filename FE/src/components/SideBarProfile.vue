@@ -100,6 +100,8 @@ const goToVoucher = () => {
     showAddress,
     showResetPassword
   );
+    router.push({ name: "voucher-of-me" });
+
 };
 const goToRegisterSeller = () => {
   reset(
@@ -113,6 +115,7 @@ const goToRegisterSeller = () => {
     showAddress,
     showResetPassword
   );
+
 };
 const goToNotification = () => {
   reset(
@@ -126,6 +129,8 @@ const goToNotification = () => {
     showAddress,
     showResetPassword
   );
+    router.push({ name: "notification-of-me" });
+
 };
 const goToOrder = () => {
   reset(
@@ -320,14 +325,14 @@ const handleShow = () => {
       </div>
 
       <!-- Register Seller -->
-      <div 
+      <!-- <div 
         @click="goToRegisterSeller" 
         class="flex items-center gap-3 px-4 py-3 rounded-lg text-gray-500 cursor-pointer transition-all duration-200 text-sm font-medium hover:bg-gray-50 hover:text-black"
         :class="{ 'bg-black text-white shadow-md transform scale-[1.02]': showRegisterSeller }"
       >
         <i class="fa-solid fa-store w-5 text-center"></i>
         <span>Đăng ký bán hàng</span>
-      </div>
+      </div> -->
 
     </nav>
   </aside>

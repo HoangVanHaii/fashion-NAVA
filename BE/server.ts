@@ -38,7 +38,7 @@ app.use("/api/address", addressRouter);
 app.use("/api/voucher", voucherRouter);
 
 app.use("/api/order", orderRouter);
-app.use("/api/payment", vnpayRouter);
+app.use("/api/payments", vnpayRouter);
 app.use('/api/admin/product', adminProduct);
 app.use('/api/product', productRouter);
 app.use('/api/category', categoryRouter);

@@ -14,6 +14,16 @@ export const getTotalSoldFlashSaleById = async (id: number) => {
     const result = await api.get(`/flashSale/totalSold/${id}`);
     return result.data;
 }
+export const getFlashSaleActive = async () => {
+    const result = await api.get(`/flashSale/flash-sale-active`);
+    console.log(result);
+    return result.data;
+}
+
+export const getProductActiveByFlashSaleId = async (flash_id: string) => {
+    const result = await api.get(`/flashSale/productActive/${flash_id}`);
+    return result.data;
+}
 export const getFlashSaleNotIn = async (excludeId: string) => {
     const authStore = useAuthStore();
     const endpoint = authStore.isLogin

@@ -10,8 +10,10 @@ import {
     getProductByCategory,
     searchByCategoryGender,
     getProductByName,
-    getProductBestSeller,
-    getProductLatest
+  getProductBestSeller,
+  getProductBestSellerForAdmin,
+    getProductLatest,
+    getAllProduct
 } from '@/services/product';
 
 import { ref } from "vue";
@@ -35,6 +37,20 @@ export const useProductStore = defineStore('product', () => {
             loading.value = false;
         }
     }
+  const getAllProductStore = async () => {
+    try {
+      loading.value = true;
+
+      const res = await getAllProduct();
+
+      return res.products as IProductMongoDetail[];
+    } catch (error) {
+      loading.value = false;
+      console.log("Failed to fetch product", error);
+    } finally {
+      loading.value = false;
+    }
+  }
     const searchByCategoryIdStore = async (catId: string) => {
         loading.value = true;
         try {
@@ -97,18 +113,30 @@ export const useProductStore = defineStore('product', () => {
         }
     }
     //-//
-    const getProductBestSellerStore = async () => {
+    const getProductBestSellerStore = async (top: number) => {
     try {
-      const result = await getProductBestSeller(20);
+      const result = await getProductBestSeller(top || 20);
       return result.products as IProductMongoDetail[];
     } catch (err) {
       console.log(err);
       return [];
     }
-  };
-  const getProductLatestStore = async () => {
+    };
+  const getProductBestSellerForAdminStore = async (top: number, branch_code: string) => {
+    loading.value = true;
     try {
-      const result = await getProductLatest(20);
+      const result = await getProductBestSellerForAdmin(top || 20, branch_code);
+      return result.data as IProductMongoDetail[];
+    } catch (err) {
+      console.error(err);
+      return [];
+    } finally {
+      loading.value = false;
+    }
+  };
+  const getProductLatestStore = async (top: number) => {
+    try {
+      const result = await getProductLatest(top || 20);
       return result.products as IProductMongoDetail[];
     } catch (err) {
       console.log(err);
@@ -162,6 +190,9 @@ export const useProductStore = defineStore('product', () => {
       searchByCategoryStore,
       searchByCategoryGenderStore,
       getProductBestSellerStore,
-      getProductLatestStore, loading
+      getProductBestSellerForAdminStore,
+      getProductLatestStore,
+      getAllProductStore,
+      loading
     };
 })

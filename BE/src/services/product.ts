@@ -6,6 +6,7 @@ import cloudinary from "../config/cloudinary";
 import mongoose, { Types } from 'mongoose'; // Cần import để tạo ID cho size mới
 import { Db } from "mongodb";
 import sql from 'mssql'
+import { getBranchPool } from "../config/database";
 
 
 export const getProductSizesBySizeId = async (sizeId: string, dbBranch: ConnectionPool, branch_id: string): Promise<any | null> => {
@@ -1169,5 +1170,130 @@ export const mergeSqlMongoProducts = (sqlRows: any[], mongoMap: Map<string,
     }
 }
 
+const getTopProductsBestsellerFromPoolForAdmin = async (pool: ConnectionPool, branch_code: string, top: number) => {
+    try {
+        // Lấy branch_id từ SQL để query bảng branch_inventories
+        const branchRes = await pool.request().query(`SELECT id FROM branches WHERE branch_code = '${branch_code}'`);
+        const branch_id = branchRes.recordset[0]?.id;
 
-//
+        if (!branch_id) return [];
+
+        const query = `
+            WITH TopSoldProducts AS (
+                SELECT TOP ${top}
+                    oi.product_id,
+                    SUM(oi.quantity) AS total_quantity_sold
+                FROM order_items oi 
+                JOIN orders o ON oi.order_id = o.ID
+                WHERE o.status = 'completed' 
+                GROUP BY oi.product_id
+                ORDER BY total_quantity_sold DESC
+            )
+            SELECT 
+                p.id, p.mongodb_id, p.name, p.category_id, p.brand_id, 
+                p.status AS product_status, p.created_at AS product_created_at,
+                bi.color_id_mongo, bi.size_id_mongo, bi.price, bi.stock,
+                fsi.flash_sale_price AS sale_price, fsi.stock AS sale_stock, fsi.sold AS sale_sold,
+                tsp.total_quantity_sold
+            FROM products p
+            JOIN TopSoldProducts tsp ON p.id = tsp.product_id
+            LEFT JOIN branch_inventories bi 
+                ON p.id = bi.product_id AND bi.branch_id = @branch_id
+            LEFT JOIN flash_sale_items fsi
+                ON fsi.branch_id = @branch_id
+                AND fsi.product_id = p.id
+                AND fsi.color_id_mongo = bi.color_id_mongo
+                AND fsi.size_id_mongo = bi.size_id_mongo
+                AND fsi.status = 'active'
+            LEFT JOIN flash_sales fs
+                ON fs.id = fsi.flash_sale_id
+                AND fs.status = 'active'
+                AND fs.start_date <= GETDATE()
+                AND fs.end_date >= GETDATE()
+            WHERE p.status = 'active'
+            ORDER BY tsp.total_quantity_sold DESC;
+        `;
+
+        const req = pool.request().input("branch_id", branch_id);
+        const sqlResult = await req.query(query);
+        const productSql = sqlResult.recordset;
+
+        // Merge với MongoDB
+        const mongoIds = productSql.map(p => p.mongodb_id).filter(Boolean);
+        const mongoProducts = await getMongoProductsByIds(mongoIds);
+        const inventoryMap = buildInventoryMap(productSql);
+
+        // Kết quả trả về là danh sách sản phẩm đã merge, có trường `total_quantity_sold` trong thuộc tính gốc (SQL)
+        // Lưu ý: Hàm mergeSqlMongoProducts của bạn cần đảm bảo gán `total_quantity_sold` vào object kết quả
+        // Nếu hàm merge của bạn trả về object IProductMongoDetail chuẩn, ta cần gán thủ công thêm field này để dùng cho việc sort bên dưới.
+        const productResult = mergeSqlMongoProducts(productSql, mongoProducts, inventoryMap);
+
+        // Map thêm total_quantity_sold vào kết quả cuối cùng để tiện xử lý gộp
+        return productResult.map((p, index) => ({
+            ...p,
+            total_quantity_sold: productSql[index]?.total_quantity_sold || 0
+        }));
+
+    } catch (err) {
+        console.error(`Failed to fetch best seller for admin from ${branch_code}`, err);
+        return []; // Trả về rỗng để không crash flow CT
+    }
+};
+
+// ---------------------------------------------------------
+// 2. MAIN SERVICE: Xử lý logic Branch / CT
+// ---------------------------------------------------------
+export const getTopProductsBestsellerForAdminService = async (branch_code: string, top: number) => {
+    try {
+        // CASE 1: Toàn Hệ Thống (CT) -> Cần gộp số lượng bán
+        if (branch_code === 'CT') {
+            const branches = ['HN', 'DN', 'HCM'];
+
+            const promises = branches.map(async (code) => {
+                const pool = getBranchPool(code);
+                if (!pool || !pool.connected) return [];
+                return await getTopProductsBestsellerFromPoolForAdmin(pool, code, top);
+            });
+
+            const results = await Promise.all(promises);
+            const allProducts = results.flat();
+
+            // LOGIC GỘP DỮ LIỆU (Merge duplicates)
+            // Vì cùng 1 sản phẩm có thể bán chạy ở cả HN và HCM -> Cần cộng dồn số lượng
+            const mergedMap = new Map<string, any>();
+
+            allProducts.forEach(p => {
+                if (mergedMap.has(p._id.toString())) {
+                    const existing = mergedMap.get(p._id.toString());
+                    // Cộng dồn số lượng bán
+                    existing.total_quantity_sold = (existing.total_quantity_sold || 0) + (p.total_quantity_sold || 0);
+
+                    // Có thể cộng dồn tồn kho hiển thị (nếu cần)
+                    // existing.stock += p.stock; 
+                } else {
+                    mergedMap.set(p._id.toString(), { ...p });
+                }
+            });
+
+            // Chuyển về mảng, sort lại theo tổng số lượng bán giảm dần, lấy top N
+            const finalProducts = Array.from(mergedMap.values())
+                .sort((a, b) => b.total_quantity_sold - a.total_quantity_sold)
+                .slice(0, top);
+            return finalProducts;
+        }
+
+        // CASE 2: Chi nhánh lẻ (HN, DN, HCM)
+        else {
+            const pool = getBranchPool(branch_code);
+            if (!pool || !pool.connected) {
+                throw new AppError(`Branch ${branch_code} disconnected`, 503);
+            }
+            return await getTopProductsBestsellerFromPoolForAdmin(pool, branch_code, top);
+        }
+
+    } catch (err) {
+        if (err instanceof AppError) throw err;
+        console.error("getTopProductsBestsellerForAdminService Error:", err);
+        throw new AppError("Failed to fetch best seller products for admin", 500);
+    }
+};

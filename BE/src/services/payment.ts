@@ -3,7 +3,7 @@ import { AppError } from "../utils/appError"
 export const updatePaymentStatus = async (orderId: string, status: string, dbBranch: ConnectionPool): Promise<void> => {
     try {
         const pool = dbBranch;
-        const query = `UPDATE payments SET status = @status WHERE order_id IN (${orderId})`;
+        const query = `UPDATE payments SET status = @status WHERE order_id = '${orderId.toUpperCase()}'`;
         await pool.request()
             .input('status', status)
             .query(query);

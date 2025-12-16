@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
-import { useReviewStore } from '../stores/reviewStore';
-import BranchSelector from '../components/BranchSelector.vue';
-import ProductStatsTable from '../components/ProductStatsTable.vue';
-import SideBarEmployee from '@/components/Employee/SideBarEmployee.vue';
+import { useReviewStore } from '@/stores/reviewStore';
+import BranchSelector from '@/components/BranchSelector.vue';
+import ProductStatsTable from '@/components/ProductStatsTable.vue';
+import Navbar from '@/components/admin/Navbar.vue';
 import { useAuthStore } from '@/stores/auth';
 
 const router = useRouter(); 
@@ -76,7 +76,7 @@ onMounted(() => {
 <template>
     <div class="flex h-screen bg-[#F3F4F6] font-sans overflow-hidden">
         
-        <SideBarEmployee />
+        <Navbar />
 
         <div class="flex-1 h-full overflow-y-auto p-6 bg-gray-50">
             

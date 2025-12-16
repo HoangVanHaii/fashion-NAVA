@@ -1,22 +1,30 @@
 <script setup lang="ts">
 import { ref, computed, onBeforeMount, onMounted, onBeforeUnmount } from "vue";
 import { useRouter, useRoute } from "vue-router"; // Added useRoute
-import { useCartStore } from "../stores/cartStore";
 // import { useCategoryStore } from "../stores/categoryStore";
 // import type { ProductSummary } from "../interfaces/product";
 // import logo from "../assets/logo.jpg";
 // import { getImage } from "../utils/format";
+import type { IProductMongoDetail } from "../interfaces/product";
+import logo from "../assets/logoNav.png";
 // import Notification from "./Notification.vue";
-// import { formatPrice } from "../utils/format";
-// import { useUserStore } from "../stores/userStore";
-// import { useProductStore } from "../stores/productStore";
+import { checkProductSale, formatPrice, getMainProductImage, getMaxProductPrice, getMinProductPrice } from "../utils/format";
+import { useProductStore } from "@/stores/product";
+import { useCartStore } from "@/stores/cartStore";
+import { useCategoryStore } from "@/stores/category";
+import { useAuthStore } from "@/stores/auth";
+import type { Category } from "@/interfaces/category";
 
 // const productStore = useProductStore();
-const cart = useCartStore();
+
 // const category = useCategoryStore();
+
+const productStore = useProductStore();
+const cart = useCartStore();
+const category = useCategoryStore();
 const router = useRouter();
 const route = useRoute(); // Initialize route
-// const products = ref<ProductSummary[]>([]);
+const products = ref<IProductMongoDetail[]>([]);
 const searchQuery = ref("");
 const showNamDropdown = ref(false);
 const showNuDropdown = ref(false);
@@ -24,6 +32,7 @@ const showPhuKienDropdown = ref(false);
 const showFormSearch = ref(false);
 const categoryMale = ref<string[]>([]);
 const categoryFemale = ref<string[]>([]);
+const accessory = ref<string[]>([]);
 const searchBarRef = ref<HTMLElement | null>(null);
 const showFormUser = ref(false);
 const isLogin = ref(false);
@@ -34,19 +43,19 @@ const MenuPhone = ref<HTMLElement | null>(null);
 const isScrolled = ref(false); 
 const lastScrollY = ref(0);    
 
-// const u = useUserStore();
+const u = useAuthStore();
 
-// const listSearch = computed<ProductSummary[]>(() => {
-//   const normalize = (s: string) =>
-//     s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D');
+const listSearch = computed<IProductMongoDetail[]>(() => {
+  const normalize = (s: string) =>
+    s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D');
 
-//   const query = normalize(searchQuery.value.toLowerCase().trim());
-//   if (!query) return products.value;
+  const query = normalize(searchQuery.value.toLowerCase().trim());
+  if (!query) return products.value;
 
-//   return products.value.filter(p =>
-//     normalize(p.name.toLowerCase()).includes(query)
-//   );
-// });
+  return products.value.filter(p =>
+    normalize(p.name!.toLowerCase()).includes(query)
+  );
+});
 
 // Helper function to check active route
 const isActive = (path: string, queryParam?: string, queryValue?: string) => {
@@ -62,6 +71,7 @@ const isActive = (path: string, queryParam?: string, queryValue?: string) => {
 }
 
 onBeforeMount(async () => {
+
     // if (localStorage.getItem('accessToken')) {
     //     await cart.getCartCountStore(); 
     // }
@@ -88,7 +98,37 @@ onBeforeMount(async () => {
 //   isLogin.value = localStorage.getItem("user_id") ? true : false;
   
 //   products.value = await productStore.getAllProductActiveStore();
+
+
+
+    isLogin.value = localStorage.getItem("user_id") ? true : false;
+    if (localStorage.getItem('accessToken')) {
+        isLogOut.value = false;
+        await u.getProfileStore();
+        await cart.fetchCartAction();
+    }
+    else {
+        isLogOut.value = true;
+    }
+    const tmp1 = await category.getCategoryNameStore("Nam");
+    if (tmp1) {
+        categoryMale.value = tmp1.map((c: Category) => c.category_name);
+    }
+    const tpm2 = await category.getCategoryNameStore("Nữ");
+    if (tpm2) {
+        categoryFemale.value = tpm2.map((c: Category) => c.category_name)
+    }
+    const tpm3 = await category.getCategoryNameStore("Khác");
+    if (tpm3) {
+        accessory.value = tpm2.map((c: Category) => c.category_name)
+    }
+  isLogin.value = localStorage.getItem("user_id") ? true : false;
+  
 });
+const handleLoadData = async () => {
+    // alert(1);
+      products.value = await productStore.getAllProductStore() || [];
+}
 
 const toastText = ref("");
 const showNotification = ref<boolean>(false);
@@ -242,12 +282,12 @@ onBeforeUnmount(() => {
             <!-- Logo -->
             <div class="flex-shrink-0 cursor-pointer" @click="router.push('/')">
                 <!-- Logo scales down slightly on scroll -->
-                <!-- <img 
+                <img 
                     :src="logo" 
                     alt="NAVA" 
                     class="w-auto object-contain transition-all duration-300" 
                     :class="isScrolled ? 'h-10' : 'h-12'"
-                /> -->
+                />
             </div>
 
             <!-- Desktop Navigation -->
@@ -267,7 +307,7 @@ onBeforeUnmount(() => {
                 <div class="relative group" @mouseenter="showNamDropdown = true" @mouseleave="showNamDropdown = false">
                     <a href="/category-gender?gender=Nam" 
                        class="text-sm font-bold uppercase tracking-wide transition-colors flex items-center gap-1"
-                       :class="isActive('/category-gende', 'gender', 'Nam') ? 'text-red-600' : 'text-gray-900 hover:text-gray-500'">
+                       :class="isActive('/category-gender', 'gender', 'Nam') ? 'text-red-600' : 'text-gray-900 hover:text-gray-500'">
                         Nam <span class="text-[10px] mt-0.5">▼</span>
                     </a>
                     <div v-if="showNamDropdown" class="absolute top-full left-0 w-48 bg-white border border-gray-100 shadow-xl rounded-b-md py-2 animate-fade-in-up">
@@ -299,15 +339,18 @@ onBeforeUnmount(() => {
 
                 <!-- Dropdown Phu Kien -->
                 <div class="relative group" @mouseenter="showPhuKienDropdown = true" @mouseleave="showPhuKienDropdown = false">
-                    <a href="/phu-kien" 
+                    <a href="/category-gender?gender=Khác" 
                        class="text-sm font-bold uppercase tracking-wide transition-colors flex items-center gap-1"
                        :class="isActive('/phu-kien') ? 'text-red-600' : 'text-gray-900 hover:text-gray-500'">
                         Phụ kiện <span class="text-[10px] mt-0.5">▼</span>
                     </a>
                     <div v-if="showPhuKienDropdown" class="absolute top-full left-0 w-48 bg-white border border-gray-100 shadow-xl rounded-b-md py-2 animate-fade-in-up">
-                         <a href="/phu-kien/tui" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-black">Túi xách</a>
-                         <a href="/phu-kien/giay" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-black">Giày dép</a>
-                         <a href="/phu-kien/non" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-black">Nón</a>
+                         <a v-for="acc in accessory" 
+                           :key="acc"
+                           :href="`/category-gender?gender=Nữ&name=${acc}`"
+                           class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-black transition-colors">
+                           {{ acc }}
+                        </a>
                     </div>
                 </div>
             </nav>
@@ -316,7 +359,9 @@ onBeforeUnmount(() => {
             <div class="flex items-center gap-6">
                 <!-- Search Bar -->
                 <div class="relative hidden md:block" ref="searchBarRef">
-                    <div class="flex items-center border border-gray-200 rounded-full px-4 py-2 focus-within:border-black focus-within:ring-1 focus-within:ring-black transition-all w-64 bg-gray-50">
+                    <div
+                    @click="handleLoadData"
+                     class="flex items-center border border-gray-200 rounded-full px-4 py-2 focus-within:border-black focus-within:ring-1 focus-within:ring-black transition-all w-64 bg-gray-50">
                         <input 
                             v-model="searchQuery"
                             type="text" 
@@ -332,17 +377,17 @@ onBeforeUnmount(() => {
                         <div class="p-3 bg-gray-50 border-b border-gray-100 font-semibold text-xs text-gray-500 uppercase tracking-wider text-center">
                             Kết quả tìm kiếm
                         </div>
-                        <!-- <div v-if="listSearch.length === 0" class="p-4 text-center text-sm text-gray-500">
+                        <div v-if="listSearch.length === 0" class="p-4 text-center text-sm text-gray-500">
                             Không tìm thấy sản phẩm nào.
                         </div>
                         <div v-else class="divide-y divide-gray-50">
-                            <div v-for="product in listSearch" :key="product.id" 
+                            <div v-for="product in listSearch" :key="product.product_id_sql" 
                                  class="flex items-center p-3 hover:bg-gray-50 cursor-pointer transition-colors gap-3 group"
-                                 @click="router.push({ name: 'product-detail', params: { id: product.id } })">
+                                 @click="router.push({ name: 'product-detail', params: { id: product.product_id_sql } })">
                                 <div class="relative w-16 h-16 flex-shrink-0 bg-gray-100 rounded-md overflow-hidden">
-                                    <img :src="getImage(product.thumbnail || '')" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" alt="" />
-                                     <span v-if="getDiscountPercent(product.max_price, product.flash_price) > 0" class="absolute top-0 right-0 bg-red-600 text-white text-[10px] font-bold px-1 rounded-bl-md">
-                                        -{{ getDiscountPercent(product.max_price, product.flash_price) }}%
+                                    <img :src="getMainProductImage(product)" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" alt="" />
+                                     <span v-if="checkProductSale(product)" class="absolute top-0 right-0 bg-red-600 text-white text-[10px] font-bold px-1 rounded-bl-md">
+                                        -{{ getDiscountPercent(getMaxProductPrice(product) || 0, getMinProductPrice(product) || 0) }}%
                                      </span>
                                 </div>
                                 <div class="flex-1 min-w-0">
@@ -350,15 +395,15 @@ onBeforeUnmount(() => {
                                     <h4 class="text-sm font-medium text-gray-900 truncate">{{ product.name }}</h4>
                                     <div class="flex items-baseline gap-2 mt-1">
                                         <span class="text-sm font-bold text-red-600">
-                                            {{ product.flash_price ? formatPrice(product.flash_price) : formatPrice(product.min_price) }}
+                                            {{  formatPrice(getMinProductPrice(product) || 0) }}
                                         </span>
-                                        <span v-if="product.flash_price" class="text-xs text-gray-400 line-through">
-                                            {{ formatPrice(product.max_price) }}
+                                        <span v-if="checkProductSale(product)" class="text-xs text-gray-400 line-through">
+                                            {{ formatPrice( getMaxProductPrice(product)|| 0) }}
                                         </span>
                                     </div>
                                 </div>
                             </div>
-                        </div> -->
+                        </div>
                     </div>
                 </div>
 
@@ -374,10 +419,10 @@ onBeforeUnmount(() => {
 
                 <!-- User -->
                 <div class="relative group" @mouseenter="showFormUser = true" @mouseleave="showFormUser = false">
-                    <!-- <div class="w-8 h-8 rounded-full border border-gray-300 overflow-hidden cursor-pointer flex items-center justify-center hover:border-black transition-colors">
-                        <img v-if="u.avatar && !isLogOut" :src="getImage(u.avatar)" class="w-full h-full object-cover" alt="" />
+                    <div class="w-8 h-8 rounded-full border border-gray-300 overflow-hidden cursor-pointer flex items-center justify-center hover:border-black transition-colors">
+                        <img v-if="u.user?.avatar && !isLogOut" :src="u.user.avatar" class="w-full h-full object-cover" alt="" />
                         <i v-else class="fa-solid fa-user text-gray-500 text-sm"></i>
-                    </div> -->
+                    </div>
 
                     <!-- User Dropdown -->
                     <div v-if="showFormUser" class="absolute top-full right-0  w-48 bg-white border border-gray-100 shadow-xl rounded-lg overflow-hidden z-50 animate-fade-in-up">

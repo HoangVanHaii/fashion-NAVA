@@ -126,3 +126,20 @@ export interface RevenueOrder {
 //     created_at: Date;
 //     updatedAt: Date;
 // }
+
+export interface IKpiResponse {
+    total: number;    
+    previousTotal: number;
+    changePercent?: number;
+}
+
+export interface IRevenueMonth {
+    month: number;   // 1 -> 12
+    revenue: number; // tổng doanh thu
+  }
+  
+  export interface IRevenueYearResponse {
+    year: number;
+    monthlyRevenue: IRevenueMonth[];
+  }
+  

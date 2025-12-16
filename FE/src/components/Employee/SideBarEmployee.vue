@@ -1,5 +1,6 @@
 <script setup lang="ts">
-    import { ref, watch } from 'vue';
+    import { useAuthStore } from '@/stores/auth';
+import { ref, watch, onMounted } from 'vue';
     import { useRouter, useRoute } from 'vue-router';
     
     const router = useRouter();
@@ -22,10 +23,10 @@
     
     const menuItems: MenuItem[] = [
         { key: 'home', label: 'Trang chủ', routeName: 'home-employee', icon: 'fa-solid fa-house' },
-        { key: 'products', label: 'Quản lý sản phẩm', routeName: 'ProductEmployee', icon: 'fa-solid fa-boxes' },
+        { key: 'products', label: 'Danh mục sản phẩm', routeName: 'ProductEmployee', icon: 'fa-solid fa-boxes' },
         { key: 'order', label: 'Quản lý đơn hàng', routeName: 'order-employee', icon: 'fa-solid fa-box-open' },
-        { key: 'flashsale', label: 'Quản lý Flash Sale', routeName: 'FlashsaleEmployee', icon: 'fa-solid fa-bolt' },
-        { key: 'voucher', label: 'Quản lý Voucher', routeName: 'VoucherEmployee', icon: 'fa-solid fa-ticket' },
+        { key: 'flashsale', label: 'Danh mục Flash Sale', routeName: 'flashsaleEmployee', icon: 'fa-solid fa-bolt' },
+        { key: 'voucher', label: 'Quản lý Voucher', routeName: 'voucherEmployee', icon: 'fa-solid fa-ticket' },
         { key: 'review', label: 'Chăm sóc khách hàng', routeName: 'dash_board', icon: 'fa-solid fa-message' },
     ];
     
@@ -43,7 +44,10 @@
       },
       { immediate: true }
     );
-    
+    const auth = useAuthStore();
+    onMounted(async () => {
+        auth.getProfileStore();
+    })
     const goToPage = (item: MenuItem) => {
       activePage.value = item.key;
       if (router.hasRoute(item.routeName)) {
@@ -55,10 +59,13 @@
       isSidebarOpen.value = false;
     };
     
-    const handleLogout = () => {
-      console.log("Logging out...");
-      router.push({ name: 'Login' }); 
-    };
+const handleLogout = () => {
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+    localStorage.removeItem("user_id");
+    localStorage.removeItem("avatar");
+    router.push({ name: 'login' }); 
+};
     
     // Style classes base (bỏ px-3 cố định để xử lý padding động)
     const baseItemClass = "py-3 rounded flex items-center cursor-pointer transition-all duration-200 text-gray-700 hover:-translate-y-0.5 hover:bg-gray-100 mb-1 mx-2";
@@ -108,7 +115,7 @@
                 
                 <div class="overflow-hidden transition-all duration-300"
                      :class="isCollapsed ? 'w-0 opacity-0' : 'w-auto opacity-100'">
-                    <p class="font-bold truncate text-gray-800 whitespace-nowrap">Winmart_NV5</p>
+                    <p class="font-bold truncate text-gray-800 whitespace-nowrap"> {{ auth.user?.name }}</p>
                     <span class="text-xs text-green-600 font-medium bg-green-100 px-2 py-0.5 rounded-full whitespace-nowrap">Online</span>
                 </div>
             </div>
