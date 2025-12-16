@@ -492,6 +492,47 @@ export const updateProductColorSize = async (pool: ConnectionPool, branch_id: st
     }
 }
 
+export const updateProductVideo = async (product_id_sql: string, video: Express.Multer.File | string) => {
+    try {
+        const ProductDoc = await ProductDetailModel.findOne({
+            product_id_sql: product_id_sql.toLowerCase(),
+        });
+        
+        if (!ProductDoc) {
+            throw new AppError("Product not found", 404, false);
+        }
+        if (ProductDoc.video) {
+            const publicId = ProductDoc.video
+                .split("/")
+                .slice(-2)
+                .join("/")
+                .replace(".mp4", "");
+      
+            await cloudinary.uploader.destroy(publicId, {
+                resource_type: "video",
+            })
+        }
+        if (typeof video === "string") {
+            await ProductDetailModel.updateOne(
+                { product_id_sql: product_id_sql.toLowerCase() },
+                { $unset: { video: "" } }
+              );
+              
+        }
+        else {
+            const url = await uploadSingleVideo(video);
+            ProductDoc.video = url;
+            await ProductDoc.save();
+        }
+        return ProductDoc;
+        
+    } catch (err) {
+        if (err instanceof AppError) throw err;
+        console.error("Failed update product video", err);
+        throw new AppError("Failed update product video", 500, false);
+    }
+}
+
 export const updateBranchInnventory = async (pool: ConnectionPool, branch_id: string, branchInventory: IProduct.updateInventory[]): Promise<void> => {
     const transaction = pool.transaction();
     try {
@@ -1180,6 +1221,7 @@ export const mergeSqlMongoProducts = (sqlRows: any[], mongoMap: Map<string,
                     category_id: row.category_id,
                     status: row.status,
                     attributes: mongoDoc?.attributes ?? {},
+                    video: mongoDoc?.video,
                     colors: mongoDoc?.colors ?? [],
                 };
                 productMap.set(row.mongodb_id, product);

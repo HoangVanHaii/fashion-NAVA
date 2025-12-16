@@ -261,21 +261,21 @@
             }
         }
     
-        for (const attr of attributes.value) {
-            toastText.value = "";
-            if (
-                attr.key.length < 2 ||
-                attr.key === undefined ||
-                attr.value.length < 2 ||
-                attr.value === undefined
-            ) {
-                isSuccess.value = false;
-                setTimeout(() => {
-                    toastText.value = "Điền đủ thông tin thuộc tính!";
-                }, 0);
-                return false;
-            }
-        }
+        // for (const attr of attributes.value) {
+        //     toastText.value = "";
+        //     if (
+        //         attr.key.length < 2 ||
+        //         attr.key === undefined ||
+        //         attr.value.length < 2 ||
+        //         attr.value === undefined
+        //     ) {
+        //         isSuccess.value = false;
+        //         setTimeout(() => {
+        //             toastText.value = "Điền đủ thông tin thuộc tính!";
+        //         }, 0);
+        //         return false;
+        //     }
+        // }
         if (!description.value || description.value.length < 10) {
             isSuccess.value = false;
             setTimeout(() => {

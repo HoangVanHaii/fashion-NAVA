@@ -163,7 +163,6 @@ export const updateProductColor = async (req: Request, res: Response, next: Next
         if (!req.dbBranch! || !req.dbBranch!.connected) {
             throw new AppError("Central DB is not connected", 503);
         }
-        console.log(2222);
         const branchId = await productService.getBranchIdByCode(req.dbBranch!, req.user?.branch_code || "");
         if (!branchId) {
             throw new AppError("branch_id not found", 404);
@@ -181,6 +180,33 @@ export const updateProductColor = async (req: Request, res: Response, next: Next
         next(err);
     }
 };
+
+export const updateProductVideo = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        if (!req.dbBranch! || !req.dbBranch!.connected) {
+            throw new AppError("Central DB is not connected", 503);
+        }
+        const productId = req.body.product_id_sql;
+        const files = req.files as Express.Multer.File[];
+        const videoFile = files.find(f => f.fieldname === 'video');
+        if (!productId) {
+            throw new AppError("productId is required", 400);
+        }
+        // if (!videoFile) {
+        //     throw new AppError("video is required", 400);
+        // }
+        const updatedProduct = await productService.updateProductVideo(productId, videoFile || "")
+        res.status(200).json({
+            success: true,
+            message: "Updated product video successfully",
+            data: updatedProduct
+        });
+  
+    } catch (err) {
+        next(err);
+    }
+};
+
 
 export const deleteProductColor = async (req: Request, res: Response, next: NextFunction) => {
 

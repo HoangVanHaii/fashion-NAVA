@@ -21,6 +21,7 @@ const ProductDetailSchema = new Schema<IProduct.IProductMongo>({
     description: { type: String, default: '' },
     attributes: { type: Schema.Types.Mixed, default: {} },
     colors: [ProductColorSchema],
+    video:  {type: String},
     created_at: {type: Date, default: Date.now},
 }, {
     timestamps: false,

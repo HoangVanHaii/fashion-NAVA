@@ -91,6 +91,7 @@ export interface IProductMongoDetail {
     brand_id?: string;
     category_id?: string;
     status?: string;
+    video?: string
     attributes?: {
         [key: string]: string | number | boolean;
     };
