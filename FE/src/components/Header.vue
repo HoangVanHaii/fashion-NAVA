@@ -369,7 +369,11 @@ onBeforeUnmount(() => {
                 </div>
 
                 <!-- Cart -->
-                <div class="relative cursor-pointer group" @click="goToCart">
+                <div 
+                id="cart-icon-desktop" 
+                class="relative cursor-pointer group" 
+                @click="goToCart"
+                >
                     <i class="fa-solid fa-cart-shopping text-xl text-gray-800 group-hover:text-black transition-colors"></i>
                     <span v-if="cart.cartCount > 0" class="absolute -top-2 -right-2 bg-red-600 text-white text-[10px] font-bold w-5 h-5 flex items-center justify-center rounded-full border-2 border-white">
                         {{ cart.cartCount }}

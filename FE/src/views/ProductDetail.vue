@@ -16,6 +16,7 @@ import Brand from "./Brand.vue";
 import { useCartStore } from "@/stores/cartStore";
 import type { ICartItem } from "@/interfaces/cart";
 import { useReviewStore } from "@/stores/reviewStore"; 
+import { useAnimationStore } from "@/stores/animation";
 
 const loadingAddToCart = ref(false);
 const favourite = useFavouriteStore();
@@ -144,7 +145,15 @@ watch(() => route.params.id, async (newId, oldId) => {
         router.go(0);
     }
 });
+const animationStore = useAnimationStore();
+const productImageRef = ref<HTMLElement | null>(null);
 
+//  if (productImageRef.value) {
+//         // Lấy link ảnh hiện tại đang hiển thị để làm hiệu ứng
+//         const currentImgUrl = colorChose.value?.image_main || getMainProductImage(productId);
+//         // Gọi action từ store để tạo hiệu ứng bay
+//         animationStore.triggerFlyToCart(productImageRef.value, currentImgUrl);
+//     }
 const getUniqueSizes = () => {
     const getUniqueSizes = new Set<string>();
     productId.value?.colors.forEach((color) => {
@@ -402,6 +411,12 @@ const handleAddToCart = async (size?: IProductSizeResponse) => {
             quantity: quantity.value || 1
         }
         await cart.addToCartAction(cartItem);
+        if (productImageRef.value) {
+            // Lấy link ảnh hiện tại đang hiển thị để làm hiệu ứng
+            const currentImgUrl = colorChose.value?.image_main || getMainProductImage(productId);
+            // Gọi action từ store để tạo hiệu ứng bay
+            animationStore.triggerFlyToCart(productImageRef.value, currentImgUrl);
+        }
         if (!cart.error) { 
             showToast("🛒 Thêm vào giỏ hàng thành công!", true);
         } else {
@@ -421,14 +436,6 @@ const handleSelectColor = (color: IProductColorResponse) => {
     quantity.value = 1;
 };
 
-const copiedLink = () => {
-    const path = route.fullPath;
-    const baseUrl = window.location.origin;
-    navigator.clipboard.writeText(baseUrl + path);
-    copied.value = true;
-    setTimeout(() => { copied.value = false; }, 1000);
-};
-
 const currentMainImage = computed(() => {
     if (listImg.value && listImg.value.length > 0 && listImg.value[index.value]) {
         return listImg.value[index.value];
@@ -440,14 +447,13 @@ const currentMainImage = computed(() => {
 <template>
   <Header />
   <div class="bg-[#FAFAFA] min-h-screen font-sans text-gray-900">
-    <Notification :text="toastText" :isSuccess="isSuccess" />
     <Loading :loading="product.loading || loadingAddToCart || reviewStore.loading" /> 
     
     <main v-if="!product.loading" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-16 relative">
         <div class="lg:col-span-6 space-y-6">
           <div class="relative bg-white rounded-3xl overflow-hidden shadow-sm border border-gray-100 group aspect-[4/5] lg:aspect-auto lg:h-[670px]">
-            <img :src="currentMainImage" class="w-full h-full object-cover object-center transition-transform duration-700 group-hover:scale-105 cursor-zoom-in" alt="Main Product Image" />
+            <img ref="productImageRef" :src="currentMainImage" class="w-full h-full object-cover object-center transition-transform duration-700 group-hover:scale-105 cursor-zoom-in" alt="Main Product Image" />
             <div class="absolute inset-x-4 top-1/2 -translate-y-1/2 flex justify-between lg:hidden opacity-0 group-hover:opacity-100 transition-opacity">
                 <button @click="hanlderDecre" class="w-10 h-10 bg-white/90 backdrop-blur rounded-full shadow-lg flex items-center justify-center text-black hover:bg-black hover:text-white transition-all"><i class="fa-solid fa-chevron-left"></i></button>
                 <button @click="handleIncre" class="w-10 h-10 bg-white/90 backdrop-blur rounded-full shadow-lg flex items-center justify-center text-black hover:bg-black hover:text-white transition-all"><i class="fa-solid fa-chevron-right"></i></button>
@@ -793,4 +799,41 @@ const currentMainImage = computed(() => {
 .animate-fade-in { animation: fadeIn 0.4s ease-out forwards; }
 input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 .cursor-zoom-in { cursor: zoom-in; }
+/* Custom Scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: #e5e7eb;
+  border-radius: 10px;
+}
+.custom-scrollbar:hover::-webkit-scrollbar-thumb {
+  background-color: #d1d5db;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.animate-scale-in {
+  animation: scaleIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
 </style>
