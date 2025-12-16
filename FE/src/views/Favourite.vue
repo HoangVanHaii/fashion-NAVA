@@ -62,7 +62,7 @@ const confirmDelete = (id: string) => {
 </script>
 
 <template>
-  <div class="bg-[#FAFAFA] min-h-screen font-sans text-gray-900">
+  <div class="bg-[#FAFAFA] min-h-screen font-sans text-gray-900 pt-[10px]">
     <Header />
     <ConfirmDialog
         v-if="showFormConfirm && favouriteDelete_id"
@@ -73,7 +73,7 @@ const confirmDelete = (id: string) => {
     <Notification :text="toastText" :isSuccess="showNotification" />
     <Loading :loading="favourite.loading" />
 
-    <main class="pb-20 pt-[10px]">
+    <main class="pb-20 ">
         <div class="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex flex-col lg:flex-row gap-6 lg:gap-8 items-start mt-4">
                 <!-- Sidebar -->

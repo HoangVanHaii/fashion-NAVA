@@ -114,6 +114,15 @@ export const getProductBestSeller = async (top: number) => {
   const response = await api.get(endpoint);
   return response.data;
 };
+export const getProductBestSellerForAdmin = async (top: number, branch_code: string) => {
+    const response = await api.get(`admin/product/best-seller`, {
+        params: {
+            top: top,
+            branch: branch_code // Truyền branch code (HN, DN, HCM, CT)
+        }
+    });
+    return response.data;
+};
 export const getProductLatest = async (top: number) => {
   const authStore = useAuthStore();
   const endpoint = authStore.isLogin

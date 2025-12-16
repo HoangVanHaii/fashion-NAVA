@@ -63,9 +63,6 @@ export const getAllUserForAdmin = async (req: Request, res: Response, next: Next
     }
 };
 
-
-
-const ALL_BRANCHES = ['HN', 'DN', 'HCM'];
 const calculateGrowth = (current: number, previous: number): number => {
     if (previous === 0) return current > 0 ? 100 : 0;
     return Number((((current - previous) / previous) * 100).toFixed(2));
@@ -73,58 +70,32 @@ const calculateGrowth = (current: number, previous: number): number => {
 
 export const getTotalUserComparisonForAdmin = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const dbBranch = req.dbBranch;
-        const branch_code = req.user?.branch_code;
-
-        if (!dbBranch || !dbBranch.connected) {
-            throw new AppError(`${branch_code} is not connected`, 503);
-        }
-
         const type = (req.params.type as string) || 'hôm nay';
-        console.log(type)
-        
-        let rawData = { total: 0, previousTotal: 0 };
 
-        if (req.user?.branch_code !== "CT") {
-            rawData = await authService.getTotalUserComparisonForAdmin(dbBranch, type);
-        } 
-        
-        else {
-            const promises = ALL_BRANCHES.map(async (bn) => {
-                const branchPool = getBranchPool(bn);
-                if (!branchPool || !branchPool.connected) return null;
-        
-                return await authService.getTotalUserComparisonForAdmin(branchPool, type);
-            });
-        
-            const results = await Promise.all(promises);
-        
-            rawData = results.reduce<{ total: number; previousTotal: number }>(
-                (acc, curr) => {
-                    if (!curr) return acc;
-                    acc.total += curr.total;
-                    acc.previousTotal += curr.previousTotal;
-        
-                    return acc;
-                },
-                { total: 0, previousTotal: 0 } 
-            );
+        // Lấy branch từ query (cho Admin chọn) hoặc từ token (cho Employee/Local Admin)
+        const target_branch_code = (req.query.branch as string) || req.user?.branch_code;
+
+        if (!target_branch_code) {
+            throw new AppError("Branch code is required", 400);
         }
-
+        let rawData;
+        if (req.user?.branch_code !== "CT") {
+            rawData = await authService.getTotalUserComparisonService(req.user?.branch_code || 'DN', type);   
+        }
+        else {
+            rawData = await authService.getTotalUserComparisonService(target_branch_code, type);
+        }
         const changePercent = calculateGrowth(rawData.total, rawData.previousTotal);
-
-        const finalResult = {
-            total: rawData.total,
-            changePercent: changePercent,
-        };
 
         return res.status(200).json({
             success: true,
             message: "Get data user successfully",
-            results: finalResult
+            results: {
+                total: rawData.total,
+                changePercent: changePercent,
+            }
         });
-    }
-    catch (err) {
+    } catch (err) {
         next(err);
     }
 };

@@ -90,7 +90,7 @@ export interface RevenueOrder {
 export interface IKpiResponse {
     total: number;    
     previousTotal: number;
-    changePercent?: number;
+    changePercent?: number; 
 }
   
 

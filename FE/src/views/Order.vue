@@ -159,7 +159,7 @@ const getStatusColor = (status: string) => {
 </script>
 
 <template>
-  <div class="flex flex-col h-screen bg-[#FAFAFA]">
+  <div class="flex flex-col h-screen bg-[#FAFAFA] pt-[10px]">
     <Header class="flex-shrink-0" />
     
     <ConfirmDialog 

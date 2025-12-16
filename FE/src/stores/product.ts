@@ -10,7 +10,8 @@ import {
     getProductByCategory,
     searchByCategoryGender,
     getProductByName,
-    getProductBestSeller,
+  getProductBestSeller,
+  getProductBestSellerForAdmin,
     getProductLatest,
     getAllProduct
 } from '@/services/product';
@@ -120,6 +121,18 @@ export const useProductStore = defineStore('product', () => {
       console.log(err);
       return [];
     }
+    };
+  const getProductBestSellerForAdminStore = async (top: number, branch_code: string) => {
+    loading.value = true;
+    try {
+      const result = await getProductBestSellerForAdmin(top || 20, branch_code);
+      return result.data as IProductMongoDetail[];
+    } catch (err) {
+      console.error(err);
+      return [];
+    } finally {
+      loading.value = false;
+    }
   };
   const getProductLatestStore = async (top: number) => {
     try {
@@ -177,6 +190,7 @@ export const useProductStore = defineStore('product', () => {
       searchByCategoryStore,
       searchByCategoryGenderStore,
       getProductBestSellerStore,
+      getProductBestSellerForAdminStore,
       getProductLatestStore,
       getAllProductStore,
       loading

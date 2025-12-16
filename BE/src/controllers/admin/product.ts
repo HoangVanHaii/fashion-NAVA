@@ -51,7 +51,33 @@ export const createProduct = async (req: Request, res: Response, next: NextFunct
         next(err);
     }
 }
+export const getTopProductsBestSellerForAdmin = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const topCount = parseInt(req.query.top as string) || 20;
 
+        // Admin có thể chọn branch từ query, nếu không có thì mặc định lấy của chính Admin (hoặc CT)
+        const target_branch_code = (req.query.branch as string) || req.user?.branch_code;
+
+        if (!target_branch_code) {
+            throw new AppError("Branch code is required", 400);
+        }
+        let products;
+        if (req.user?.branch_code !== "CT") {
+            products = await productService.getTopProductsBestsellerForAdminService(req.user?.branch_code ||'DN', topCount);
+        }
+        else {
+            products = await productService.getTopProductsBestsellerForAdminService(target_branch_code, topCount);
+        }
+        return res.status(200).json({
+            success: true,
+            message: `Get best seller products for admin (${target_branch_code}) successfully`,
+            data: products
+        });
+
+    } catch (err) {
+        next(err);
+    }
+}
 
 export const AddProductColor = async (req: Request, res: Response, next: NextFunction) => {
     try {

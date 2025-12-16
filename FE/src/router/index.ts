@@ -28,6 +28,10 @@ import Payment from '../views/Payment.vue'
 import ProductView from '@/views/Employee/ProductView.vue';
 import FlashSale from '@/views/Employee/FlashSale.vue';
 import VoucherView from '@/views/Employee/VoucherView.vue';
+import OrderAdmin from '@/views/admin/OrderAdmin.vue';
+import ReviewAdmin from '@/views/admin/ReviewAdmin.vue';
+import MyVoucher from '@/views/MyVoucher.vue';
+import MyNotification from '@/views/MyNotification.vue';
 
 const routes = [
   { path: '/', redirect: '/home' },
@@ -38,6 +42,8 @@ const routes = [
   { path: '/profile/address', name: 'address', component: Address },
   { path: '/profile/orderOfme', name: 'order-of-me', component: Order },
   { path: '/profile/favouriteOfme', name: 'favourite', component: Favourite },
+  { path: '/profile/voucherOfme', name: 'voucher-of-me', component: MyVoucher },
+  { path: '/profile/notificationOfme', name: 'notification-of-me', component: MyNotification },
   { path: '/product/:id', name: 'product-detail', component: ProductDetail },
   { path: '/orderSuccess', name: 'OrderSuccess', component: OrderSuccess },
   { path: '/orderFailed', name: 'OrderFailed', component: OrderFailed },
@@ -56,7 +62,9 @@ const routes = [
   { path: '/admin/voucher-management', name: 'VoucherAdmin', component: VoucherManagement },
   { path: '/admin/user-management', name: 'UserAdmin', component: UserManagement },
   { path: '/admin/flashsale-management', name: 'FlashSaleAdmin', component: FlashSaleManagement },
-  
+  { path: '/admin/order-view', name: 'OrderAdmin', component: OrderAdmin },
+  { path: '/admin/review', name: 'ReviewAdmin', component: ReviewAdmin },
+
   
   { path: '/create-review', name: 'createeviewEmployee', component: HomeView },
   { path: '/test-review', name: 'test-review', component: OrderTest },

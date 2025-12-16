@@ -98,7 +98,7 @@ export const createOrder = async (req: Request, res: Response, next: NextFunctio
                 user_id: userId, 
                 voucher_id: validVoucherId ? validVoucherId : undefined,
                 total: total - discount_value,
-                discount_value: 0,
+                discount_value: discount_value,
                 payment_method: methodPayment,
                 address: address,
                 note: note
@@ -158,7 +158,7 @@ export const getOrderDetail = async (req: Request, res: Response, next: NextFunc
         if (!dbBranch || !dbBranch.connected) {
             throw new AppError(`${branch_code} is not connected`, 503);
         }
-        const orderDetail = await orderService.getOrderById(orderId, dbBranch); ;
+        const orderDetail = await orderService.getOrderById(orderId, dbBranch); 
         return res.status(200).json({
             success: true,
             data: orderDetail

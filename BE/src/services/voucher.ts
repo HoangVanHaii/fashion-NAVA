@@ -283,13 +283,12 @@ export const validateVoucher = async (code: string, orderTotal: number, dbBranch
             SET used = used + 1
             WHERE id = @id;
         `;
-
         await dbBranch.request()
             .input("id", voucher.id)
             .query(updateQuery);
         return {
             discount: Math.floor(discount), 
-            voucher_id: voucher.id 
+            voucher_id: voucher.ID 
         };
 
     } catch (error: any) {

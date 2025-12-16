@@ -685,49 +685,80 @@ export const registerAccount = async (name: string, email: string, password: str
     }   
 };
 
-
-
-
-export const getTotalUserComparisonForAdmin = async (dbBranch: ConnectionPool, type: string): Promise<IKpiResponse> => {
-  
+const getTotalUserComparisonFromPool = async (dbBranch: ConnectionPool, type: string): Promise<IKpiResponse> => {
     const { currentStart, currentEnd, previousStart, previousEnd } = getDateRange(type);
     const isAllTime = type.toLowerCase() === 'từ trước tới nay';
-  
-    try {
-      // --- 1. DỮ LIỆU HIỆN TẠI ---
-      const currentQuery = `
+
+    // 1. Hiện tại
+    const currentQuery = `
         SELECT COUNT(ID) AS total
         FROM users
-        WHERE is_verified = 1 AND created_at >= ${currentStart}
-            AND created_at < ${currentEnd};
-        `;
-  
-      const currentResult = await dbBranch.request().query(currentQuery);
-      const currentTotalUsers = currentResult.recordset[0]?.total || 0;
-  
-      // --- 2. DỮ LIỆU SO SÁNH (QUÁ KHỨ) ---
-      let previousTotalUsers = 0;
-  
-      if (!isAllTime) {
+        WHERE is_verified = 1 
+          AND created_at >= ${currentStart} AND created_at < ${currentEnd};
+    `;
+    const currentResult = await dbBranch.request().query(currentQuery);
+    const currentTotalUsers = currentResult.recordset[0]?.total || 0;
+
+    // 2. Quá khứ
+    let previousTotalUsers = 0;
+    if (!isAllTime) {
         const previousQuery = `
             SELECT COUNT(ID) AS previous_total
             FROM users
-            WHERE is_verified = 1 AND created_at >= ${previousStart}
-            AND created_at < ${previousEnd};
+            WHERE is_verified = 1 
+              AND created_at >= ${previousStart} AND created_at < ${previousEnd};
         `;
-  
         const previousResult = await dbBranch.request().query(previousQuery);
         previousTotalUsers = previousResult.recordset[0]?.previous_total || 0;
-      }
-      return {
-        total: currentTotalUsers,
-        previousTotal: previousTotalUsers
-      };
-  
-    } catch (error) {
-      if (error instanceof AppError) {
-        throw error;
-      }
-      throw new AppError("Failed to get order KPI data", 500);
     }
-  };
+
+    return { total: currentTotalUsers, previousTotal: previousTotalUsers };
+};
+
+
+// ---------------------------------------------------------
+// 2. MAIN SERVICE: Xử lý logic Branch / CT
+// ---------------------------------------------------------
+export const getTotalUserComparisonService = async (branch_code: string, type: string) => {
+    try {
+        // CASE 1: Toàn hệ thống (CT)
+        // Lưu ý: User thường là data toàn cục (Global) nếu dùng chung DB User.
+        // NHƯNG nếu hệ thống của bạn phân tán User theo chi nhánh (User đăng ký ở nhánh nào nằm DB nhánh đó)
+        // thì mới cần cộng dồn. Nếu User nằm ở DB chung (VD: chỉ DB HN chứa User) thì logic sẽ khác.
+        // -> Giả sử mô hình của bạn là User phân tán (mỗi nhánh có User riêng):
+        if (branch_code === 'CT') {
+            const branches = ['HN', 'DN', 'HCM'];
+
+            const promises = branches.map(async (code) => {
+                const pool = getBranchPool(code);
+                if (!pool || !pool.connected) return { total: 0, previousTotal: 0 };
+                try {
+                    return await getTotalUserComparisonFromPool(pool, type);
+                } catch {
+                    return { total: 0, previousTotal: 0 };
+                }
+            });
+
+            const results = await Promise.all(promises);
+
+            return results.reduce((acc, curr) => ({
+                total: acc.total + curr.total,
+                previousTotal: acc.previousTotal + curr.previousTotal
+            }), { total: 0, previousTotal: 0 });
+        }
+
+        // CASE 2: Chi nhánh lẻ
+        else {
+            const pool = getBranchPool(branch_code);
+            if (!pool || !pool.connected) {
+                throw new AppError(`Branch ${branch_code} disconnected`, 503);
+            }
+            return await getTotalUserComparisonFromPool(pool, type);
+        }
+
+    } catch (err) {
+        if (err instanceof AppError) throw err;
+        console.error("getTotalUserComparisonService Error:", err);
+        throw new AppError("Failed to get user comparison data", 500);
+    }
+};

@@ -7,6 +7,7 @@ import { OrderDetail } from "../models/order.mongo";
 import { AppError } from "../utils/appError";
 import { Address } from "../interfaces/address";
 import CartItemMongo  from "../models/cart.mongo";
+import { getBranchPool } from "../config/database";
 const insertOrder = async (tranRequest: Transaction, orderIdSql: string, orderData: Order, mongoOrderId: mongoose.Types.ObjectId): Promise<void> => {
     const query = `INSERT INTO orders (ID, user_id, total, discount_value, voucher_id, mongodb_id, method_order, status)
     VALUES (@orderId, @user_id, @total, @discount_value, @voucher_id, @mongodb_id, @method_order, @status)`;
@@ -223,7 +224,7 @@ export const getOrderById = async (orderId: string, dbBranch: ConnectionPool): P
         user_id: order.user_id,
         voucher_id: order.voucher_id,
         total: order.total,
-        discount_value: order.discount_value || 0,
+        discount_value: order.discount_Value || 0,
         mongo_id: order.mongodb_id,
         payment_method: order.payment_method,
         payment_status: order.payment_status,
@@ -339,6 +340,117 @@ export const getOrderOfBranch = async (dbBranch: ConnectionPool, method_order: s
         throw new AppError("Failed to get order of branch", 500);
     }
 }
+
+const fetchOrdersFromPool = async (pool: ConnectionPool, method_order: string): Promise<GetOrder[]> => {
+    if (!pool || !pool.connected) {
+        console.warn("Pool is not connected or not found");
+        return [];
+    }
+
+    // Query SQL Server
+    const query = `
+        SELECT 
+            o.*, 
+            u.name AS user_name_buyer
+        FROM orders o
+        INNER JOIN users u ON o.user_id = u.ID
+        WHERE o.method_order = @method_order
+    `;
+
+    const result = await pool.request().input('method_order', method_order).query(query);
+
+    if (result.recordset.length === 0) return [];
+
+    // Chuẩn bị ID để query Mongo
+    const orderSqlIds = result.recordset.map(order => order.ID);
+    const lowerCaseOrderSqlIds = orderSqlIds.map((id: any) => id.toString().toLowerCase());
+
+    // Query MongoDB (OrderDetail)
+    const mongoOrders = await OrderDetail.find({ order_id_sql: { $in: lowerCaseOrderSqlIds } }).lean();
+
+    // Merge Data
+    const orders = result.recordset.map(order => {
+        const mongoOrder = mongoOrders.find(mo => mo.order_id_sql === order.ID.toString().toLowerCase());
+        return {
+            id: order.ID,
+            user_id: order.user_id,
+            voucher_id: order.voucher_id,
+            total: order.total,
+            discount_value: order.discount_value,
+            mongo_id: order.mongodb_id,
+            payment_method: order.payment_method,
+            user_name_buyer: order.user_name_buyer,
+            // Data từ Mongo
+            address: mongoOrder ? mongoOrder.shipping_address : {},
+            status: order.status,
+            created_at: order.created_at,
+            items: mongoOrder ? mongoOrder.items : [],
+            note: mongoOrder ? mongoOrder.note : "Không có ghi chú"
+        };
+    });
+
+    return orders;
+};
+
+// 2. Main Service Function: Xử lý logic Branch Code (CT vs Single Branch)
+export const getOrderOfTypeBranchService = async (branch_code: string, method_order: string): Promise<GetOrder[]> => {
+    try {
+        // CASE 1: Toàn hệ thống (CT) -> Merge data
+        if (branch_code === 'CT') {
+            const branches = ['HN', 'DN', 'HCM'];
+
+            // Chạy song song 3 request
+            const promises = branches.map(async (code) => {
+                const pool = getBranchPool(code); // hoặc getDbPool(code) tùy tên hàm bạn import
+
+                // 1. Kiểm tra kết nối
+                if (!pool || !pool.connected) {
+                    console.warn(`[WARNING] Branch ${code} is disconnected or pool not found. Skipping...`);
+                    // Trả về mảng rỗng để không ảnh hưởng chi nhánh khác
+                    return [];
+                }
+
+                // 2. Thử lấy dữ liệu, nếu query lỗi cũng catch lại để không sập app
+                try {
+                    return await fetchOrdersFromPool(pool, method_order);
+                } catch (err) {
+                    console.error(`[ERROR] Failed to fetch data from branch ${code}:`, err);
+                    return []; // Trả về mảng rỗng nếu query lỗi
+                }
+            });
+
+            const results = await Promise.all(promises);
+
+            // results lúc này là mảng 2 chiều: [[...ordersHN], [], [...ordersHCM]]
+            // Dùng flat() sẽ tự động loại bỏ các mảng rỗng và gộp thành 1 mảng duy nhất
+            const allOrders = results.flat().sort((a, b) => {
+                const timeA = new Date(a.created_at ?? 0).getTime();
+                const timeB = new Date(b.created_at ?? 0).getTime();
+                return timeB - timeA; // Mới nhất lên đầu
+            });
+
+            return allOrders;
+        }
+
+        // CASE 2: Chi nhánh lẻ (HN, DN, HCM)
+        else {
+            const pool = getBranchPool(branch_code);
+
+            // Nếu chọn cụ thể 1 chi nhánh mà nó mất kết nối thì PHẢI báo lỗi cho người dùng biết
+            if (!pool || !pool.connected) {
+                return [];
+            }
+
+            const orders = await fetchOrdersFromPool(pool, method_order);
+            return orders.sort((a, b) => new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime());
+        }
+
+    } catch (error) {
+        if (error instanceof AppError) throw error;
+        console.error("getOrderOfTypeBranchService Error:", error);
+        throw new AppError("Failed to get order of type branch", 500);
+    }
+};
 export const statisticalOrder = async (dbBranch: ConnectionPool): Promise<any[]> => {
     try {
         const query = `SELECT status FROM orders`;
@@ -479,173 +591,114 @@ export const getRevenueOrderComparison = async (dbBranch: ConnectionPool, type: 
         throw new AppError("Failed to get revenue and order comparison data", 500);
     }
 };
-export const getRevenueOrderComparisonForAdmin = async ( dbBranch: ConnectionPool, type: string ): Promise<IKpiResponse> => {
-  
+
+const getRevenueOrderComparisonFromPool = async (dbBranch: ConnectionPool, type: string): Promise<IKpiResponse> => {
     const { currentStart, currentEnd, previousStart, previousEnd } = getDateRange(type);
     const isAllTime = type.toLowerCase() === 'từ trước tới nay';
-  
-    try {
-      // ======================
-      // 1. DOANH THU HIỆN TẠI
-      // ======================
-      const currentQuery = `
-        SELECT 
-          ISNULL(SUM(total), 0) AS total_revenue
+
+    // 1. DOANH THU HIỆN TẠI
+    const currentQuery = `
+        SELECT ISNULL(SUM(total), 0) AS total_revenue
         FROM orders
         WHERE status != 'cancelled'
-          AND created_at >= ${currentStart}
-          AND created_at < ${currentEnd};
-      `;
-  
-      const currentResult = await dbBranch.request().query(currentQuery);
-      const currentRevenue = currentResult.recordset[0]?.total_revenue || 0;
-  
-      // ======================
-      // 2. DOANH THU KỲ TRƯỚC
-      // ======================
-      let previousRevenue = 0;
-  
-      if (!isAllTime) {
+          AND created_at >= ${currentStart} AND created_at < ${currentEnd};
+    `;
+    const currentResult = await dbBranch.request().query(currentQuery);
+    const currentRevenue = currentResult.recordset[0]?.total_revenue || 0;
+
+    // 2. DOANH THU KỲ TRƯỚC
+    let previousRevenue = 0;
+    if (!isAllTime) {
         const previousQuery = `
-          SELECT 
-            ISNULL(SUM(total), 0) AS previous_total_revenue
-          FROM orders
-          WHERE status != 'cancelled'
-            AND created_at >= ${previousStart}
-            AND created_at < ${previousEnd};
+            SELECT ISNULL(SUM(total), 0) AS previous_total_revenue
+            FROM orders
+            WHERE status != 'cancelled'
+              AND created_at >= ${previousStart} AND created_at < ${previousEnd};
         `;
-  
         const previousResult = await dbBranch.request().query(previousQuery);
         previousRevenue = previousResult.recordset[0]?.previous_total_revenue || 0;
-      }
-  
-      return {
-        total: currentRevenue,
-        previousTotal: previousRevenue
-      };
-  
-    } catch (error) {
-      if (error instanceof AppError) {
-        throw error;
-      }
-      throw new AppError("Failed to get revenue KPI data", 500);
     }
-  };
-  
-  
-export const getTotalOrderCancelledForAdmin = async (dbBranch: ConnectionPool, type: string): Promise<IKpiResponse> => {
-  
+
+    return { total: currentRevenue, previousTotal: previousRevenue };
+};
+
+const getTotalOrderComparisonFromPool = async (dbBranch: ConnectionPool, type: string): Promise<IKpiResponse> => {
     const { currentStart, currentEnd, previousStart, previousEnd } = getDateRange(type);
     const isAllTime = type.toLowerCase() === 'từ trước tới nay';
-  
-    try {
-      // --- 1. DỮ LIỆU HIỆN TẠI ---
-      const currentQuery = `
+
+    // 1. DỮ LIỆU HIỆN TẠI
+    const currentQuery = `
+        SELECT COUNT(ID) AS total_orders
+        FROM orders
+        WHERE status != 'cancelled'
+          AND created_at >= ${currentStart} AND created_at < ${currentEnd};
+    `;
+    const currentResult = await dbBranch.request().query(currentQuery);
+    const currentTotalOrders = currentResult.recordset[0]?.total_orders || 0;
+
+    // 2. DỮ LIỆU SO SÁNH
+    let previousTotalOrders = 0;
+    if (!isAllTime) {
+        const previousQuery = `
+            SELECT COUNT(ID) AS previous_total_orders
+            FROM orders
+            WHERE status != 'cancelled'
+              AND created_at >= ${previousStart} AND created_at < ${previousEnd};
+        `;
+        const previousResult = await dbBranch.request().query(previousQuery);
+        previousTotalOrders = previousResult.recordset[0]?.previous_total_orders || 0;
+    }
+    return { total: currentTotalOrders, previousTotal: previousTotalOrders };
+};
+
+const getTotalOrderCancelledFromPool = async (dbBranch: ConnectionPool, type: string): Promise<IKpiResponse> => {
+    const { currentStart, currentEnd, previousStart, previousEnd } = getDateRange(type);
+    const isAllTime = type.toLowerCase() === 'từ trước tới nay';
+
+    // 1. DỮ LIỆU HIỆN TẠI
+    const currentQuery = `
         SELECT COUNT(ID) AS total_orders
         FROM orders
         WHERE status = 'cancelled'
           AND created_at >= ${currentStart} AND created_at < ${currentEnd};
-      `;
-  
-      const currentResult = await dbBranch.request().query(currentQuery);
-      const currentTotalOrders = currentResult.recordset[0]?.total_orders || 0;
-  
-      // --- 2. DỮ LIỆU SO SÁNH (QUÁ KHỨ) ---
-      let previousTotalOrders = 0;
-  
-      if (!isAllTime) {
+    `;
+    const currentResult = await dbBranch.request().query(currentQuery);
+    const currentTotalOrders = currentResult.recordset[0]?.total_orders || 0;
+
+    // 2. DỮ LIỆU SO SÁNH
+    let previousTotalOrders = 0;
+    if (!isAllTime) {
         const previousQuery = `
-          SELECT COUNT(ID) AS previous_total_orders
-          FROM orders
-          WHERE status = 'cancelled'
-            AND created_at >= ${previousStart} AND created_at < ${previousEnd};
+            SELECT COUNT(ID) AS previous_total_orders
+            FROM orders
+            WHERE status = 'cancelled'
+              AND created_at >= ${previousStart} AND created_at < ${previousEnd};
         `;
-  
         const previousResult = await dbBranch.request().query(previousQuery);
         previousTotalOrders = previousResult.recordset[0]?.previous_total_orders || 0;
-      }
-      return {
-        total: currentTotalOrders,
-        previousTotal: previousTotalOrders
-      };
-  
-    } catch (error) {
-      if (error instanceof AppError) {
-        throw error;
-      }
-      throw new AppError("Failed to get order KPI data", 500);
     }
-  };
+    return { total: currentTotalOrders, previousTotal: previousTotalOrders };
+};
 
-export const getTotalOrderComparisonForAdmin = async (dbBranch: ConnectionPool, type: string): Promise<IKpiResponse> => {
-  
-    const { currentStart, currentEnd, previousStart, previousEnd } = getDateRange(type);
-    const isAllTime = type.toLowerCase() === 'từ trước tới nay';
-  
-    try {
-      // --- 1. DỮ LIỆU HIỆN TẠI ---
-      const currentQuery = `
-        SELECT COUNT(ID) AS total_orders
-        FROM orders
-        WHERE status != 'cancelled'
-          AND created_at >= ${currentStart} AND created_at < ${currentEnd};
-      `;
-  
-      const currentResult = await dbBranch.request().query(currentQuery);
-      const currentTotalOrders = currentResult.recordset[0]?.total_orders || 0;
-  
-      // --- 2. DỮ LIỆU SO SÁNH (QUÁ KHỨ) ---
-      let previousTotalOrders = 0;
-  
-      if (!isAllTime) {
-        const previousQuery = `
-          SELECT COUNT(ID) AS previous_total_orders
-          FROM orders
-          WHERE status != 'cancelled'
-            AND created_at >= ${previousStart} AND created_at < ${previousEnd};
-        `;
-  
-        const previousResult = await dbBranch.request().query(previousQuery);
-        previousTotalOrders = previousResult.recordset[0]?.previous_total_orders || 0;
-      }
-      return {
-        total: currentTotalOrders,
-        previousTotal: previousTotalOrders
-      };
-  
-    } catch (error) {
-      if (error instanceof AppError) {
-        throw error;
-      }
-      throw new AppError("Failed to get order KPI data", 500);
-    }
-  };
+const getTopOrderFromPool = async (dbBranch: ConnectionPool, top: number) => {
+    const query = `
+        SELECT TOP (@top)
+            o.*, 
+            u.name AS user_name_buyer
+        FROM orders o
+        INNER JOIN users u ON o.user_id = u.ID
+        ORDER BY o.created_at DESC
+    `;
+    const result = await dbBranch.request().input('top', top).query(query);
 
-export const getTopOrderOfBranch = async (dbBranch: ConnectionPool, top: number) : Promise<GetOrder[]> => {
-    try {
-        const query = `SELECT TOP (@top)
-                o.*, 
-                u.name AS user_name_buyer
-            FROM orders o
-            INNER JOIN users u ON o.user_id = u.ID
-            ORDER BY o.created_at DESC
-        `;
-        const result = await dbBranch.request()
-            .input('top', top)
-            .query(query);
-        const orderSqlIds = result.recordset.map(order => order.ID);
-        const lowerCaseOrderSqlIds = orderSqlIds.map((id: string) => id.toString().toLowerCase());
-        const mongoOrders = await OrderDetail.find({ order_id_sql: { $in: lowerCaseOrderSqlIds } }).lean();
-        const orders = result.recordset.map(order => {
-            const mongoOrder = mongoOrders.find(mongoOrder => mongoOrder.order_id_sql === order.ID.toString().toLowerCase());
-            return {
-                ...order,
-                items: mongoOrder ? mongoOrder.items : [],
-                shipping_address: mongoOrder ? mongoOrder.shipping_address : {},
-                note: mongoOrder ? mongoOrder.note : "Không có ghi chú"
-            };
-        });
-        const orderResuts: GetOrder[] = orders.map(order => ({
+    const orderSqlIds = result.recordset.map(order => order.ID);
+    const lowerCaseOrderSqlIds = orderSqlIds.map((id: any) => id.toString().toLowerCase());
+
+    const mongoOrders = await OrderDetail.find({ order_id_sql: { $in: lowerCaseOrderSqlIds } }).lean();
+
+    const orders = result.recordset.map(order => {
+        const mongoOrder = mongoOrders.find(mongoOrder => mongoOrder.order_id_sql === order.ID.toString().toLowerCase());
+        return {
             id: order.ID,
             user_id: order.user_id,
             voucher_id: order.voucher_id,
@@ -654,45 +707,148 @@ export const getTopOrderOfBranch = async (dbBranch: ConnectionPool, top: number)
             mongo_id: order.mongodb_id,
             payment_method: order.payment_method,
             user_name_buyer: order.user_name_buyer,
-            address: order.shipping_address,
+            address: mongoOrder ? mongoOrder.shipping_address : {},
             status: order.status,
             created_at: order.created_at,
-            items: order.items,
-            note: order.note
-        }));
-        return orderResuts;
+            items: mongoOrder ? mongoOrder.items : [],
+            note: mongoOrder ? mongoOrder.note : "Không có ghi chú"
+        };
+    });
+    // Map về đúng kiểu GetOrder nếu cần thiết, ở đây return luôn
+    return orders;
+};
 
-    } catch (error) {
-        if (error instanceof AppError) {
-            throw error;
-        }
-        console.error(error);
-        throw new AppError("Failed to get order of branch", 500);
-    }
-}
+const getRevenueByYearFromPool = async (dbBranch: ConnectionPool, year: number): Promise<IRevenueYearResponse> => {
+    const result = await dbBranch.request().input('year', year).query(`
+        SELECT MONTH(created_at) AS month, SUM(total) AS revenue
+        FROM orders WHERE status != 'cancelled' AND YEAR(created_at) = @year
+        GROUP BY MONTH(created_at) ORDER BY month
+    `);
 
-
-
-export const getRevenueByYear = async ( dbBranch: ConnectionPool, year: number): Promise<IRevenueYearResponse> => {
-    try {
-      const result = await dbBranch.request()
-        .input('year', year)
-        .query(`
-            SELECT MONTH(created_at) AS month, SUM(total) AS revenue
-            FROM orders
-            WHERE status != 'cancelled' AND YEAR(created_at) = @year
-            GROUP BY MONTH(created_at)
-            ORDER BY month
-        `);
-  
-      const monthlyRevenue: IRevenueMonth[] = Array.from({ length: 12 }, (_, i) => {
+    const monthlyRevenue = Array.from({ length: 12 }, (_, i) => {
         const monthData = result.recordset.find(r => r.month === i + 1);
         return { month: i + 1, revenue: monthData?.revenue || 0 };
-      });
-  
-      return { year, monthlyRevenue };
-    } catch (error) {
-      console.error('Failed to get revenue by year:', error);
-      throw new AppError('Failed to fetch revenue data', 500);
+    });
+    return { year, monthlyRevenue };
+};
+
+
+// ==========================================
+// 2. MAIN SERVICE FUNCTIONS (Exported)
+// ==========================================
+
+// 1. Service: Daily Revenue Comparison (KPI Doanh thu)
+export const getRevenueOrderComparisonService = async (branch_code: string, type: string) => {
+    if (branch_code === 'CT') {
+        const branches = ['HN', 'DN', 'HCM'];
+        const promises = branches.map(async (code) => {
+            const pool = getBranchPool(code);
+            if (!pool || !pool.connected) return { total: 0, previousTotal: 0 };
+            try { return await getRevenueOrderComparisonFromPool(pool, type); }
+            catch { return { total: 0, previousTotal: 0 }; }
+        });
+        const results = await Promise.all(promises);
+        return results.reduce((acc, curr) => ({
+            total: acc.total + curr.total,
+            previousTotal: acc.previousTotal + curr.previousTotal
+        }), { total: 0, previousTotal: 0 });
+    } else {
+        const pool = getBranchPool(branch_code);
+        if (!pool || !pool.connected) return { total: 0, previousTotal: 0 };
+        return await getRevenueOrderComparisonFromPool(pool, type);
     }
-  };
+};
+
+// 2. Service: Total Orders Comparison (KPI Tổng đơn hàng)
+export const getTotalOrderComparisonService = async (branch_code: string, type: string) => {
+    if (branch_code === 'CT') {
+        const branches = ['HN', 'DN', 'HCM'];
+        const promises = branches.map(async (code) => {
+            const pool = getBranchPool(code);
+            if (!pool || !pool.connected) return { total: 0, previousTotal: 0 };
+            try { return await getTotalOrderComparisonFromPool(pool, type); }
+            catch { return { total: 0, previousTotal: 0 }; }
+        });
+        const results = await Promise.all(promises);
+        return results.reduce((acc, curr) => ({
+            total: acc.total + curr.total,
+            previousTotal: acc.previousTotal + curr.previousTotal
+        }), { total: 0, previousTotal: 0 });
+    } else {
+        const pool = getBranchPool(branch_code);
+        if (!pool || !pool.connected) return { total: 0, previousTotal: 0 };
+        return await getTotalOrderComparisonFromPool(pool, type);
+    }
+};
+
+// 3. Service: Cancelled Orders Comparison (KPI Đơn hủy)
+export const getTotalOrderCancelledService = async (branch_code: string, type: string) => {
+    if (branch_code === 'CT') {
+        const branches = ['HN', 'DN', 'HCM'];
+        const promises = branches.map(async (code) => {
+            const pool = getBranchPool(code);
+            if (!pool || !pool.connected) return { total: 0, previousTotal: 0 };
+            try { return await getTotalOrderCancelledFromPool(pool, type); }
+            catch { return { total: 0, previousTotal: 0 }; }
+        });
+        const results = await Promise.all(promises);
+        return results.reduce((acc, curr) => ({
+            total: acc.total + curr.total,
+            previousTotal: acc.previousTotal + curr.previousTotal
+        }), { total: 0, previousTotal: 0 });
+    } else {
+        const pool = getBranchPool(branch_code);
+        if (!pool || !pool.connected) return { total: 0, previousTotal: 0 };
+        return await getTotalOrderCancelledFromPool(pool, type);
+    }
+};
+
+// 4. Service: Top Orders (Đơn hàng gần đây)
+export const getTopOrderOfBranchService = async (branch_code: string, top: number) => {
+    if (branch_code === 'CT') {
+        const branches = ['HN', 'DN', 'HCM'];
+        const promises = branches.map(async (code) => {
+            const pool = getBranchPool(code);
+            if (!pool || !pool.connected) return [];
+            try { return await getTopOrderFromPool(pool, top); }
+            catch { return []; }
+        });
+        const results = await Promise.all(promises);
+
+        return results.flat()
+            .sort((a, b) => new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime())
+            .slice(0, top);
+    } else {
+        const pool = getBranchPool(branch_code);
+        if (!pool || !pool.connected) return [];
+        return await getTopOrderFromPool(pool, top);
+    }
+};
+
+// 5. Service: Revenue By Year (Biểu đồ doanh thu)
+export const getRevenueByYearService = async (branch_code: string, year: number) => {
+    if (branch_code === 'CT') {
+        const branches = ['HN', 'DN', 'HCM'];
+        const promises = branches.map(async (code) => {
+            const pool = getBranchPool(code);
+            if (!pool || !pool.connected) return null;
+            try { return await getRevenueByYearFromPool(pool, year); }
+            catch { return null; }
+        });
+        const results = await Promise.all(promises);
+
+        let finalRevenue = { year, monthlyRevenue: Array.from({ length: 12 }, (_, i) => ({ month: i + 1, revenue: 0 })) };
+        results.forEach(res => {
+            if (res) {
+                res.monthlyRevenue.forEach(m => {
+                    finalRevenue.monthlyRevenue[m.month - 1].revenue += m.revenue;
+                });
+            }
+        });
+        return finalRevenue;
+    } else {
+        const pool = getBranchPool(branch_code);
+        if (!pool || !pool.connected) return null;
+        return await getRevenueByYearFromPool(pool, year);
+    }
+};
