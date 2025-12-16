@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onBeforeMount, onMounted, onBeforeUnmount } from "vue";
 import { useRouter, useRoute } from "vue-router"; // Added useRoute
-// import { useCartStore } from "../stores/cartStore";
+import { useCartStore } from "../stores/cartStore";
 // import { useCategoryStore } from "../stores/categoryStore";
 // import type { ProductSummary } from "../interfaces/product";
 // import logo from "../assets/logo.jpg";
@@ -12,7 +12,7 @@ import { useRouter, useRoute } from "vue-router"; // Added useRoute
 // import { useProductStore } from "../stores/productStore";
 
 // const productStore = useProductStore();
-// const cart = useCartStore();
+const cart = useCartStore();
 // const category = useCategoryStore();
 const router = useRouter();
 const route = useRoute(); // Initialize route
@@ -61,7 +61,18 @@ const isActive = (path: string, queryParam?: string, queryValue?: string) => {
     return route.path === path;
 }
 
-// onBeforeMount(async () => {
+onBeforeMount(async () => {
+    // if (localStorage.getItem('accessToken')) {
+    //     await cart.getCartCountStore(); 
+    // }
+    const token = localStorage.getItem('accessToken');
+    isLogin.value = !!token;
+
+    if (isLogin.value) {
+        await cart.getCartCountStore(); 
+    } else {
+        isLogOut.value = true;
+    }
 //     isLogin.value = localStorage.getItem("user_id") ? true : false;
 //     if (localStorage.getItem('accessToken')) {
 //         isLogOut.value = false;
@@ -77,7 +88,7 @@ const isActive = (path: string, queryParam?: string, queryValue?: string) => {
 //   isLogin.value = localStorage.getItem("user_id") ? true : false;
   
 //   products.value = await productStore.getAllProductActiveStore();
-// });
+});
 
 const toastText = ref("");
 const showNotification = ref<boolean>(false);
@@ -95,13 +106,13 @@ const goToCart = () => {
             router.push({
                 path: '/auth/login',
                 query: {
-                    redirect: "/cart/cartOfme" 
+                    redirect: "/cart" 
                 }
             })
         }, 2000);
     }
     else {
-        router.push("/cart/cartOfme");
+        router.push("/cart");
     }
 };
 
@@ -352,12 +363,14 @@ onBeforeUnmount(() => {
                 </div>
 
                 <!-- Cart -->
-                <!-- <div class="relative cursor-pointer group" @click="goToCart">
-                    <i class="fa-solid fa-cart-shopping text-xl text-gray-800 group-hover:text-black transition-colors"></i>
-                    <span v-if="cart.cartCount.length > 0" class="absolute -top-2 -right-2 bg-red-600 text-white text-[10px] font-bold w-5 h-5 flex items-center justify-center rounded-full border-2 border-white">
-                        {{ cart.cartCount.length }}
+                <div class="relative cursor-pointer group" @click="goToCart">
+                    <div class="p-2 rounded-full hover:bg-gray-100 transition-colors">
+                        <i class="fa-solid fa-cart-shopping text-xl text-gray-700 group-hover:text-black transition-colors"></i>
+                    </div>
+                    <span v-if="cart.cartCount > 0" class="absolute top-0 right-0 bg-red-600 text-white text-[10px] font-bold h-4 min-w-[16px] px-1 flex items-center justify-center rounded-full border-2 border-white transform translate-x-1 -translate-y-1 shadow-sm">
+                        {{ cart.cartCount }}
                     </span>
-                </div> -->
+                </div>
 
                 <!-- User -->
                 <div class="relative group" @mouseenter="showFormUser = true" @mouseleave="showFormUser = false">
