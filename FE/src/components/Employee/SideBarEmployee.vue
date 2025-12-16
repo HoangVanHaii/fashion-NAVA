@@ -27,7 +27,7 @@ import { ref, watch, onMounted } from 'vue';
         { key: 'order', label: 'Quản lý đơn hàng', routeName: 'order-employee', icon: 'fa-solid fa-box-open' },
         { key: 'flashsale', label: 'Danh mục Flash Sale', routeName: 'flashsaleEmployee', icon: 'fa-solid fa-bolt' },
         { key: 'voucher', label: 'Quản lý Voucher', routeName: 'voucherEmployee', icon: 'fa-solid fa-ticket' },
-        { key: 'review', label: 'Chăm sóc khách hàng', routeName: 'dash_board', icon: 'fa-solid fa-message' },
+        { key: 'review', label: 'Chăm sóc khách hàng', routeName: 'reviewEmployee', icon: 'fa-solid fa-message' },
     ];
     
     const routeToKeyMap: Record<string, string> = menuItems.reduce((acc, item) => {
