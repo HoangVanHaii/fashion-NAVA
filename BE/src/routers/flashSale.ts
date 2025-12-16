@@ -13,6 +13,13 @@ router.post(
     validateRequest,
     flashSaleController.createFlashSale
 );
+router.put(
+    "/:id",
+    authMiddleware,
+    isAdmin,
+    validateRequest,
+    flashSaleController.changeStatus
+);
 router.post(
     "/item/:id",
     authMiddleware,
@@ -25,8 +32,12 @@ router.delete('/item/:item', authMiddleware, adminOrEmployee,flashSaleController
 router.delete('/sale/:flashSale', authMiddleware, adminOrEmployee, flashSaleController.sortDeleteFlashSale);
 
 router.get("/productActive/:flash_id", authMiddleware, flashSaleController.getProductActiveByFlashSaleId);
+router.get("/branch/productActive/:flash_id", authMiddleware, flashSaleController.getProductActiveByFlashSaleIdBranch);
+
 router.get("/active-not-in", authMiddleware, flashSaleController.getFlashSaleHotDeal);
 router.get("/public/active-not-in", flashSaleController.getFlashSaleHotDealPublic);
+router.get("/productNotSale", authMiddleware, flashSaleController.getProductNotInFlashSale);
+
 
 router.get("/flash-sale-home", authMiddleware, flashSaleController.getFlashSaleHome);
 router.get("/public/flash-sale-home", flashSaleController.getFlashSaleHomePublic);

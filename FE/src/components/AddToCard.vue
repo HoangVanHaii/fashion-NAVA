@@ -71,23 +71,18 @@ const decreaseQuantity = () => {
   }
 };
 
-const addToCart = async () => {
-  const userId = localStorage.getItem("user_id");
-  if (!userId) {
-    toastText.value = "Vui lòng đăng nhập để mua hàng!";
-    showNotification.value = true;
-    setTimeout(() => router.push({ name: "login" }), 1500);
+const handleAddToCart = async () => {
+  if (!sizeChose.value) return;
+
+
+  const login = localStorage.getItem("accessToken") ? true : false;
+  if (!login) {
+    router.push('auth/login')
     return;
   }
 
-  if (!colorChose.value || !sizeChose.value) {
-    toastText.value = "Vui lòng chọn màu sắc và kích thước!";
-    showNotification.value = true;
-    return;
-  }
-
-  loading.value = true;
-  try {
+    if (loading.value) return;
+    loading.value = true;
     const cartItem: ICartItem = {
         size_id_mongo: sizeChose.value._id,
         product_id_sql: props.product.product_id_sql,
@@ -95,7 +90,16 @@ const addToCart = async () => {
     }
 
     await useCart.addToCartAction(cartItem);
-
+//     if (useCart.success) {
+//       setTimeout(() => {
+//         loading.value = false;
+//         handleClose();
+//       }, 1500);
+//     } else {
+//         router.push('auth/login')
+//         loading.value = false;
+//             handleClose();
+//     }
     // [MỚI] LOGIC HIỆU ỨNG BAY
     if (productImageRef.value) {
         // Lấy link ảnh hiện tại đang hiển thị để làm hiệu ứng
@@ -106,6 +110,8 @@ const addToCart = async () => {
 
     // Đóng modal ngay lập tức để người dùng thấy hiệu ứng bay trên màn hình chính
     emit("close");
+  handleClose();
+  
 
   } catch (error: any) {
     // Chỉ hiện thông báo nếu có lỗi
@@ -131,7 +137,7 @@ const currentPrice = computed(() => sizeChose.value?.price || getMinProductPrice
 
 <template>
   <div class="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
-    <Notification :text="toastText" :isSuccess="false" v-if="showNotification" />
+<!--     <Notification :text="toastText" :isSuccess="false" v-if="showNotification" /> -->
 
     <div
       class="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity"

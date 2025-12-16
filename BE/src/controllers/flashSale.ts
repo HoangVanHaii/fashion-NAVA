@@ -3,6 +3,8 @@ import { Request, Response, NextFunction } from "express";
 import * as FlashSaleService from "../services/flashSale";
 import { AppError } from "../utils/appError";
 import { getBranchPool } from "../config/database";
+import { getBranchIdByCode } from "../services/product";
+import mssql, { pool } from 'mssql';
 
 export const createFlashSale = async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -28,20 +30,33 @@ export const createFlashSale = async (req: Request, res: Response, next: NextFun
 export const addFlashSaleItem = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const flashSaleId = req.params.id as string;
-        const { items } = req.body;
+        const { items, branch_code } = req.body;
+        // console.log(req.body);
         const item: FlashSaleItem[] = items;
-        const dbBranch = req.dbBranch;
-        const branch_code = req.user?.branch_code;
-        if (!dbBranch || !dbBranch.connected) {
-            throw new AppError(`${branch_code} is not connected`, 503);
+        console.log(item);
+        let branchCode = branch_code;
+        if (req.user?.branch_code !== 'CT') {
+            branchCode = req.user?.branch_code;
         }
-        const flash_sale_item_id = await FlashSaleService.addItemToFlashSale(req.user?.branch_id!, flashSaleId, item, dbBranch);
+        const pool = getBranchPool(branchCode)
+        if (!pool || !pool.connected) {
+            throw new AppError(`${branchCode} is not connected`, 503);
+        }
+        console.log(1);
+        const branchId = await getBranchIdByCode(pool, branchCode);
+        if (!branchId) {
+            throw new AppError("branch_id not found", 404);
+        }
+        console.log(2);
+        const flash_sale_item_id = await FlashSaleService.addItemToFlashSale(branchId, flashSaleId, item, pool);
+        console.log(3);
         return res.status(201).json({
             success: true,
             message: 'Flash sale item added successfully',
             data: flash_sale_item_id
         })
     } catch (err) {
+        console.log(err);
         next(err);
     }
 }
@@ -62,6 +77,52 @@ export const sortDeleteItem = async (req: Request, res: Response, next: NextFunc
         next(error)
     }
 }
+
+const ALL_BRANCHES = ['HN', 'DN', 'HCM', 'CT'];
+// const ALL_BRANCHES = ['CT', 'DN',];
+
+export const changeStatus = async (req: Request, res: Response, next: NextFunction) => {
+    const activeTransactions: mssql.Transaction[] = [];
+
+    try {
+        const flash_sale_id = req.params.id;
+
+        for (const bn of ALL_BRANCHES) {
+            const pool = getBranchPool(bn);
+            
+            if (!pool || !pool.connected) {
+                console.warn(`Skipping branch ${bn}: Disconnected or Pool not found.`);
+                continue;
+            }
+
+            const branchId = await getBranchIdByCode(pool, bn);
+            if (!branchId) {
+                throw new AppError(`Branch ID not found for ${bn}`, 500);
+            }
+
+            const transaction = new mssql.Transaction(pool);
+            
+            await transaction.begin();
+            activeTransactions.push(transaction);
+            await FlashSaleService.updateFlashSaleStatusWithTransaction(transaction, flash_sale_id, branchId);
+        }
+        await Promise.all(activeTransactions.map(tr => tr.commit()));
+
+        return res.status(200).json({
+            success: true,
+            message: 'Change Status successfully updated across all branches.'
+        });
+
+    } catch (error) {
+       
+        console.error("Error occurred, rolling back all branches:", error);
+        await Promise.all(activeTransactions.map(tr => tr.rollback()));
+
+        next(error);
+    }
+}
+
+
 export const sortDeleteFlashSale = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const dbBranch = req.dbBranch;
@@ -183,6 +244,15 @@ export const getFlashSaleHomePublic = async (req: Request, res: Response, next: 
         next(err);
     }
 }
+const productHasPrice = (product: any): boolean => {
+
+    return product.colors?.some((color: any) =>
+        color.sizes?.some((size: any) =>
+            typeof size.price === 'number'
+        )
+    );
+};
+
 export const getProductActiveByFlashSaleId = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const dbBranch = req.dbBranch;
@@ -191,11 +261,59 @@ export const getProductActiveByFlashSaleId = async (req: Request, res: Response,
         if (!dbBranch || !dbBranch.connected) {
             throw new AppError(`${branch_code} is not connected`, 503);
         }
-        const products = await FlashSaleService.getProductsActive(id, dbBranch, req.user?.branch_id!, req.user?.role!);
+        let products = await FlashSaleService.getProductsActive(id, dbBranch, req.user?.branch_id!, req.user?.role!);
+        products = products.filter(productHasPrice);
         return res.status(200).json({
             success: true,
             message: 'Get product sale by id successfully',
             data: products
+        })
+    } catch (err) {
+        next(err);
+    }
+}
+export const getProductActiveByFlashSaleIdBranch = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+
+        const branch_code = req.query.branch_code as string;
+        const pool = getBranchPool(branch_code)
+        if (!pool || !pool.connected) {
+            throw new AppError(`${branch_code} is not connected`, 503);
+        }
+        const branch_id = await getBranchIdByCode(pool, branch_code);
+        if (!branch_id) {
+            throw new AppError("branch_id not found", 404);
+        }
+        const id = req.params.flash_id;
+        let products = await FlashSaleService.getProductsActive(id, pool, branch_id, req.user?.role!);
+        products = products.filter(productHasPrice);
+        return res.status(200).json({
+            success: true,
+            message: 'Get product sale by id successfully',
+            data: products
+        })
+    } catch (err) {
+        next(err);
+    }
+}
+
+export const getProductNotInFlashSale = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const branch_code = req.query.branch_code as string;
+        const pool = getBranchPool(branch_code)
+        if (!pool || !pool.connected) {
+            throw new AppError(`${branch_code} is not connected`, 503);
+        }
+        const branch_id = await getBranchIdByCode(pool, branch_code);
+        if (!branch_id) {
+            throw new AppError("branch_id not found", 404);
+        }
+        let products = await FlashSaleService.getProductsNotSale(pool, branch_id);
+        products = products.filter(productHasPrice);
+        return res.status(200).json({
+            success: true,
+            message: 'Get product Not sale by id successfully',
+            products
         })
     } catch (err) {
         next(err);

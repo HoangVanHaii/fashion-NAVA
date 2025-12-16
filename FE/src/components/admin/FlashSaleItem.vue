@@ -1,348 +1,492 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
-
-// --- INTERFACES ---
-interface Size {
-    _id: string;
-    size: string;
-    price: number;
-    stock: number;
-    // Các trường để nhập liệu Flash Sale
-    sale_price: number | null;
-    sale_stock: number;
-    sale_sold: number;
-    // Biến tạm để UI toggle (bật/tắt sale cho size này)
-    is_enabled?: boolean; 
-}
-
-interface Color {
-    _id: string;
-    color: string;
-    is_main: boolean;
-    image_main: string;
-    sizes: Size[];
-}
-
-interface ProductDetail {
-    _id: string; 
-    product_id_sql: string; 
-    name: string;
-    description: string;
-    status: string;
-    colors: Color[]; 
-}
-
-interface FlashSale {
-    ID: string;
-    title: string;
-    start_date: string;
-    end_date: string;
-    status: string;
-    product_count: number;
-}
-
-// --- PROPS & EMITS ---
-const props = defineProps<{
-    modelValue: boolean;
-    sale: FlashSale | null;
-    isViewMode: boolean;
-}>();
-
-const emit = defineEmits(['update:modelValue', 'products-updated']);
-
-// --- MOCK DATA (Thay bằng API thật của bạn) ---
-const allProducts = ref<ProductDetail[]>([
-    {
-        _id: 'p1', product_id_sql: 'PROD-001', name: 'Áo Thun Basic Cotton', description: 'Thoáng mát', status: 'active',
-        colors: [
-            { _id: 'c1', color: 'Trắng', is_main: true, image_main: 'https://placehold.co/50', sizes: [{ _id: 's1', size: 'M', price: 150000, stock: 50, sale_price: null, sale_stock: 0, sale_sold: 0 }, { _id: 's2', size: 'L', price: 160000, stock: 40, sale_price: null, sale_stock: 0, sale_sold: 0 }] },
-            { _id: 'c1b', color: 'Đen', is_main: false, image_main: 'https://placehold.co/50/black/white', sizes: [{ _id: 's3', size: 'M', price: 150000, stock: 55, sale_price: null, sale_stock: 0, sale_sold: 0 }] }
-        ]
-    },
-    {
-        _id: 'p2', product_id_sql: 'PROD-002', name: 'Quần Jeans Slim Fit', description: 'Co giãn', status: 'active',
-        colors: [{ _id: 'c2', color: 'Xanh', is_main: true, image_main: 'https://placehold.co/50', sizes: [{ _id: 's4', size: '30', price: 350000, stock: 30, sale_price: null, sale_stock: 0, sale_sold: 0 }] }]
-    }
-]);
-
-// --- STATE QUẢN LÝ ---
-const currentView = ref<'list' | 'config'>('list'); // Quản lý màn hình hiện tại
-const currentProduct = ref<ProductDetail | null>(null); // Sản phẩm đang được cấu hình
-const selectedProductsMap = ref<Map<string, ProductDetail>>(new Map()); // Lưu các sản phẩm đã cấu hình xong (Key: Product ID)
-const searchQuery = ref('');
-
-// --- LOGIC ---
-
-// Lọc sản phẩm
-const filteredProducts = computed(() => {
-    if (!searchQuery.value) return allProducts.value;
-    return allProducts.value.filter(p => 
-        p.name.toLowerCase().includes(searchQuery.value.toLowerCase()) || 
-        p.product_id_sql.toLowerCase().includes(searchQuery.value.toLowerCase())
-    );
-});
-
-// Chuyển sang màn hình cấu hình chi tiết
-const openConfigProduct = (product: ProductDetail) => {
-    if (props.isViewMode) return;
+    import { ref, watch, computed, onMounted } from 'vue';
+    import { flashSaleStore } from "@/stores/flashSale";
+    import { getMainProductImage } from '@/utils/format';
     
-    // Clone deep object để không sửa trực tiếp vào list gốc khi chưa lưu
-    // Nếu sản phẩm đã có trong danh sách đã chọn, lấy từ đó ra để sửa tiếp
-    if (selectedProductsMap.value.has(product._id)) {
-        currentProduct.value = JSON.parse(JSON.stringify(selectedProductsMap.value.get(product._id)));
-    } else {
-        // Nếu chưa chọn, lấy từ gốc
-        currentProduct.value = JSON.parse(JSON.stringify(product));
-        // Mặc định enable input cho tất cả size (tuỳ chọn)
-        currentProduct.value?.colors.forEach(c => c.sizes.forEach(s => s.is_enabled = false));
-    }
+    import type { IProductColorResponse, IProductSizeResponse, IProductMongoDetail } from '@/interfaces/product';
+    import type { FlashSaleItem } from '@/interfaces/flashSale';
+    import Loading from '../Loading.vue';
+    import Notification from '../Notification.vue';
     
-    currentView.value = 'config';
-};
+    const isNotifi = ref(false);
+    const toastText = ref("");
+    const loadingPage = ref(false)
+    
+    // --- PROPS & EMITS ---
+    const props = defineProps<{
+        isOpen: boolean;
+        flashSale: any;
+        viewMode: boolean;
+    }>();
+    
+    const emit = defineEmits(['close', 'added']);
+    const useFlashSale = flashSaleStore();
+    
+    // --- STATE QUẢN LÝ UI ---
+    const step = ref(1); 
+    const selectedProduct = ref<IProductMongoDetail | null>(null);
+    
+    // --- CONFIG CHI NHÁNH ---
+    const branches = [
+        { id: 'DN', name: 'Đà Nẵng' },
+        { id: 'HN', name: 'Hà Nội' },
+        { id: 'HCM', name: 'Hồ Chí Minh' }
+    ];
+    const selectedBranch = ref('DN');
+    
+    // --- DATA ---
+    const productsInSale = ref<IProductMongoDetail[]>([]);  
+    const productsAvailable = ref<IProductMongoDetail[]>([]); 
+    
+    const productVariants = ref<any[]>([]); 
+    
+    // Cập nhật Type để lưu trực tiếp ID
+    const selectionData = ref<Record<string, { 
+        price: number, 
+        stock: number, 
+        isSelected: boolean,
+        productId: string,
+        colorId: string,
+        sizeId: string
+    }>>({});
+    
+    // --- FILTER TABS LOGIC ---
+    const currentFilter = ref('in_sale'); 
+    
+    const filterOptions = computed(() => [
+        { label: 'Sản phẩm đang tham gia', value: 'in_sale', count: productsInSale.value.length },
+        { label: 'Thêm sản phẩm mới', value: 'available', count: productsAvailable.value.length }
+    ]);
+    
+    // --- COMPUTED: CHECK QUYỀN SỬA ---
+    const canEdit = computed(() => {
+        if (!props.flashSale) return true;
+        const status = props.flashSale.status;
+        return status === 'pending' || status === 'active';
+    });
+    
+    // --- 2. FETCH DATA ---
+    const fetchData = async () => {
+        if (!props.isOpen) return;
+        
+        // Reset state UI
+        step.value = 1;
+        selectedProduct.value = null;
+        productsInSale.value = [];
+        productsAvailable.value = [];
+        
+        // Reset selectionData MỖI KHI tải lại dữ liệu (bao gồm đổi chi nhánh)
+        selectionData.value = {}; 
+        
+        try {
+            loadingPage.value = true;
+            // Lấy danh sách đang tham gia
+            const dataActive = await useFlashSale.getProductActiveByFlashSaleIdBranchStore(props.flashSale.id || "", selectedBranch.value);
+            
+            // Lấy danh sách chưa tham gia (Theo chi nhánh đang chọn)
+            const dataNoActive = await useFlashSale.getProductNotSaleStore(selectedBranch.value);
+            
+            if (dataActive) productsInSale.value = (dataActive || []) as IProductMongoDetail[];
+            if (dataNoActive) productsAvailable.value = (dataNoActive || []) as IProductMongoDetail[];
+            
+            loadingPage.value = false;
+        } catch (e) {
+            console.error("Lỗi lấy sản phẩm:", e);
+            loadingPage.value = false;
+        }
+    };
+    
+    // --- WATCHERS QUAN TRỌNG ---
+    
+    // 1. Khi mở Modal -> Reset về mặc định và gọi API
 
-// Lưu cấu hình của 1 sản phẩm
-const confirmProductConfig = () => {
-    if (!currentProduct.value) return;
 
-    // Kiểm tra logic đơn giản (ví dụ: giá sale < giá gốc)
-    let hasError = false;
-    currentProduct.value.colors.forEach(c => {
-        c.sizes.forEach(s => {
-            if (s.is_enabled) {
-                if (!s.sale_price || s.sale_price <= 0) hasError = true;
-                if (!s.sale_stock || s.sale_stock <= 0 || s.sale_stock > s.stock) hasError = true;
+onMounted(async () => {
+    selectedBranch.value = 'DN';
+       await fetchData()
+    })
+    // 2. Khi đổi chi nhánh -> Gọi lại API ngay lập tức
+    watch(selectedBranch, () => {
+        if (props.isOpen) {
+            fetchData();
+        }
+    });
+    
+    onMounted(() => {
+        if (props.isOpen) fetchData();
+    });
+    
+    // --- 3. LOGIC CHUYỂN BƯỚC ---
+    const openProductDetail = (product: IProductMongoDetail) => {
+        selectedProduct.value = product;
+        const variants: any[] = [];
+    
+        if (product.colors && product.colors.length > 0) {
+            product.colors.forEach((c: IProductColorResponse) => {
+                if (c.sizes && c.sizes.length > 0) {
+                    c.sizes.forEach((s: IProductSizeResponse) => {
+                        const key = `${product.product_id_sql}-${c._id}-${s._id}`;
+                        const safeOriginalPrice = s.price || 0;
+    
+                        variants.push({
+                            key: key,
+                            productId: product.product_id_sql,
+                            productName: product.name,
+                            colorId: c._id,
+                            colorName: c.color,
+                            sizeId: s._id,
+                            sizeName: s.size,
+                            image: c.image_main || getMainProductImage(product),
+                            originalPrice: safeOriginalPrice,
+                            stock: s.stock
+                        });
+    
+                        if (!selectionData.value[key]) {
+                            // Logic giá: Ưu tiên giá API trả về. Nếu null thì bằng 0.
+                            let initialPrice = 0;
+                            if (s.sale_price && s.sale_price > 0) {
+                                initialPrice = s.sale_price;
+                            } 
+    
+                            selectionData.value[key] = {
+                                price: initialPrice,
+                                stock: s.sale_stock || 0,
+                                isSelected: false,
+                                // Lưu ID vào đây luôn
+                                productId: product.product_id_sql,
+                                colorId: c._id,
+                                sizeId: s._id
+                            };
+                        }
+                    });
+                }
+            });
+        }
+    
+        productVariants.value = variants;
+        step.value = 2;
+    };
+    
+    const goBack = () => {
+        step.value = 1;
+        selectedProduct.value = null;
+    };
+    
+    // --- 4. COMPUTED & HELPERS ---
+    const totalSelectedItems = computed(() => {
+        return Object.values(selectionData.value).filter(item => item.isSelected).length;
+    });
+    
+    const countSelectedByProduct = (productId: string) => {
+        let count = 0;
+        Object.keys(selectionData.value).forEach(key => {
+            if (key.startsWith(productId + '-') && selectionData.value[key]?.isSelected) {
+                count++;
             }
         });
-    });
-
-    // (Bạn có thể thêm thông báo lỗi ở đây nếu cần)
+        return count;
+    };
     
-    // Lưu vào Map
-    selectedProductsMap.value.set(currentProduct.value._id, currentProduct.value);
+    const formatCurrency = (val: number | null | undefined) => {
+        if (!val) return '0 ₫';
+        return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val);
+    };
     
-    // Quay về list
-    currentView.value = 'list';
-    currentProduct.value = null;
-};
-
-// Xóa sản phẩm khỏi danh sách đã chọn
-const removeProductFromSale = (productId: string) => {
-    selectedProductsMap.value.delete(productId);
-};
-
-// Lưu toàn bộ vào Database (Nút Lưu ở Footer)
-const handleSaveAll = () => {
-    const finalData = Array.from(selectedProductsMap.value.values());
-    console.log("Dữ liệu gửi lên server:", finalData);
-    
-    alert(`Đã lưu ${finalData.length} sản phẩm vào Flash Sale!`);
-    emit('products-updated', finalData.length);
-    closeModal();
-};
-
-const closeModal = () => {
-    emit('update:modelValue', false);
-    currentView.value = 'list';
-    searchQuery.value = '';
-};
-
-const formatCurrency = (value: number | undefined): string => {
-    if (value === undefined || value === null) return 'N/A';
-    return value.toLocaleString('vi-VN') + ' ₫';
-};
-
-// Reset khi mở modal
-watch(() => props.modelValue, (newVal) => {
-    if (newVal) {
-        // Nếu là mode Add mới thì reset
-        // Nếu là Edit mode thì cần code đổ dữ liệu cũ vào selectedProductsMap ở đây
-        if (!props.isViewMode) {
-             // selectedProductsMap.value.clear(); // Uncomment nếu muốn reset mỗi lần mở
+    // --- 5. SUBMIT ---
+    const handleFinalSave = async () => {
+        if (!canEdit.value) {
+            toastText.value = "Sự kiện này không thể chỉnh sửa được nữa!";
+            isNotifi.value = true;
+            return;
         }
-    }
-});
-</script>
-
-<template>
-    <div v-if="modelValue" class="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50 p-4 backdrop-blur-sm transition-all">
-        <div class="bg-white rounded-xl shadow-2xl w-full max-w-5xl h-[85vh] flex flex-col overflow-hidden">
+    
+        const selectedEntries = Object.entries(selectionData.value).filter(([_, val]) => val.isSelected);
+    
+        if (selectedEntries.length === 0) {
+            toastText.value = "Bạn chưa chọn biến thể sản phẩm nào!";
+            isNotifi.value = true;
+            return;
+        }
+    
+        // VALIDATION
+        for (const [key, val] of selectedEntries) {
+            const originalItem = productVariants.value.find(item => item.key === key);
+            if (originalItem) {
+                if (!originalItem.originalPrice || originalItem.originalPrice <= 0) {
+                    toastText.value = `Sản phẩm "${originalItem.productName} - ${originalItem.colorName}" chưa có giá gốc!`;
+                    isNotifi.value = true;
+                    return;
+                }
+                if (val.stock > originalItem.stock) {
+                    toastText.value = `Lỗi: "${originalItem.productName} - ${originalItem.sizeName}"\nSố lượng Sale (${val.stock}) > Tồn kho (${originalItem.stock})!`;
+                    isNotifi.value = true;
+                    return;
+                }
+                if (val.price >= originalItem.originalPrice) {
+                    toastText.value = `Lỗi: "${originalItem.productName} - ${originalItem.sizeName}"\nGiá Sale phải nhỏ hơn giá gốc!`;
+                    isNotifi.value = true;
+                    return;
+                }
+            }
+        }
+    
+        // Map dữ liệu
+        const itemsPayload: FlashSaleItem[] = selectedEntries.map(([key, val]) => {
+            return {
+                product_id: val.productId,   
+                color_id_mongo: val.colorId, 
+                size_id_mongo: val.sizeId,   
+                flash_sale_price: val.price, 
+                stock: val.stock             
+            };
+        });
+    
+        try {
+            loadingPage.value = true;
+            await useFlashSale.addFlashSaleItemStore(props.flashSale.id, itemsPayload, selectedBranch.value);
             
-            <div class="p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50">
-                <div>
-                    <h4 class="text-xl font-bold text-gray-800">
-                        <span v-if="currentView === 'config'" class="text-gray-500 font-normal cursor-pointer hover:text-blue-600" @click="currentView = 'list'">
-                            Danh sách SP <i class="fa-solid fa-chevron-right text-xs mx-2"></i>
-                        </span>
-                        {{ currentView === 'list' ? 'Thêm Sản phẩm vào Sale' : 'Thiết lập Giá & Số lượng' }}
-                    </h4>
-                    <p class="text-sm text-gray-500 mt-1" v-if="sale">
-                        Chiến dịch: <span class="font-semibold text-blue-600">{{ sale.title }}</span>
-                    </p>
-                </div>
-                <button @click="closeModal" class="w-8 h-8 flex items-center justify-center rounded-full bg-gray-200 hover:bg-gray-300 text-gray-600">
-                    <i class="fa-solid fa-xmark"></i>
-                </button>
-            </div>
+            loadingPage.value = false;
             
-            <div class="flex-1 overflow-hidden bg-white relative">
-                
-                <div v-if="currentView === 'list'" class="h-full flex flex-col p-6">
-                    <div class="mb-4 relative">
-                        <input v-model="searchQuery" type="text" placeholder="Tìm kiếm sản phẩm..."
-                            class="w-full border border-gray-300 rounded-lg py-2.5 pl-4 pr-10 focus:border-blue-500 outline-none">
-                        <i class="fa-solid fa-search absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
-                    </div>
-
-                    <div class="flex-1 overflow-y-auto custom-scrollbar border border-gray-200 rounded-lg">
-                        <table class="min-w-full divide-y divide-gray-200">
-                            <thead class="bg-gray-50 sticky top-0 z-10">
-                                <tr>
-                                    <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Sản phẩm</th>
-                                    <th class="px-6 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Giá gốc</th>
-                                    <th class="px-6 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Kho</th>
-                                    <th class="px-6 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Hành động</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-gray-100">
-                                <tr v-for="product in filteredProducts" :key="product._id" class="hover:bg-gray-50 transition-colors">
-                                    <td class="px-6 py-4">
-                                        <div class="flex items-center space-x-3">
-                                            <img :src="product.colors.find(c => c.is_main)?.image_main" class="w-10 h-10 rounded border object-cover">
-                                            <div>
-                                                <div class="font-medium text-gray-900 text-sm">{{ product.name }}</div>
-                                                <div class="text-xs text-gray-500">{{ product.product_id_sql }}</div>
-                                            </div>
-                                            <span v-if="selectedProductsMap.has(product._id)" class="ml-2 px-2 py-0.5 rounded text-[10px] font-bold bg-green-100 text-green-700 border border-green-200">
-                                                Đã thiết lập
-                                            </span>
-                                        </div>
-                                    </td>
-                                    <td class="px-6 py-4 text-center text-sm">{{ formatCurrency(product.colors[0]?.sizes[0]?.price) }}</td>
-                                    <td class="px-6 py-4 text-center text-sm">{{ product.colors.reduce((acc, c) => acc + c.sizes.reduce((sAcc, s) => sAcc + s.stock, 0), 0) }}</td>
-                                    <td class="px-6 py-4 text-center">
-                                        <div v-if="selectedProductsMap.has(product._id)" class="flex items-center justify-center gap-2">
-                                            <button @click="openConfigProduct(product)" class="text-blue-600 hover:text-blue-800 text-sm font-medium">Sửa</button>
-                                            <button @click="removeProductFromSale(product._id)" class="text-red-500 hover:text-red-700 text-sm font-medium">Xóa</button>
-                                        </div>
-                                        <button v-else @click="openConfigProduct(product)" 
-                                            class="px-3 py-1.5 bg-blue-50 text-blue-600 rounded hover:bg-blue-100 text-sm font-medium transition-colors">
-                                            <i class="fa-solid fa-gear mr-1"></i> Thiết lập
-                                        </button>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <div v-if="currentView === 'config' && currentProduct" class="h-full flex flex-col p-6 animate-fade-in-right">
-                    <div class="flex items-start gap-4 mb-6 bg-blue-50 p-4 rounded-lg border border-blue-100">
-                        <img :src="currentProduct.colors.find(c => c.is_main)?.image_main" class="w-16 h-16 rounded-md object-cover bg-white border">
+            // Thành công: Set true
+            isNotifi.value = true;
+            toastText.value = "Thêm sản phẩm vào Flash Sale thành công!";
+            
+            emit('added');
+            emit('close');
+        } catch (e) {
+            console.error(e);
+            loadingPage.value = false;
+            // Lỗi API: Set true để hiện thông báo lỗi
+            isNotifi.value = true; 
+            toastText.value = "Có lỗi xảy ra khi lưu dữ liệu!";
+        }
+    };
+    </script>
+    
+    <template>
+        <Loading :loading="loadingPage"></Loading>
+        
+        <Notification 
+            :show="isNotifi" 
+            :text="toastText"
+            @update:show="isNotifi = $event"
+        ></Notification>
+    
+        <div v-if="isOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="$emit('close')"></div>
+    
+            <div class="relative bg-white rounded-xl shadow-xl w-full max-w-5xl h-[85vh] flex flex-col overflow-hidden transition-all duration-300">
+    
+                <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
+                    <div class="flex items-center gap-4 flex-1">
+                        <button v-if="step === 2" @click="goBack"
+                            class="w-8 h-8 rounded-full bg-white border border-gray-300 flex items-center justify-center hover:bg-gray-100 text-gray-600 transition-colors shadow-sm">
+                            <i class="fa-solid fa-arrow-left"></i>
+                        </button>
                         <div>
-                            <h3 class="font-bold text-gray-900 text-lg">{{ currentProduct.name }}</h3>
-                            <p class="text-sm text-gray-500">Mã SP: {{ currentProduct.product_id_sql }}</p>
-                            <p class="text-sm text-blue-600 mt-1"><i class="fa-solid fa-circle-info mr-1"></i> Vui lòng chọn size tham gia và nhập giá sale.</p>
+                            <h3 class="font-bold text-lg text-gray-800">
+                                {{ step === 1 ? 'Quản lý Sản phẩm' : 'Cấu hình Biến thể' }}
+                            </h3>
+                            <p class="text-xs text-gray-500 font-medium mt-0.5">
+                                <span v-if="canEdit" class="text-green-600">● Đang hoạt động</span>
+                                <span v-else class="text-red-500">● Đã kết thúc</span>
+                            </p>
+                        </div>
+    
+                        <div class="ml-auto mr-4 flex items-center gap-2">
+                            <label class="text-sm font-medium text-gray-600 hidden sm:block">Chi nhánh:</label>
+                            <select v-model="selectedBranch" :disabled="!canEdit" class="pl-3 pr-8 py-1.5 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-100 outline-none">
+                                <option v-for="branch in branches" :key="branch.id" :value="branch.id">🏢 {{ branch.name }}</option>
+                            </select>
                         </div>
                     </div>
-
-                    <div class="flex-1 overflow-y-auto custom-scrollbar border border-gray-200 rounded-lg">
-                        <table class="min-w-full divide-y divide-gray-200">
-                            <thead class="bg-gray-100 sticky top-0 z-10">
-                                <tr>
-                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600">Phân loại hàng</th>
-                                    <th class="px-4 py-3 text-center text-xs font-semibold text-gray-600">Giá gốc</th>
-                                    <th class="px-4 py-3 text-center text-xs font-semibold text-gray-600">Tồn kho</th>
-                                    <th class="px-4 py-3 text-center text-xs font-semibold text-gray-600 w-32">Giá Khuyến Mãi</th>
-                                    <th class="px-4 py-3 text-center text-xs font-semibold text-gray-600 w-32">SL Khuyến Mãi</th>
-                                    <th class="px-4 py-3 text-center text-xs font-semibold text-gray-600 w-20">Bật/Tắt</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-gray-100">
-                                <template v-for="color in currentProduct.colors" :key="color._id">
-                                    <tr v-for="(size, index) in color.sizes" :key="size._id" :class="{'bg-gray-50': !size.is_enabled}">
-                                        <td class="px-4 py-3">
-                                            <div class="flex items-center gap-2">
-                                                <img v-if="index === 0" :src="color.image_main" class="w-8 h-8 rounded border object-cover">
-                                                <div v-else class="w-8 h-8"></div> <div>
-                                                    <div class="text-sm font-medium">{{ color.color }}</div>
-                                                    <div class="text-xs text-gray-500">Size: {{ size.size }}</div>
-                                                </div>
+    
+                    <button @click="$emit('close')" class="text-gray-400 hover:text-red-500 transition-colors">
+                        <i class="fa-solid fa-xmark text-2xl"></i>
+                    </button>
+                </div>
+    
+                <div class="flex-1 overflow-hidden flex flex-col relative bg-gray-50/50">
+                    <div v-if="step === 1" class="flex-1 overflow-hidden flex flex-col">
+                        
+                        <div class="px-4 pt-4 pb-2 bg-gray-50/50 backdrop-blur-sm z-10">
+                            <div class="bg-gray-200/80 p-1 rounded-lg inline-flex gap-1 w-full sm:w-auto">
+                                <button 
+                                    v-for="option in filterOptions" 
+                                    :key="option.value"
+                                    @click="currentFilter = option.value"
+                                    class="px-3 py-1.5 text-sm font-medium rounded-md transition-all duration-200 flex-1 sm:flex-none text-center whitespace-nowrap"
+                                    :class="[
+                                        currentFilter === option.value
+                                        ? 'bg-white text-green-600 shadow-sm ring-1 ring-black/5'
+                                        : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200',
+                                    ]"
+                                >
+                                    {{ option.label }}
+                                    <span class="ml-1 text-xs px-1.5 py-0.5 rounded-full" 
+                                          :class="currentFilter === option.value ? 'bg-green-100 text-green-700' : 'bg-gray-300 text-gray-600'">
+                                        {{ option.count }}
+                                    </span>
+                                </button>
+                            </div>
+                        </div>
+    
+                        <div class="flex-1 overflow-auto p-4 custom-scrollbar">
+                            
+                            <div v-if="currentFilter === 'in_sale'">
+                                <div v-if="productsInSale.length === 0" class="flex flex-col items-center justify-center py-10 text-gray-400 border-2 border-dashed border-gray-200 rounded-xl">
+                                    <i class="fa-solid fa-box-open text-3xl mb-2"></i>
+                                    <p class="text-sm">Chưa có sản phẩm nào đang chạy Flash Sale.</p>
+                                    <button @click="currentFilter = 'available'" class="mt-3 text-blue-600 hover:underline text-sm font-medium">
+                                        Thêm sản phẩm ngay
+                                    </button>
+                                </div>
+    
+                                <div class="grid grid-cols-1 gap-3">
+                                    <div v-for="prod in productsInSale" :key="prod.product_id_sql"
+                                        class="bg-white p-3 rounded-lg border border-blue-200 shadow-sm hover:shadow-md transition-all flex items-center justify-between group cursor-pointer ring-1 ring-blue-50"
+                                        @click="openProductDetail(prod)">
+                                        <div class="flex items-center gap-4">
+                                            <img :src="getMainProductImage(prod)" class="w-14 h-14 rounded object-cover border bg-gray-100" />
+                                            <div>
+                                                <h4 class="font-semibold text-gray-800 text-sm group-hover:text-blue-600">{{ prod.name }}</h4>
+                                                <p class="text-xs text-gray-500 mt-0.5 flex items-center gap-2">
+                                                    <span class="bg-blue-100 text-blue-700 px-1.5 rounded text-[10px] font-bold">ĐANG CHẠY</span>
+                                                    <span>{{ prod.colors?.length || 0 }} Màu</span>
+                                                </p>
                                             </div>
-                                        </td>
-                                        <td class="px-4 py-3 text-center text-sm text-gray-500">{{ formatCurrency(size.price) }}</td>
-                                        <td class="px-4 py-3 text-center text-sm text-gray-500">{{ size.stock }}</td>
-                                        
-                                        <td class="px-4 py-3">
-                                            <div class="relative">
-                                                <input type="number" v-model="size.sale_price" :disabled="!size.is_enabled"
-                                                    class="w-full border rounded px-2 py-1.5 text-sm text-center focus:ring-2 focus:ring-blue-500 outline-none disabled:bg-gray-100 disabled:text-gray-400"
-                                                    placeholder="Nhập giá">
-                                                <span v-if="size.is_enabled && (!size.sale_price || size.sale_price >= size.price)" class="text-[10px] text-red-500 block text-center mt-1">Giá không hợp lệ</span>
+                                        </div>
+                                        <div class="flex items-center gap-3">
+                                            <div v-if="countSelectedByProduct(prod.product_id_sql) > 0" class="text-right">
+                                                <span class="block text-[10px] text-gray-500 uppercase">Sửa đổi</span>
+                                                <span class="font-bold text-blue-600">{{ countSelectedByProduct(prod.product_id_sql) }}</span>
                                             </div>
-                                        </td>
-
-                                        <td class="px-4 py-3">
-                                            <div class="relative">
-                                                <input type="number" v-model="size.sale_stock" :disabled="!size.is_enabled"
-                                                    class="w-full border rounded px-2 py-1.5 text-sm text-center focus:ring-2 focus:ring-blue-500 outline-none disabled:bg-gray-100 disabled:text-gray-400"
-                                                    placeholder="SL">
-                                                <span v-if="size.is_enabled && (!size.sale_stock || size.sale_stock > size.stock)" class="text-[10px] text-red-500 block text-center mt-1">SL quá kho</span>
+                                            <button class="w-8 h-8 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center hover:bg-blue-100">
+                                                <i class="fa-solid fa-pen text-xs"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+    
+                            <div v-else-if="currentFilter === 'available'">
+                                <div v-if="productsAvailable.length === 0" class="text-center py-10 text-gray-400">
+                                    Không tìm thấy sản phẩm khả dụng nào khác.
+                                </div>
+    
+                                <div class="grid grid-cols-1 gap-3">
+                                    <div v-for="prod in productsAvailable" :key="prod.product_id_sql"
+                                        class="bg-white p-3 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-all flex items-center justify-between group cursor-pointer opacity-95 hover:opacity-100"
+                                        @click="openProductDetail(prod)">
+                                        <div class="flex items-center gap-4">
+                                            <img :src="getMainProductImage(prod)" class="w-14 h-14 rounded object-cover border bg-gray-100 grayscale group-hover:grayscale-0 transition-all" />
+                                            <div>
+                                                <h4 class="font-semibold text-gray-700 text-sm group-hover:text-green-600">{{ prod.name }}</h4>
+                                                <p class="text-xs text-gray-500 mt-0.5">{{ prod.colors?.length || 0 }} Màu</p>
                                             </div>
-                                        </td>
-
-                                        <td class="px-4 py-3 text-center">
-                                            <label class="relative inline-flex items-center cursor-pointer">
-                                                <input type="checkbox" v-model="size.is_enabled" class="sr-only peer">
-                                                <div class="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
-                                            </label>
-                                        </td>
+                                        </div>
+                                        <div class="flex items-center gap-3">
+                                            <div v-if="countSelectedByProduct(prod.product_id_sql) > 0" class="text-right">
+                                                <span class="block text-[10px] text-gray-500 uppercase">Sẽ thêm</span>
+                                                <span class="font-bold text-green-600">{{ countSelectedByProduct(prod.product_id_sql) }}</span>
+                                            </div>
+                                            <button class="w-8 h-8 rounded-full bg-gray-100 text-gray-400 flex items-center justify-center group-hover:bg-green-50 group-hover:text-green-600 transition-colors">
+                                                <i class="fa-solid fa-plus text-xs"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+    
+                        </div>
+                    </div>
+    
+                    <div v-if="step === 2" class="flex-1 overflow-auto p-4 custom-scrollbar">
+                        <div class="bg-white rounded-lg border border-gray-200 overflow-hidden shadow-sm">
+                            <table class="w-full text-left border-collapse">
+                                <thead class="bg-blue-50/50 text-xs uppercase text-gray-600 font-semibold sticky top-0 z-10">
+                                    <tr>
+                                        <th class="px-4 py-3 w-12 text-center">#</th>
+                                        <th class="px-4 py-3">Phân loại</th>
+                                        <th class="px-4 py-3 text-right">Giá gốc</th>
+                                        <th class="px-4 py-3 text-center">Kho</th>
+                                        <th class="px-4 py-3 w-40 text-right">Giá Sale <span class="text-red-500">*</span></th>
+                                        <th class="px-4 py-3 w-32 text-center">SL Sale <span class="text-red-500">*</span></th>
                                     </tr>
-                                </template>
-                            </tbody>
-                        </table>
+                                </thead>
+                                <tbody class="divide-y divide-gray-100">
+                                    <tr v-for="item in productVariants" :key="item.key"
+                                        class="hover:bg-gray-50 transition-colors"
+                                        :class="{ 'bg-blue-50/30': selectionData[item.key]?.isSelected }">
+                                        
+                                        <template v-if="selectionData[item.key]">
+                                            <td class="px-4 py-3 text-center">
+                                                <input type="checkbox" v-model="selectionData[item.key]!.isSelected"
+                                                    :disabled="!canEdit || !item.originalPrice || item.originalPrice <= 0" 
+                                                    class="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer disabled:bg-gray-200" />
+                                            </td>
+                                            
+                                            <td class="px-4 py-3">
+                                                <div class="flex items-center gap-3">
+                                                    <div class="w-10 h-10 rounded border overflow-hidden bg-gray-100">
+                                                        <img v-if="item.image" :src="item.image" class="w-full h-full object-cover" />
+                                                    </div>
+                                                    <div>
+                                                        <div class="text-sm font-medium text-gray-700">{{ item.colorName }}</div>
+                                                        <div class="text-xs font-bold text-gray-500 bg-gray-100 inline-block px-1.5 rounded mt-0.5">Size: {{ item.sizeName }}</div>
+                                                    </div>
+                                                </div>
+                                            </td>
+    
+                                            <td class="px-4 py-3 text-right text-sm text-gray-400 line-through">{{ formatCurrency(item.originalPrice) }}</td>
+                                            <td class="px-4 py-3 text-center text-sm font-medium text-gray-600">{{ item.stock }}</td>
+    
+                                            <td class="px-4 py-3">
+                                                <div class="relative">
+                                                    <input type="number" v-model="selectionData[item.key]!.price" :disabled="!canEdit || !selectionData[item.key]!.isSelected"
+                                                        class="w-full pl-3 pr-2 py-1.5 text-right text-sm border rounded-md outline-none transition-all disabled:bg-gray-100"
+                                                        :class="{ 'border-red-300 bg-red-50 text-red-600': selectionData[item.key]!.price >= item.originalPrice && selectionData[item.key]!.isSelected }" />
+                                                    <div v-if="selectionData[item.key]!.price >= item.originalPrice && selectionData[item.key]!.isSelected"
+                                                        class="absolute -bottom-4 right-0 text-[10px] text-red-500 whitespace-nowrap">Phải nhỏ hơn giá gốc</div>
+                                                </div>
+                                            </td>
+    
+                                            <td class="px-4 py-3">
+                                                <div class="relative">
+                                                    <input type="number" v-model="selectionData[item.key]!.stock" :disabled="!canEdit || !selectionData[item.key]!.isSelected"
+                                                        class="w-full px-2 py-1.5 text-center text-sm border rounded-md outline-none transition-all disabled:bg-gray-100"
+                                                        :class="{ 'border-red-300 bg-red-50 text-red-600': selectionData[item.key]!.stock > item.stock && selectionData[item.key]!.isSelected }" />
+                                                    <div v-if="selectionData[item.key]!.stock > item.stock && selectionData[item.key]!.isSelected"
+                                                        class="absolute -bottom-4 left-0 right-0 text-center text-[10px] text-red-500 font-bold whitespace-nowrap">Quá tồn kho ({{ item.stock }})</div>
+                                                </div>
+                                            </td>
+                                        </template>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
-
-            </div>
-
-            <div class="p-5 border-t border-gray-100 bg-gray-50 flex justify-between items-center rounded-b-xl">
-                <template v-if="currentView === 'list'">
+    
+                <div class="px-6 py-4 border-t border-gray-200 bg-white flex justify-between items-center shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
                     <div class="text-sm text-gray-600">
-                        Đã thiết lập: <span class="font-bold text-blue-600">{{ selectedProductsMap.size }}</span> sản phẩm
+                        Đang chọn: <b class="text-blue-600 text-lg ml-1">{{ totalSelectedItems }}</b> phân loại
                     </div>
                     <div class="flex gap-3">
-                        <button @click="closeModal" class="px-5 py-2 text-sm font-medium rounded-lg bg-white border border-gray-300 hover:bg-gray-100">Đóng</button>
-                        <button @click="handleSaveAll" :disabled="selectedProductsMap.size === 0" class="px-5 py-2 text-sm font-medium rounded-lg text-white bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed">
-                            <i class="fa-solid fa-save mr-1"></i> Lưu Flash Sale
+                        <button @click="$emit('close')" class="px-5 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-semibold rounded-lg transition-colors">Đóng</button>
+                        <button v-if="canEdit" @click="handleFinalSave" :disabled="totalSelectedItems === 0 || loadingPage"
+                            class="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg text-sm font-semibold shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                            <i class="fa-solid fa-check-circle mr-2"></i> Xác nhận & Lưu
                         </button>
                     </div>
-                </template>
-
-                <template v-else>
-                    <button @click="currentView = 'list'" class="text-sm text-gray-500 hover:text-gray-800 font-medium">
-                        <i class="fa-solid fa-arrow-left mr-1"></i> Quay lại danh sách
-                    </button>
-                    <button @click="confirmProductConfig" class="px-6 py-2 text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 shadow-md">
-                        Xác nhận SP này
-                    </button>
-                </template>
+                </div>
             </div>
-
         </div>
-    </div>
-</template>
-
-<style scoped>
-.custom-scrollbar::-webkit-scrollbar { width: 5px; height: 5px; }
-.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-.custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
-
-/* Hiệu ứng trượt nhẹ khi chuyển view */
-@keyframes fadeInRight {
-    from { opacity: 0; transform: translateX(10px); }
-    to { opacity: 1; transform: translateX(0); }
-}
-.animate-fade-in-right {
-    animation: fadeInRight 0.3s ease-out;
-}
-</style>
+    </template>
+    
+    <style scoped>
+    .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
