@@ -124,7 +124,8 @@ const goToRegister = () => {
   router.push("/auth/register");
 };
 
-const goToLogout = async() => {
+const goToLogout = async () => {
+    alert(1);
     localStorage.removeItem("accessToken");
     localStorage.removeItem("refreshToken");
     localStorage.removeItem("user_id");
