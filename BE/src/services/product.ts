@@ -182,6 +182,50 @@ export const uploadImageSingleColor = async (color: IProduct.IProductColorPayloa
     }
 }
 
+
+export const uploadSingleVideo = async (file: Express.Multer.File): Promise<string> => {
+    try {
+        if (!file) return "";
+
+        // Convert buffer sang base64
+        const b64 = Buffer.from(file.buffer).toString("base64");
+        const dataURI = "data:" + file.mimetype + ";base64," + b64;
+
+        const result = await cloudinary.uploader.upload(dataURI, {
+            folder: "Products/Videos", // Gom video vào folder riêng cho gọn
+            resource_type: "video",     // <--- BẮT BUỘC
+            timeout: 60000              // Tăng timeout vì video nặng hơn ảnh
+        });
+
+        return result.secure_url;
+    } catch (err) {
+        console.error("Cloudinary Upload Video Error:", err);
+        throw new AppError("Failed to upload video", 500, false);
+    }
+}
+
+// 2. Hàm Xóa Video (Dùng để Rollback khi lỗi)
+export const deleteVideo = async (videoUrl: string) => {
+    try {
+        if (!videoUrl) return;
+
+        // Lấy public_id từ URL. Ví dụ: .../Products/Videos/video123.mp4
+        // Regex này lấy phần sau version (v123..) đến trước dấu chấm đuôi file
+        const publicIdMatch = videoUrl.match(/\/v\d+\/(.+)\.[a-z]+$/);
+        const publicId = publicIdMatch ? publicIdMatch[1] : null;
+
+        if (publicId) {
+            await cloudinary.uploader.destroy(publicId, {
+                resource_type: 'video' // <--- BẮT BUỘC KHI XÓA
+            });
+        }
+    } catch (err) {
+        console.error(`Failed to rollback video: ${videoUrl}`, err);
+        // Không throw error ở đây để tránh crash luồng rollback chính
+    }
+}
+
+
 export const uploadImageProducts = async (colors: IProduct.IProductColorPayload[]) => {
     try {
         const result = await Promise.all(colors.map(color => uploadImageSingleColor(color)));

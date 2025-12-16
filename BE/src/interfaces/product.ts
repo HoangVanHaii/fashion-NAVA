@@ -43,6 +43,7 @@ export interface IProductMongo {
     _id: mongoose.Types.ObjectId;
     product_id_sql: string;
     description: string;
+    video?: string;
     attributes?: {
         [key: string]: string | number | boolean;
     };

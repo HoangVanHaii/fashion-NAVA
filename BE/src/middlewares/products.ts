@@ -10,6 +10,10 @@ export const mapColorFile = (req: Request, res: Response, next: NextFunction) =>
         if (files.length === 0) {
             throw new AppError("Image is required", 400);
         }
+        const videoFile = files.find(f => f.fieldname === 'video');
+        if (videoFile) {
+            req.body.video = videoFile;
+        }
         const colors = JSON.parse(req.body.colors) as IProductColorPayload[];
         colors.forEach((color: IProductColorPayload, index: number) => {
             const mainFile = files.find(f => f.fieldname === `image_main_${index}`);
