@@ -13,6 +13,7 @@ router.put("/child/:parent_id", authMiddleware, uploadReview, reviewValidator.up
 router.delete("/:review_id_sql/:mongodb_id", authMiddleware, reviewValidator.deleteReview, validateRequest, reviewController.deleteReviewController);
 router.delete("/child/:parent_id/:child_id", authMiddleware, reviewValidator.deleteChildReview, validateRequest, reviewController.deleteChildReviewController);
 router.get("/product/:product_id", authMiddleware, reviewValidator.getReviewsByProductId, validateRequest, reviewController.getReviewsByProductId);
+router.get('/product/:product_id/guest',reviewController.getReviewsForGuest);
 router.get('/review_of_me/:order_id',authMiddleware,validateRequest,reviewController.getReviewsByOrderItemIdOfMe);
 
 router.get("/stats/products/all", authMiddleware, adminOrEmployee, reviewController.getAllProductStats);

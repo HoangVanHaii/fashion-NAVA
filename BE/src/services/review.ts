@@ -314,14 +314,13 @@ export const deleteChildReview = async (parent_id: string, child_id: string,user
 // ...
 
 export const getReviewsByProductId = async (product_id: string, user_id: string, branch_code: string) => {
-    // 1. Định nghĩa câu Query SQL dùng chung
     const sqlQuery = `
         SELECT 
             r.ID AS review_id_sql,
             r.mongodb_id,
             r.user_id,
             r.created_at,
-            r.rating, -- Thêm rating để tính toán
+            r.rating,
             oi.ID AS order_item_id,
             u.name AS user_name,
             u.avatar AS user_avatar
@@ -333,18 +332,15 @@ export const getReviewsByProductId = async (product_id: string, user_id: string,
     `;
 
     let rows: any[] = [];
-
-    // 2. Xử lý logic lấy dữ liệu SQL
     try {
+        let pool;
         if (branch_code === 'CENTRAL') {
-            // === TRƯỜNG HỢP CENTRAL: Query tất cả chi nhánh ===
             const branches = ['HN', 'HCM', 'DN'];
-            
             const promises = branches.map(async (branch) => {
-                const pool = getBranchPool(branch);
-                if (!pool) return [];
+                const p = getBranchPool(branch);
+                if (!p) return [];
                 try {
-                    const result = await pool.request()
+                    const result = await p.request()
                         .input("ProductID", product_id)
                         .query(sqlQuery);
                     return result.recordset;
@@ -353,53 +349,112 @@ export const getReviewsByProductId = async (product_id: string, user_id: string,
                     return [];
                 }
             });
-
             const results = await Promise.all(promises);
-            rows = results.flat(); // Gộp tất cả kết quả lại
-
+            rows = results.flat();
         } else {
-            // === TRƯỜNG HỢP CHI NHÁNH CỤ THỂ ===
-            const pool = getBranchPool(branch_code);
+            pool = getBranchPool(branch_code);
             if (!pool) throw new AppError("SQL pool cannot connect", 503);
-
             const result = await pool.request()
                 .input("ProductID", product_id)
                 .query(sqlQuery);
             rows = result.recordset;
         }
 
-        // 3. Logic lấy dữ liệu Mongo và Merge (Giữ nguyên như cũ)
         if (rows.length === 0) {
             return { total_reviews: 0, average_rating: 0, reviews: [] };
         }
 
         const mongoIDs = rows.map(r => r.mongodb_id);
-        const mongoReviews = await ReviewMongo.find({ _id: { $in: mongoIDs } }).lean();
+        const mongoReviews: any[] = await ReviewMongo.find({ _id: { $in: mongoIDs } }).lean();
+        const childUserIds = new Set<string>();
+        mongoReviews.forEach((mReview: any) => { 
+            if (mReview.child_reviews && Array.isArray(mReview.child_reviews)) {
+                mReview.child_reviews.forEach((child: any) => { 
+                    if (child.user_id) childUserIds.add(child.user_id);
+                });
+            }
+        });
 
-        const merge = rows.map(r => ({
-            review_id_sql: r.review_id_sql,
-            user: {
-                id: r.user_id,
-                name: r.user_name,
-                avatar: r.user_avatar
-            },
-            created_at: r.created_at,
-            rating: r.rating, // Đảm bảo SQL select có rating
-            ...mongoReviews.find(m => m._id.toString() === r.mongodb_id) || {}
-        }));
+        let childUsersMap = new Map<string, { name: string, avatar: string }>();
+        
+        if (childUserIds.size > 0) {
+            const idList = Array.from(childUserIds);
+            
+            const fetchUsers = async (pPool: any) => {
+                 const req = pPool.request();
+                 const params = idList.map((id, idx) => {
+                     req.input(`u${idx}`, id);
+                     return `@u${idx}`;
+                 });
+                 if (params.length === 0) return [];
+                 const query = `SELECT ID, name, avatar FROM users WHERE ID IN (${params.join(',')})`;
+                 const res = await req.query(query);
+                 return res.recordset;
+            };
 
-        // 4. Tính toán thống kê
+            let userRows: any[] = [];
+            
+            if (branch_code === 'CENTRAL') {
+                 const branches = ['HN', 'HCM', 'DN'];
+                 const uPromises = branches.map(async (b) => {
+                     const p = getBranchPool(b);
+                     if(!p) return [];
+                     return await fetchUsers(p).catch(() => []);
+                 });
+                 const uResults = await Promise.all(uPromises);
+                 userRows = uResults.flat();
+            } else {
+                 const p = getBranchPool(branch_code);
+                 if(p) userRows = await fetchUsers(p);
+            }
+
+            userRows.forEach(u => {
+                childUsersMap.set(u.ID, { name: u.name, avatar: u.avatar });
+            });
+        }
+
+        const merge = rows.map(r => {
+            const mReview: any = mongoReviews.find((m: any) => m._id.toString() === r.mongodb_id) || {};
+            
+            let processedChildReviews: any[] = [];
+            
+            if (mReview.child_reviews && Array.isArray(mReview.child_reviews)) {
+                processedChildReviews = mReview.child_reviews.map((child: any) => {
+                    const userInfo = childUsersMap.get(child.user_id);
+                    return {
+                        ...child,
+                        user: { 
+                            id: child.user_id,
+                            name: userInfo?.name || 'Unknown User',
+                            avatar: userInfo?.avatar || 'default-avatar.png' 
+                        }
+                    };
+                });
+            }
+
+            return {
+                review_id_sql: r.review_id_sql,
+                user: {
+                    id: r.user_id,
+                    name: r.user_name,
+                    avatar: r.user_avatar
+                },
+                created_at: r.created_at,
+                rating: r.rating,
+                ...mReview,
+                child_reviews: processedChildReviews 
+            };
+        });
+
         const parentReviews = merge.filter(r => r.rating !== undefined && r.rating !== null);
         const total_reviews = parentReviews.length;
         const average_rating = total_reviews > 0
             ? parseFloat((parentReviews.reduce((sum, r) => sum + (r.rating ?? 0), 0) / total_reviews).toFixed(1))
             : 0;
 
-        // 5. Sắp xếp: Review của user hiện tại lên đầu
         const mergeSorted = merge.sort((a, b) => {
             if (a.user.id === user_id) return -1;
             if (b.user.id === user_id) return 1;
-            // Nếu không phải của user, sắp xếp theo thời gian mới nhất (đã sort ở SQL nhưng merge lại cần sort lại nếu là Central)
             return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
         });
 

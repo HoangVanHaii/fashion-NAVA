@@ -11,7 +11,10 @@ import { formatPrice } from "../utils/format";
 import { useRouter } from "vue-router";
 import { useOrderEmployeeStore } from "@/stores/order";
 import { useAuthStore } from "@/stores/auth";
+import { useCartStore } from "@/stores/cartStore"; 
 import type { GetOrder } from "../interfaces/order";
+import ReviewForm from '../components/ReviewModal.vue'; 
+import type { OrderItem } from "../interfaces/order";
 
 const showOrderDetail = ref<boolean>(false);
 const selectedOrder = ref<string | null>(null)
@@ -19,64 +22,97 @@ const showFormConfirm = ref(false);
 const router = useRouter();
 const order = useOrderEmployeeStore();
 const auth = useAuthStore();
+const cartStore = useCartStore(); 
 const listShopName = ref<string[]>([]);
 const textToast = ref<string>("");
 const showNotification = ref<boolean>(false);
 const orderCancel_id = ref<string>('');
 const showNavbar = ref<boolean>(true);
 
-// Trạng thái hiển thị thanh tìm kiếm
+// --- [MỚI] State cho popup xác nhận Mua lại ---
+const showReOrderConfirm = ref(false);
+const orderToReOrder = ref<GetOrder | null>(null);
+
 const showSearch = ref(true);
 const lastScrollPosition = ref(0);
-
-// Order Status Tabs
-// const orderStatuses = [
-//   { label: 'Tất cả', value: 'Tất cả' },
-//   { label: 'Chờ xác nhận', value: 'pending' },
-//   { label: 'Chờ lấy hàng', value: 'confirmed' },
-//   { label: 'Đang giao', value: 'shipped' },
-//   { label: 'Hoàn thành', value: 'completed' },
-//   { label: 'Đã hủy', value: 'cancelled' },
-// ];
 
 const activeTab = computed({
     get: () => order.selectedStatus,
     set: (val) => order.selectedStatus = val
 });
 
-// Xử lý cuộn trong main content
 const mainContentRef = ref<HTMLElement | null>(null);
 
 const handleScrollUI = () => {
   if (!mainContentRef.value) return;
   const currentScrollPosition = mainContentRef.value.scrollTop;
-  
   if (currentScrollPosition < 0) return;
-
-  // Chỉ kích hoạt khi cuộn một khoảng nhất định
   if (Math.abs(currentScrollPosition - lastScrollPosition.value) < 100) return;
-
-  // Cuộn xuống -> Ẩn search, Cuộn lên -> Hiện search
   showSearch.value = currentScrollPosition < lastScrollPosition.value || currentScrollPosition < 100;
-  
   lastScrollPosition.value = currentScrollPosition;
+};
+
+const fetchOrders = async () => {
+    await order.getOrderOfMeStore();
+};
+
+// [BƯỚC 1] Hàm khi bấm nút "Mua lại" -> Chỉ mở Popup
+const confirmReOrder = (orderData: GetOrder) => {
+    orderToReOrder.value = orderData; // Lưu đơn hàng cần mua lại
+    showReOrderConfirm.value = true;  // Mở popup
+};
+
+// [BƯỚC 2] Hàm xử lý logic Mua lại (sau khi bấm Đồng ý ở Popup)
+const processReOrder = async () => {
+  // Đóng popup trước
+  showReOrderConfirm.value = false;
+
+  if (!orderToReOrder.value) return;
+
+  try {
+      const orderData = orderToReOrder.value;
+
+      // Chuẩn bị dữ liệu items
+      const reOrderItems = orderData.items.map((item) => ({
+          _id: item.product_id_sql, 
+          name: item.product_name,
+          price: item.price,
+          quantity: item.quantity,
+          variant: {
+              color: { 
+                  color: item.color, 
+                  image_main: item.image 
+              },
+              size: { 
+                  size: item.size, 
+                  size_id_mongo: item.size_id_mongo 
+              } 
+          },
+          size_id_mongo: item.size_id_mongo,
+          total_price: item.price * item.quantity
+      }));
+
+      // Lưu vào Store
+      cartStore.setCheckoutSession({
+          items: reOrderItems,
+          checkout_source: 'buy_now',
+          voucher: null
+      } as any);
+
+      // Chuyển hướng
+      router.push('/payment'); 
+
+  } catch (error) {
+      console.error("Lỗi khi mua lại:", error);
+      textToast.value = "Có lỗi xảy ra khi xử lý đơn hàng.";
+      showNotification.value = true;
+  }
 };
 
 onMounted(async () => {
   handleResize();
-  const orders = await order.getOrderOfMeStore();
-//   if (orders) {
-//     listShopName.value = []; 
-//     for (let i = 0; i < orders.length; i++) {
-//       const o = orders[i];
-//       const productId = o.items[0]?.product_id;
-//       const shopName = await auth.getShopNameStore(productId || 4);
-//       listShopName.value.push(shopName);
-//     }
-//   }
+  await fetchOrders(); 
   window.addEventListener("resize", handleResize);
-  
-  // Thêm scroll listener cho main content
   if (mainContentRef.value) {
     mainContentRef.value.addEventListener("scroll", handleScrollUI);
   }
@@ -93,8 +129,8 @@ const handleResize = () => {
   showNavbar.value = window.innerWidth > 1024;
 };
 
-const handleRefresh = () => {
-  router.go(0);
+const handleRefresh = async () => {
+  await fetchOrders();
 };
 
 const handleCancelled = async () => {
@@ -107,28 +143,12 @@ const handleCancelled = async () => {
         } else {
           textToast.value = "Hủy đơn hàng thành công";
           showNotification.value = true;
-          const orders = await order.getOrderOfMeStore();
-             if (orders) {
-                listShopName.value = []; 
-                for (let i = 0; i < orders.length; i++) {
-                const o = orders[i];
-                const productId = o.items[0]?.product_id;
-                const shopName = await auth.getShopNameStore(productId || 4);
-                listShopName.value.push(shopName);
-                }
-            }
+          await fetchOrders();
         }
     }
 };
 
-const handleReOrder = async (getOrder: GetOrder, shop_name: string) => {
-  // Implementation
-}
-
 const showReviewForm = ref(false);
-const handleReview = (item: GetOrder) => {
-  // Implementation
-};
 
 const getStatusLabel = (status: string) => {
     const map: Record<string, string> = {
@@ -156,6 +176,42 @@ const getStatusColor = (status: string) => {
     };
     return map[status] || 'text-gray-600 bg-gray-50 border-gray-100';
 };
+
+const selectedOrderItem = ref<OrderItem | null>(null);
+
+const handleReview = (order: GetOrder) => {
+  if (order.items && order.items.length > 0) {
+    const productData = order.items[0];
+    if (!productData) return;
+
+    const dataForReview: OrderItem = {
+       ...productData,
+       order_id: order.id,
+       id: productData.order_item_id || '', 
+       order_item_id: productData.order_item_id,
+       size_id_mongo: productData.size_id_mongo || '', 
+       product_id_sql: productData.product_id_sql || '',
+       product_name: productData.product_name || '',
+       image: productData.image || '',
+       size: productData.size || '',
+       color: productData.color || '',
+       quantity: productData.quantity || 1,
+       price: productData.price || 0,
+       flash_sale_price: productData.flash_sale_price
+    };
+
+    selectedOrderItem.value = dataForReview;
+    showReviewForm.value = true;
+  } else {
+    textToast.value = "Không tìm thấy sản phẩm trong đơn hàng";
+    showNotification.value = true;
+  }
+};
+
+const closeReviewForm = () => {
+    showReviewForm.value = false;
+    selectedOrderItem.value = null;
+};
 </script>
 
 <template>
@@ -168,14 +224,20 @@ const getStatusColor = (status: string) => {
         @close="showFormConfirm = false"
         @confirm="handleCancelled"
     />
+
+    <ConfirmDialog 
+        v-if="showReOrderConfirm"
+        :message="'Bạn muốn mua lại đơn hàng này?'"
+        @close="showReOrderConfirm = false"
+        @confirm="processReOrder"
+    />
+
     <Notification :text="textToast" :isSuccess="showNotification" />
     <Loading :loading="order.loading" />
 
-    <!-- Main Container - Flex Row với height cố định -->
     <div class="flex-1 flex overflow-hidden">
       <div class="max-w-[1440px] w-full mx-auto px-4 sm:px-6 lg:px-8 flex gap-6 lg:gap-8">
         
-        <!-- Sidebar - Fixed, không scroll -->
         <div class="hidden lg:block w-[280px] flex-shrink-0 pt-4">
           <div class="sticky top-4">
             <SideBarProfile
@@ -193,17 +255,14 @@ const getStatusColor = (status: string) => {
           </div>
         </div>
 
-        <!-- Main Content - Scrollable -->
         <div 
           ref="mainContentRef"
           class="flex-1 overflow-y-auto custom-scrollbar mt-[15px]"
         >
           <div class="pb-8" >
-            <!-- Sticky Filter Bar -->
             <div class="sticky top-0 z-20 bg-[#FAFAFA] pb-4">
               <div class="rounded-2xl shadow-sm border border-gray-100 overflow-hidden transition-all duration-300 ">
                 
-                <!-- Status Tabs -->
                 <div class="flex overflow-x-auto scrollbar-hide border-b border-gray-100 md:justify-center p-3 gap-2 bg-white">
                   <button 
                       v-for="status in ['Tất cả', 'Chờ xác nhận', 'Chờ lấy hàng', 'Đang giao hàng', 'Hoàn thành', 'Đã hủy']" 
@@ -218,7 +277,6 @@ const getStatusColor = (status: string) => {
                   </button>
                 </div>
                 
-                <!-- Search Input -->
                 <div 
                     class="overflow-hidden transition-all duration-500 ease-in-out bg-white "
                     :class="showSearch ? 'max-h-20 opacity-100 py-4' : 'max-h-0 opacity-0 py-0'"
@@ -236,9 +294,7 @@ const getStatusColor = (status: string) => {
               </div>
             </div>
 
-            <!-- Orders List -->
             <div class="space-y-4 min-h-[500px]">
-              <!-- Empty State -->
               <div v-if="!order.filteredOrder || order.filteredOrder.length === 0" class="bg-white rounded-2xl shadow-sm border border-gray-100 p-10 text-center">
                   <div class="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4">
                       <img :src="'/uploads/reviews/none-order.jpg'" class="w-12 opacity-50" alt="" />
@@ -249,13 +305,11 @@ const getStatusColor = (status: string) => {
                   </button>
               </div>
 
-              <!-- Order Cards -->
               <div 
                   v-for="(item, index) in order.filteredOrder" 
                   :key="index" 
                   class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-all duration-300"
               >
-                  <!-- Shop Header & Status -->
                   <div class="px-4 sm:px-6 py-3 border-b border-gray-50 flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-white">
                       <div class="flex items-center gap-2 sm:gap-3">
                           <div class="flex items-center gap-2 cursor-pointer hover:text-black transition-colors">
@@ -278,7 +332,6 @@ const getStatusColor = (status: string) => {
                       </div>
                   </div>
 
-                  <!-- Products List -->
                   <div class="p-4 sm:p-6 cursor-pointer hover:bg-gray-50/50 transition-colors border-b border-gray-50">
                       <div class="flex gap-3 sm:gap-4">
                           <div class="w-16 h-16 sm:w-20 sm:h-20 bg-gray-100 rounded-lg overflow-hidden border border-gray-200 flex-shrink-0">
@@ -305,7 +358,6 @@ const getStatusColor = (status: string) => {
                       </div>
                   </div>
 
-                  <!-- Footer Actions -->
                   <div class="px-4 sm:px-6 py-4 bg-gray-50/30 flex flex-col sm:flex-row items-end sm:items-center justify-between gap-4">
                       <div class="flex justify-between sm:block w-full sm:w-auto">
                           <span class="text-xs text-gray-500 sm:hidden">Tổng tiền:</span>
@@ -342,7 +394,7 @@ const getStatusColor = (status: string) => {
 
                           <button 
                               v-if="item.status === 'completed' || item.status === 'cancelled'" 
-                              @click="handleReOrder(item, listShopName[index] || 'Unknown')"
+                              @click="confirmReOrder(item)"
                               class="flex-1 sm:flex-none px-4 sm:px-6 py-2 bg-black text-white rounded-lg text-xs sm:text-sm font-bold hover:bg-gray-800 transition-all shadow-sm whitespace-nowrap"
                           >
                               Mua lại
@@ -355,12 +407,20 @@ const getStatusColor = (status: string) => {
         </div>
       </div>
     </div>
+    
     <OrderDetail 
-    v-if="showOrderDetail && selectedOrder" 
-    :showOrderDetail="showOrderDetail"
-    :orderId="selectedOrder"
-    @close="showOrderDetail = false" 
+        v-if="showOrderDetail && selectedOrder" 
+        :showOrderDetail="showOrderDetail"
+        :orderId="selectedOrder"
+        @close="showOrderDetail = false" 
     /> 
+    
+    <ReviewForm 
+        v-if="showReviewForm && selectedOrderItem"
+        :orderItem="selectedOrderItem"
+        @close="closeReviewForm"
+        @refresh="handleRefresh" 
+    />
 </div>
 <Footer />
 </template>

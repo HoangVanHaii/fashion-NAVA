@@ -23,6 +23,7 @@ interface CheckoutSession {
     totalAmount: number;
     discountAmount: number;
     finalAmount: number;
+    checkout_source?: "cart" | "buy_now";
 }
 
 export const useCartStore = defineStore('cart', () => {

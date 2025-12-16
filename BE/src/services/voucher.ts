@@ -281,7 +281,7 @@ export const validateVoucher = async (code: string, orderTotal: number, dbBranch
 
         return {
             discount: Math.floor(discount), 
-            voucher_id: voucher.id 
+            voucher_id: voucher.ID
         };
 
     } catch (error: any) {
