@@ -24,6 +24,7 @@ const showPhuKienDropdown = ref(false);
 const showFormSearch = ref(false);
 const categoryMale = ref<string[]>([]);
 const categoryFemale = ref<string[]>([]);
+const accessory = ref<string[]>([]);
 const searchBarRef = ref<HTMLElement | null>(null);
 const showFormUser = ref(false);
 const isLogin = ref(false);
@@ -73,15 +74,16 @@ onBeforeMount(async () => {
     }
     const tmp1 = await category.getCategoryNameStore("Nam");
     if (tmp1) {
-        
         categoryMale.value = tmp1.map((c: Category) => c.category_name);
     }
     const tpm2 = await category.getCategoryNameStore("Nữ");
     if (tpm2) {
-
         categoryFemale.value = tpm2.map((c: Category) => c.category_name)
     }
-  
+    const tpm3 = await category.getCategoryNameStore("Khác");
+    if (tpm3) {
+        accessory.value = tpm2.map((c: Category) => c.category_name)
+    }
   isLogin.value = localStorage.getItem("user_id") ? true : false;
   
 });
@@ -266,7 +268,7 @@ onBeforeUnmount(() => {
                 <div class="relative group" @mouseenter="showNamDropdown = true" @mouseleave="showNamDropdown = false">
                     <a href="/category-gender?gender=Nam" 
                        class="text-sm font-bold uppercase tracking-wide transition-colors flex items-center gap-1"
-                       :class="isActive('/category-gende', 'gender', 'Nam') ? 'text-red-600' : 'text-gray-900 hover:text-gray-500'">
+                       :class="isActive('/category-gender', 'gender', 'Nam') ? 'text-red-600' : 'text-gray-900 hover:text-gray-500'">
                         Nam <span class="text-[10px] mt-0.5">▼</span>
                     </a>
                     <div v-if="showNamDropdown" class="absolute top-full left-0 w-48 bg-white border border-gray-100 shadow-xl rounded-b-md py-2 animate-fade-in-up">
@@ -298,15 +300,18 @@ onBeforeUnmount(() => {
 
                 <!-- Dropdown Phu Kien -->
                 <div class="relative group" @mouseenter="showPhuKienDropdown = true" @mouseleave="showPhuKienDropdown = false">
-                    <a href="/phu-kien" 
+                    <a href="/category-gender?gender=Khác" 
                        class="text-sm font-bold uppercase tracking-wide transition-colors flex items-center gap-1"
                        :class="isActive('/phu-kien') ? 'text-red-600' : 'text-gray-900 hover:text-gray-500'">
                         Phụ kiện <span class="text-[10px] mt-0.5">▼</span>
                     </a>
                     <div v-if="showPhuKienDropdown" class="absolute top-full left-0 w-48 bg-white border border-gray-100 shadow-xl rounded-b-md py-2 animate-fade-in-up">
-                         <a href="/phu-kien/tui" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-black">Túi xách</a>
-                         <a href="/phu-kien/giay" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-black">Giày dép</a>
-                         <a href="/phu-kien/non" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-black">Nón</a>
+                         <a v-for="acc in accessory" 
+                           :key="acc"
+                           :href="`/category-gender?gender=Nữ&name=${acc}`"
+                           class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-black transition-colors">
+                           {{ acc }}
+                        </a>
                     </div>
                 </div>
             </nav>
@@ -364,7 +369,11 @@ onBeforeUnmount(() => {
                 </div>
 
                 <!-- Cart -->
-                <div class="relative cursor-pointer group" @click="goToCart">
+                <div 
+                id="cart-icon-desktop" 
+                class="relative cursor-pointer group" 
+                @click="goToCart"
+                >
                     <i class="fa-solid fa-cart-shopping text-xl text-gray-800 group-hover:text-black transition-colors"></i>
                     <span v-if="cart.cartCount > 0" class="absolute -top-2 -right-2 bg-red-600 text-white text-[10px] font-bold w-5 h-5 flex items-center justify-center rounded-full border-2 border-white">
                         {{ cart.cartCount }}

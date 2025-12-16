@@ -12,6 +12,12 @@ router.get(
     orderController.getOrderOfBranch
 );
 router.get(
+    '/orderOfTypeBranch',
+    authMiddleware,
+    isAdmin,
+    orderController.getOrderOfTypeBranch
+);
+router.get(
     '/orderTopOfBranch/:top',
     authMiddleware,
     adminOrEmployee,

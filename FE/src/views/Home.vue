@@ -20,7 +20,7 @@ import {
 import type { Voucher } from "../interfaces/voucher";
 import type { IProductColorResponse, IProductMongoDetail, IProductSizeResponse } from "../interfaces/product";
 import type { FlashSale, FlashSaleProductSold } from "../interfaces/flashSale";
-import { onBeforeUnmount, onMounted, computed, ref, watch } from "vue";
+import { onBeforeUnmount, onMounted, computed, ref, watch, onUnmounted } from "vue";
 import { useProductStore } from "../stores/product";
 import { voucherStore } from "../stores/voucher";
 import { flashSaleStore } from "../stores/flashSale";
@@ -127,10 +127,32 @@ onMounted(async () => {
 
   setTime();
   countdown = setInterval(setTime, 1000);
+  window.addEventListener('scroll', handleScroll);
 
-//   timer = setInterval(() => {
-//     currentIndex.value = (currentIndex.value + 1) % banners.length;
-//   }, 5000); // Slower banner slide
+});
+const productMale = ref<IProductMongoDetail[]>([]);
+const productFemale = ref<IProductMongoDetail[]>([]);
+const hasFetchedData = ref(false);
+const handleScroll = async () => {
+    const currentScroll = window.scrollY || document.documentElement.scrollTop;
+    if (currentScroll >= 2200 && !hasFetchedData.value) {
+        hasFetchedData.value = true;         
+        try {
+            const [femaleData, maleData] = await Promise.all([
+                useProduct.searchByCategoryGenderStore('Nữ'),
+                useProduct.searchByCategoryGenderStore('Nam')
+            ]);
+
+            productFemale.value = femaleData;
+            productMale.value = maleData; 
+            
+        } catch (error) {
+            console.error(error);
+        }
+    } 
+};
+onUnmounted(() => {
+    window.removeEventListener('scroll', handleScroll);
 });
 const getMainProductImage = (product: any): string => {
   if (!product?.colors?.length) return "";
@@ -649,6 +671,78 @@ const getSoldPercentage = (product: any): number => {
           </div>
         </div>
 
+        <!-- NEW ARRIVALS -->
+        <div v-if="productLatests.length > 0">
+          <div
+            class="flex items-center justify-between mb-10 border-b border-gray-200 pb-4  text-center"
+          >
+            <h2
+              class="text-2xl md:text-3xl font-black text-gray-900 uppercase tracking-tighter"
+            >
+              Sản phẩm mới
+            </h2>
+            <button
+              @click="btnshowMoreNewArrivals"
+              class="text-xs font-bold text-gray-500 hover:text-black transition-colors uppercase tracking-wide flex items-center gap-2"
+            >
+              {{ showMoreNewArrivals ? "Thu gọn" : "Xem tất cả" }}
+              <i class="fa-solid fa-arrow-right"></i>
+            </button>
+          </div>
+
+          <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
+            <div
+              v-for="(prod, idx) in displayedNewArrivalsProducts"
+              :key="idx"
+              class="group cursor-pointer"
+              @click="
+                router.push({
+                  name: 'product-detail',
+                  params: { id: prod.product_id_sql },
+                })
+              "
+            >
+              <div
+                class="relative aspect-[3/4] bg-white rounded-xl overflow-hidden mb-4 shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100"
+              >
+                <img
+                  :src="getMainProductImage(prod)"
+                  class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                />
+                <div
+                  class="absolute top-3 left-3 bg-black text-white text-[10px] font-bold px-2.5 py-1 rounded shadow-md tracking-wider"
+                >
+                  NEW
+                </div>
+
+                <!-- Action Buttons Overlay -->
+                <div
+                  class="absolute bottom-3 right-3 flex flex-col gap-2 opacity-0 translate-x-4 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300"
+                >
+                  <button
+                    @click.stop="handleCart(prod)"
+                    class="w-9 h-9 bg-white text-black rounded-full shadow-md flex items-center justify-center hover:bg-black hover:text-white transition-colors"
+                  >
+                    <i class="fa-solid fa-cart-plus text-sm"></i>
+                  </button>
+                  <button @click.stop="favourite.toggleFavouriteInstant(prod.product_id_sql)" class="w-9 h-9 bg-white text-black rounded-full shadow-md flex items-center justify-center hover:bg-red-50 hover:text-red-500 transition-colors">
+                        <i :class=" favourite.isFavourite(prod.product_id_sql) ? 'fa-solid fa-heart text-red-500' : 'fa-regular fa-heart text-sm'"></i>
+                    </button>
+                </div>
+              </div>
+              <h4
+                class="text-sm font-bold text-gray-900 line-clamp-1 group-hover:text-gray-600 transition-colors px-1"
+              >
+                {{ prod.name }}
+              </h4>
+              <div
+                class="text-gray-900 font-bold mt-1 px-1"
+              >
+                {{ formatPrice(getMinProductPrice(prod)!) }}
+              </div>
+            </div>
+          </div>
+        </div>
         <!-- MARKETING SECTION (Editorial Style) -->
         <div class="space-y-24">
           <!-- Section 1 -->
@@ -720,7 +814,6 @@ const getSoldPercentage = (product: any): number => {
           </div>
         </div>
 
-        <!-- NEW ARRIVALS -->
         <div v-if="productLatests.length > 0">
           <div
             class="flex items-center justify-between mb-10 border-b border-gray-200 pb-4"
@@ -728,10 +821,10 @@ const getSoldPercentage = (product: any): number => {
             <h2
               class="text-2xl md:text-3xl font-black text-gray-900 uppercase tracking-tighter"
             >
-              Sản phẩm mới
+              Dành cho nữ
             </h2>
             <button
-              @click="btnshowMoreNewArrivals"
+              @click="router.push({ name: 'CategoryGender', query: { gender: 'Nữ' } })"
               class="text-xs font-bold text-gray-500 hover:text-black transition-colors uppercase tracking-wide flex items-center gap-2"
             >
               {{ showMoreNewArrivals ? "Thu gọn" : "Xem tất cả" }}
@@ -741,7 +834,7 @@ const getSoldPercentage = (product: any): number => {
 
           <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
             <div
-              v-for="(prod, idx) in displayedNewArrivalsProducts"
+              v-for="(prod, idx) in productFemale"
               :key="idx"
               class="group cursor-pointer"
               @click="
@@ -761,7 +854,79 @@ const getSoldPercentage = (product: any): number => {
                 <div
                   class="absolute top-3 left-3 bg-black text-white text-[10px] font-bold px-2.5 py-1 rounded shadow-md tracking-wider"
                 >
-                  NEW
+                  FEMALE
+                </div>
+
+                <!-- Action Buttons Overlay -->
+                <div
+                  class="absolute bottom-3 right-3 flex flex-col gap-2 opacity-0 translate-x-4 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300"
+                >
+                  <button
+                    @click.stop="handleCart(prod)"
+                    class="w-9 h-9 bg-white text-black rounded-full shadow-md flex items-center justify-center hover:bg-black hover:text-white transition-colors"
+                  >
+                    <i class="fa-solid fa-cart-plus text-sm"></i>
+                  </button>
+                  <button @click.stop="favourite.toggleFavouriteInstant(prod.product_id_sql)" class="w-9 h-9 bg-white text-black rounded-full shadow-md flex items-center justify-center hover:bg-red-50 hover:text-red-500 transition-colors">
+                        <i :class=" favourite.isFavourite(prod.product_id_sql) ? 'fa-solid fa-heart text-red-500' : 'fa-regular fa-heart text-sm'"></i>
+                    </button>
+                </div>
+              </div>
+              <h4
+                class="text-sm font-bold text-gray-900 line-clamp-1 group-hover:text-gray-600 transition-colors px-1"
+              >
+                {{ prod.name }}
+              </h4>
+              <div
+                class="text-gray-900 font-bold mt-1 px-1"
+              >
+                {{ formatPrice(getMinProductPrice(prod)!) }}
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- Dành cho nam -->
+        <div v-if="productLatests.length > 0">
+          <div
+            class="flex items-center justify-between mb-10 border-b border-gray-200 pb-4"
+          >
+            <h2
+              class="text-2xl md:text-3xl font-black text-gray-900 uppercase tracking-tighter"
+            >
+              Dành cho Nam
+            </h2>
+            <button
+              @click="router.push({ name: 'CategoryGender', query: { gender: 'Nam' } })"
+              class="text-xs font-bold text-gray-500 hover:text-black transition-colors uppercase tracking-wide flex items-center gap-2"
+            >
+              {{ showMoreNewArrivals ? "Thu gọn" : "Xem tất cả" }}
+              <i class="fa-solid fa-arrow-right"></i>
+            </button>
+          </div>
+
+          <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
+            <div
+              v-for="(prod, idx) in productMale"
+              :key="idx"
+              class="group cursor-pointer"
+              @click="
+                router.push({
+                  name: 'product-detail',
+                  params: { id: prod.product_id_sql },
+                })
+              "
+            >
+              <div
+                class="relative aspect-[3/4] bg-white rounded-xl overflow-hidden mb-4 shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100"
+              >
+                <img
+                  :src="getMainProductImage(prod)"
+                  class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                />
+                <div
+                  class="absolute top-3 left-3 bg-black text-white text-[10px] font-bold px-2.5 py-1 rounded shadow-md tracking-wider"
+                >
+                  MALE
                 </div>
 
                 <!-- Action Buttons Overlay -->

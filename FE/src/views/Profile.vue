@@ -224,12 +224,12 @@ const verifyOtp = async () => {
 </script>
 
 <template>
-  <div class="bg-[#FAFAFA] min-h-screen font-sans text-gray-900">
+  <div class="bg-[#FAFAFA] min-h-screen font-sans text-gray-900 pt-[26px]"  >
     <Header />
     <Notification :text="textToast" :isSuccess="showNotification" />
     <Loading :loading="userStore.loading" />
 
-    <main class="pt-[10px] pb-20">
+    <main class="pb-20">
         <div class="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex flex-col lg:flex-row gap-8 items-start">
                 <!-- Sidebar -->

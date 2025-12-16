@@ -1,5 +1,6 @@
 <script setup lang="ts">
-    import { ref, watch } from 'vue';
+    import { useAuthStore } from '@/stores/auth';
+import { ref, watch ,onMounted } from 'vue';
     import { useRouter, useRoute } from 'vue-router';
     
     const router = useRouter();
@@ -17,6 +18,12 @@
         routeName: string;
         icon: string;
     }
+const auth = useAuthStore();
+const avatar = localStorage.getItem('avatar');
+
+onMounted(async () => {
+    auth.getProfileStore();
+    })
     
     const menuItems: MenuItem[] = [
         { key: 'home', label: 'Trang chủ', routeName: 'HomeAdmin', icon: 'fa-solid fa-house' },
@@ -25,6 +32,7 @@
         { key: 'order', label: 'Quản lý đơn hàng', routeName: 'OrderAdmin', icon: 'fa-solid fa-box-open' },
         { key: 'flashsale', label: 'Quản lý Flash Sale', routeName: 'FlashSaleAdmin', icon: 'fa-solid fa-bolt' },
         { key: 'voucher', label: 'Quản lý Voucher', routeName: 'VoucherAdmin', icon: 'fa-solid fa-ticket' },
+        { key: 'review', label: 'Chăm sóc khách hàng', routeName: 'ReviewAdmin', icon: 'fa-solid fa-message' },
         { key: 'settings', label: 'Cài đặt', routeName: 'adminSetting', icon: 'fa-solid fa-gear' },
     ];
     
@@ -54,10 +62,13 @@
     };
     
     const handleLogout = () => {
-      console.log("Logging out...");
-      router.push({ name: 'Login' }); // Ví dụ chuyển về trang login
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
+        localStorage.removeItem("user_id");
+        localStorage.removeItem("avatar");
+        router.push({ name: 'login' }); 
     };
-    
+        
     // Style classes (Đã bỏ padding cứng để xử lý linh hoạt ở template)
     const baseItemClass = "py-3 rounded flex items-center cursor-pointer transition-all duration-200 text-gray-700 hover:-translate-y-0.5 hover:bg-gray-100 mb-1 mx-2";
     const activeItemClass = "bg-black text-white shadow-md hover:bg-black hover:text-red-500";
@@ -101,12 +112,12 @@
             <div class="flex items-center gap-3 w-full" :class="isCollapsed ? 'justify-center' : ''">
                 <div class="rounded-full bg-gray-100 overflow-hidden shrink-0 border border-gray-300 shadow-sm transition-all duration-300"
                      :class="isCollapsed ? 'w-10 h-10' : 'w-12 h-12'">
-                    <img src="https://i.pravatar.cc/100" alt="avatar" class="w-full h-full object-cover" />
+                    <img :src="avatar || ''" alt="avatar" class="w-full h-full object-cover" />
                 </div>
                 
                 <div class="overflow-hidden transition-all duration-300"
                      :class="isCollapsed ? 'w-0 opacity-0' : 'w-auto opacity-100'">
-                    <p class="font-bold truncate text-gray-800 whitespace-nowrap">Winmart_NV5</p>
+                    <p class="font-bold truncate text-gray-800 whitespace-nowrap">{{ auth.user?.name }}</p>
                     <span class="text-xs text-green-600 font-medium bg-green-100 px-2 py-0.5 rounded-full whitespace-nowrap">Online</span>
                 </div>
             </div>

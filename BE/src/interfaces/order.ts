@@ -12,7 +12,8 @@ export interface Order {
     status?: 'pending' | 'confirmed' | 'shipped' | 'completed' | 'cancelled';
     created_at?: Date;
     note?: string;
-    method_order?: string
+    method_order?: string;
+    checkout_source?: "cart" | "buy_now";
 }
 export interface OrderItem {
     id?: string;
@@ -34,6 +35,7 @@ export interface OderPayLoad {
 
 
 export interface IOrderItem {
+    order_item_id?: string;
     product_id_sql: string; 
     size_id_mongo: string;
     
@@ -90,7 +92,7 @@ export interface RevenueOrder {
 export interface IKpiResponse {
     total: number;    
     previousTotal: number;
-    changePercent?: number;
+    changePercent?: number; 
 }
   
 

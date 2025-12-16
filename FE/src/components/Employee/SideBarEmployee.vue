@@ -27,7 +27,7 @@ import { ref, watch, onMounted } from 'vue';
         { key: 'order', label: 'Quản lý đơn hàng', routeName: 'order-employee', icon: 'fa-solid fa-box-open' },
         { key: 'flashsale', label: 'Danh mục Flash Sale', routeName: 'flashsaleEmployee', icon: 'fa-solid fa-bolt' },
         { key: 'voucher', label: 'Quản lý Voucher', routeName: 'voucherEmployee', icon: 'fa-solid fa-ticket' },
-        { key: 'review', label: 'Chăm sóc khách hàng', routeName: 'dash_board', icon: 'fa-solid fa-message' },
+        { key: 'review', label: 'Chăm sóc khách hàng', routeName: 'reviewEmployee', icon: 'fa-solid fa-message' },
     ];
     
     const routeToKeyMap: Record<string, string> = menuItems.reduce((acc, item) => {
@@ -60,11 +60,12 @@ import { ref, watch, onMounted } from 'vue';
     };
     
 const handleLogout = () => {
-    alert(1);
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
-      router.push({ name: 'login' }); 
-    };
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+    localStorage.removeItem("user_id");
+    localStorage.removeItem("avatar");
+    router.push({ name: 'login' }); 
+};
     
     // Style classes base (bỏ px-3 cố định để xử lý padding động)
     const baseItemClass = "py-3 rounded flex items-center cursor-pointer transition-all duration-200 text-gray-700 hover:-translate-y-0.5 hover:bg-gray-100 mb-1 mx-2";

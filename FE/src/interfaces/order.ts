@@ -16,6 +16,7 @@ export interface Order {
 export interface OrderItem {
     id?: string;
     order_id?: string;
+    order_item_id?: string;
     size_id_mongo: string;
     size: string;
     color: string;
@@ -65,6 +66,7 @@ export interface CreateOrderPayload {
     address: OrderAddress;
     methodPayment: string; 
     note?: string;
+    checkout_source?: "cart" | "buy_now";
 }
 export interface OderPayLoad {
     order: Order;
@@ -73,6 +75,7 @@ export interface OderPayLoad {
 
 
 export interface IOrderItem {
+    order_item_id?: string;
     product_id_sql: string;
     size_id_mongo: string;
 

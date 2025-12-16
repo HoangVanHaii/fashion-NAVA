@@ -228,12 +228,12 @@ const formatFullAddress = (addr: Address) => {
 </script>
 
 <template>
-  <div class="bg-[#FAFAFA] min-h-screen font-sans text-gray-900">
+  <div class="bg-[#FAFAFA] min-h-screen font-sans text-gray-900 pt-[26px]">
     <Header />
     <Notification :text="toastText" :isSuccess="isNotification" />
     <Loading :loading="addressStore.loadingAddress" />
 
-    <main class="pb-20 pt-[10px]">
+    <main class="pb-20">
         <div class="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex flex-col lg:flex-row gap-8 items-start">
                 <div class="w-full lg:w-[280px] flex-shrink-0">

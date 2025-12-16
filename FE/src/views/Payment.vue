@@ -10,6 +10,13 @@
         @apply="handleApplyVoucher" 
     />
 
+    <AddressSelectorModal 
+        v-if="showAddressModal"
+        :selectedId="selectedAddress?.id"
+        @close="showAddressModal = false"
+        @select="handleSelectAddress"
+    />
+
     <main class="max-w-[1200px] mx-auto px-6">
       <div class="mb-6 text-sm text-gray-400">
         <span class="cursor-pointer hover:text-black" @click="router.push('/cart')">Giỏ hàng</span>
@@ -22,15 +29,33 @@
           
           <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 relative overflow-hidden group hover:shadow-md transition-shadow">
              <div class="absolute top-0 left-0 w-full h-1.5 bg-[repeating-linear-gradient(45deg,#3B82F6,#3B82F6_15px,#fff_15px,#fff_30px,#EF4444_30px,#EF4444_45px,#fff_45px,#fff_60px)]"></div>
+             
              <div class="flex justify-between items-start mb-4">
                 <h3 class="font-bold text-gray-900 flex items-center gap-2 uppercase text-sm tracking-wide">
                     <i class="fa-solid fa-location-dot text-red-500 text-lg"></i> Địa chỉ nhận hàng
                 </h3>
-                <button class="text-xs text-blue-600 font-bold hover:underline bg-blue-50 px-3 py-1.5 rounded-full transition-colors hover:bg-blue-100">Thay đổi</button>
+                <button @click="showAddressModal = true" class="text-xs text-blue-600 font-bold hover:underline bg-blue-50 px-3 py-1.5 rounded-full transition-colors hover:bg-blue-100">
+                    {{ selectedAddress ? 'Thay đổi' : 'Thêm địa chỉ' }}
+                </button>
              </div>
+
              <div class="pl-7">
-                 <p class="font-bold text-gray-900 text-base mb-1">Nguyễn Văn A <span class="font-normal text-gray-400 mx-2">|</span> <span class="text-gray-600">(+84) 909 123 456</span></p>
-                 <p class="text-sm text-gray-500 leading-relaxed">123 Đường ABC, Phường XYZ, Quận 1, TP. Hồ Chí Minh</p>
+                 <template v-if="selectedAddress">
+                    <p class="font-bold text-gray-900 text-base mb-1">
+                        {{ selectedAddress.name }} 
+                        <span class="font-normal text-gray-400 mx-2">|</span> 
+                        <span class="text-gray-600">{{ selectedAddress.phone }}</span>
+                    </p>
+                    <p class="text-sm text-gray-500 leading-relaxed">
+                        {{ formatFullAddress(selectedAddress) }}
+                    </p>
+                 </template>
+                 <template v-else>
+                    <div @click="showAddressModal = true" class="cursor-pointer flex items-center gap-2 text-red-500 italic text-sm hover:underline">
+                        <i class="fa-solid fa-circle-exclamation"></i>
+                        Vui lòng chọn địa chỉ giao hàng (*)
+                    </div>
+                 </template>
              </div>
           </div>
 
@@ -48,7 +73,6 @@
                             x{{ item.quantity }}
                          </div>
                      </div>
-
                      <div class="flex-1 min-w-0 flex flex-col justify-center">
                          <h4 class="text-sm font-bold text-gray-900 line-clamp-2 mb-2 leading-snug group-hover:text-blue-600 transition-colors">
                             {{ item.name }}
@@ -62,7 +86,6 @@
                              </div>
                          </div>
                      </div>
-
                      <div class="text-right flex flex-col justify-center min-w-[100px]">
                          <span class="font-bold text-base text-gray-900 block">{{ formatPrice(item.price * item.quantity) }}</span>
                          <span v-if="item.quantity > 1" class="text-xs text-gray-400 mt-1">{{ formatPrice(item.price) }} / cái</span>
@@ -168,21 +191,29 @@ import { useRouter } from 'vue-router';
 import Loading from '../components/Loading.vue';
 import Notification from '../components/Notification.vue';
 import VoucherModal from '../components/Voucher.vue';
+import AddressSelectorModal from '../components/AddressSelectorModal.vue'; // Import Modal
 import { useCartStore } from '../stores/cartStore';
 import { useOrderStore } from '../stores/orderStore';
-import type { CreateOrderPayload } from '../interfaces/order'; // Đảm bảo Interface đã update ở file kia
+import { useAddressStore } from '../stores/address'; // Import Address Store
+import type { CreateOrderPayload } from '../interfaces/order';
 import type { Voucher } from '../interfaces/voucher';
+import type { Address } from '../interfaces/address';
 
 const router = useRouter();
 const cartStore = useCartStore();
 const orderStore = useOrderStore();
+const addressStore = useAddressStore(); // Init store
+
 const isLoading = ref(false);
 const isNotification = ref(false);
 const toastText = ref('');
 const showVoucherModal = ref(false);
+const showAddressModal = ref(false); // State Modal Địa chỉ
 
+// Data
 const checkoutItems = computed(() => cartStore.checkoutSession?.items || []);
 const appliedVoucher = ref<Voucher | null>(cartStore.checkoutSession?.voucher || null);
+const selectedAddress = ref<Address | null>(null); // Địa chỉ được chọn
 
 const paymentMethods = [
     { id: 'cod', label: 'Thanh toán khi nhận hàng (COD)', icon: 'fa-solid fa-money-bill-wave' },
@@ -192,6 +223,7 @@ const selectedPayment = ref<'cod' | 'vnpay'>('cod');
 const note = ref('');
 const shippingFee = ref(30000);
 
+// Computed
 const totalMerchandise = computed(() => checkoutItems.value.reduce((sum: number, item: any) => sum + (item.total_price || 0), 0));
 const calculatedDiscount = computed(() => {
     if (!appliedVoucher.value) return 0;
@@ -208,70 +240,90 @@ const calculatedDiscount = computed(() => {
 });
 const finalTotal = computed(() => Math.max(0, totalMerchandise.value + shippingFee.value - calculatedDiscount.value));
 
-onMounted(() => {
+// Lifecycle
+onMounted(async () => {
     if (!cartStore.checkoutSession) {
         router.push('/cart');
         return;
     }
+    // Lấy địa chỉ mặc định
+    await addressStore.getAddressesByUserStore();
+    
+    if (addressStore.addressDefault && addressStore.addressDefault.id) {
+        selectedAddress.value = addressStore.addressDefault;
+    } else if (addressStore.listAddress.length > 0) {
+        selectedAddress.value = addressStore.listAddress[0] || null;
+    }
 });
 
+// Handlers
 const handleApplyVoucher = (voucher: Voucher) => {
     appliedVoucher.value = voucher;
     showToast(`Đã áp dụng mã ${voucher.code}`, true);
 };
 
+// [MỚI] Hàm chọn địa chỉ từ Modal
+const handleSelectAddress = (addr: Address) => {
+    selectedAddress.value = addr;
+};
+
 const formatPrice = (price: number) => price.toLocaleString('vi-VN') + 'đ';
+const formatFullAddress = (addr: Address) => {
+    return [addr.street_address, addr.ward, addr.district, addr.province].filter(Boolean).join(', ');
+};
 const getImage = (path?: string) => path || 'https://placehold.co/100?text=NoImg';
 const showToast = (msg: string, success: boolean) => { toastText.value = ''; isNotification.value = success; setTimeout(() => toastText.value = msg, 0); };
 
+// [QUAN TRỌNG] Handle Order với địa chỉ thật
 const handleOrder = async () => {
-    isLoading.value = true;
-    const mockAddress = {
-        name: "Nguyễn Văn A",
-        phone: "0909123456",
-        province: "TP. Hồ Chí Minh",     
-        district: "Quận 1",
-        ward: "Phường X",
-        street_address: "123 Đường ABC", 
-        full_address: "123 Đường ABC, Phường X, Quận 1, TP. Hồ Chí Minh"
-    };
-    const itemsPayload = checkoutItems.value.map((item: any) => {
-        const sizeId = 
-            item.variant?.size?.size_id_mongo || 
-            item.size_id_mongo;
+    // 1. Validate Địa chỉ
+    if (!selectedAddress.value) {
+        showToast("Vui lòng chọn địa chỉ nhận hàng!", false);
+        return;
+    }
 
+    isLoading.value = true;
+
+    // 2. Map Items
+    const itemsPayload = checkoutItems.value.map((item: any) => {
+        const sizeId = item.variant?.size?.size_id_mongo || item.size_id_mongo;
         if (!sizeId) {
             console.error("❌ LỖI: Không tìm thấy size_id_mongo cho sản phẩm:", item.name);
             return null;
         }
         return { size_id: sizeId, quantity: item.quantity };
-    })
-    .filter((i: any) => i !== null) as { size_id: string; quantity: number }[];
+    }).filter((i: any) => i !== null) as { size_id: string; quantity: number }[];
 
-    // Validate
     if (itemsPayload.length === 0) {
         isLoading.value = false;
         showToast("Lỗi dữ liệu: Không lấy được ID sản phẩm", false);
         return;
     }
 
+    // 3. Payload
     const payload: CreateOrderPayload = {
         orderItems: itemsPayload,
         voucherCode: appliedVoucher.value?.code,
-        address: mockAddress,
+        // Dùng địa chỉ đã chọn
+        address: {
+            name: selectedAddress.value.name,
+            phone: selectedAddress.value.phone,
+            province: selectedAddress.value.province,
+            district: selectedAddress.value.district,
+            ward: selectedAddress.value.ward,
+            street_address: selectedAddress.value.street_address,
+            full_address: formatFullAddress(selectedAddress.value)
+        },
         methodPayment: selectedPayment.value,
-        note: note.value
+        note: note.value,
+        checkout_source: cartStore.checkoutSession?.checkout_source
     };
 
-    // 3. Gọi API
+    // 4. API Call
     const result = await orderStore.createOrderAction(payload);
 
-    // 4. Xử lý kết quả trả về
     if (result.success) {
-        // Xóa session checkout
         cartStore.clearCheckoutSession();
-        
-        // Chuyển trang
         if (selectedPayment.value === 'vnpay' && result.data.paymentUrl) {
             window.location.href = result.data.paymentUrl;
         } else {
