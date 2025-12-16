@@ -55,13 +55,13 @@ export const connectDatabases = async (): Promise<void> => {
         process.exit(1);
     }
     //hn
-    // try {
-    //     await dbPools.bac.connect();
-    //     console.log('✅ SQL HaNoi DB (HN) connected.');
-    //     dbPools.status.bac = true;
-    // } catch (err) {
-    //     console.warn('⚠️ SQL HaNoi DB (HN) connection FAILED (App still running):', (err as Error).message);
-    // }
+    try {
+        await dbPools.bac.connect();
+        console.log('✅ SQL HaNoi DB (HN) connected.');
+        dbPools.status.bac = true;
+    } catch (err) {
+        console.warn('⚠️ SQL HaNoi DB (HN) connection FAILED (App still running):', (err as Error).message);
+    }
     //dn
     try {
         await dbPools.trung.connect();

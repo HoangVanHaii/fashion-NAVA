@@ -47,7 +47,6 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
     }
 
     req.dbBranch = branchPool;
-    
     next();
 };
 

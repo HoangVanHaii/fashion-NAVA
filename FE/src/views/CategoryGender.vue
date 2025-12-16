@@ -1,117 +1,117 @@
 <script setup lang="ts">
-    import Header from "../components/Header.vue";
-    import Footer from "../components/Footer.vue"; // Added Footer
-    import type { IProductMongoDetail } from "../interfaces/product";
-    import { ref, onMounted, computed, onBeforeUnmount } from "vue";
-    import { useRoute, useRouter } from "vue-router";
-    import { useProductStore } from "../stores/product";
-    import { useCategoryStore } from "../stores/category";
-    import { getMinProductPrice, getMaxProductPrice, checkProductSale, formatPrice, getMainProductImage } from "../utils/format";
-    import AddToCart from "../components/AddToCard.vue";
+import Header from "../components/Header.vue";
+import Footer from "../components/Footer.vue"; // Added Footer
+import type { IProductMongoDetail } from "../interfaces/product";
+import { ref, onMounted, computed, onBeforeUnmount } from "vue";
+import { useRoute, useRouter } from "vue-router";
+import { useProductStore } from "../stores/product";
+import { useCategoryStore } from "../stores/category";
+import { getMinProductPrice, getMaxProductPrice, checkProductSale, formatPrice, getMainProductImage } from "../utils/format";
+import AddToCart from "../components/AddToCard.vue";
 import { get } from "mongoose";
-    import { useFavouriteStore } from "../stores/favourite";
-    import Loading from "../components/Loading.vue";
-    import { useAuthStore } from "@/stores/auth";
+import { useFavouriteStore } from "../stores/favourite";
+import Loading from "../components/Loading.vue";
+import { useAuthStore } from "@/stores/auth";
 const userStore = useAuthStore();
-    const route = useRoute();
-    const router = useRouter();
-    const product = useProductStore();
-    const category = useCategoryStore();
-    const productGender = ref<IProductMongoDetail[]>([]);
-    const listCategory = ref<any[]>([]);
-    const selectedSort = ref("name-asc");
-    const showSortDropdown = ref(false);
-    const selectedCategories = ref<string[]>([]);
+const route = useRoute();
+const router = useRouter();
+const product = useProductStore();
+const category = useCategoryStore();
+const productGender = ref<IProductMongoDetail[]>([]);
+const listCategory = ref<any[]>([]);
+const selectedSort = ref("name-asc");
+const showSortDropdown = ref(false);
+const selectedCategories = ref<string[]>([]);
 const showFormAdd = ref(false);
 const loadingPage = ref(false);
-    const favourite = useFavouriteStore();
-    const showMobileFilter = ref(false); // State for mobile filter drawer
-    
-    const sortOptions = [
-      { label: "Tên A → Z", value: "name-asc" },
-      { label: "Tên Z → A", value: "name-desc" },
-      { label: "Giá thấp → cao", value: "price-asc" },
-      { label: "Giá cao → thấp", value: "price-desc" },
-      { label: "Bán chạy nhất", value: "bestseller" },
-    ];
-    
-onMounted(async () => {
-    const gender = route.query.gender as string;
-    loadingPage.value = true;
-    productGender.value = await product.searchByCategoryGenderStore(gender);
-        const queryName = route.query.name as string | string[] | undefined;
-    listCategory.value = await category.getCategoryNameStore(gender);
+const favourite = useFavouriteStore();
+const showMobileFilter = ref(false); // State for mobile filter drawer
 
-    if (userStore.isLogin) {
-          favourite.getFavouriteOfMeStore();
-        
-    }
-    loadingPage.value = false;
-    });
+const sortOptions = [
+    { label: "Tên A → Z", value: "name-asc" },
+    { label: "Tên Z → A", value: "name-desc" },
+    { label: "Giá thấp → cao", value: "price-asc" },
+    { label: "Giá cao → thấp", value: "price-desc" },
+    { label: "Bán chạy nhất", value: "bestseller" },
+];
+
+onMounted(async () => {
+const gender = route.query.gender as string;
+loadingPage.value = true;
+productGender.value = await product.searchByCategoryGenderStore(gender);
+const queryName = route.query.name as string | string[] | undefined;
+listCategory.value = await category.getCategoryNameStore(gender);
+
+if (userStore.isLogin) {
+        favourite.getFavouriteOfMeStore();
     
+}
+loadingPage.value = false;
+});
+
 const handleCategoryChange = (category_id: string) => {
-      if (selectedCategories.value.includes(category_id)) {
-        selectedCategories.value = selectedCategories.value.filter((c) => c !== category_id);
-      } else {
-        selectedCategories.value.push(category_id);
-      }
+    if (selectedCategories.value.includes(category_id)) {
+    selectedCategories.value = selectedCategories.value.filter((c) => c !== category_id);
+    } else {
+    selectedCategories.value.push(category_id);
+    }
 };
-    
-    
-    const filteredProducts = computed(() => {
-      let filtered = [...productGender.value];
-      if (selectedCategories.value.length > 0) {
-          filtered = filtered.filter(
-              (p) => p.category_id && selectedCategories.value.includes(p.category_id)
-        );
-      }
-    
-      return sortProducts(filtered, selectedSort.value);
-    });
-    
+
+
+const filteredProducts = computed(() => {
+    let filtered = [...productGender.value];
+    if (selectedCategories.value.length > 0) {
+        filtered = filtered.filter(
+            (p) => p.category_id && selectedCategories.value.includes(p.category_id)
+    );
+    }
+
+    return sortProducts(filtered, selectedSort.value);
+});
+
 const sortProducts = (products: IProductMongoDetail[], sortKey: string) => {
-      return products.sort((a, b) => {
-        const nameA = (a.name ?? "").toString();
-        const nameB = (b.name ?? "").toString();
-        const priceA = Number(getMinProductPrice(a) ?? 0);
-        const priceB = Number(getMinProductPrice(b) ?? 0);
-        const rand1 = Math.random();
-        const rand2 = Math.random();
-        const soldA = Number(rand1);
-        const soldB = Number( rand2);
-    
-        switch (sortKey) {
-          case "name-asc": return nameA.localeCompare(nameB);
-          case "name-desc": return nameB.localeCompare(nameA);
-          case "price-asc": return priceA - priceB;
-          case "price-desc": return priceB - priceA;
-          case "bestseller": return soldB - soldA;
-          default: return 0;
-        }
-      });
-    };
-    
-    const handleSortChange = (value: string) => {
-      selectedSort.value = value;
-      showSortDropdown.value = false;
-    };
-    
-    const isCategorySelected = (category_id: string) => {
-      return selectedCategories.value.includes(category_id);
-    };
-    
-    const clearAllFilters = () => {
-      selectedCategories.value = [];
-    };
-    
-    const productDetail = ref<IProductMongoDetail>();
-    const handleCart = async (product: IProductMongoDetail) => {
-        if (product) {
-            productDetail.value = product
-        showFormAdd.value = true;
-      }
-    };
-    </script>
+    return products.sort((a, b) => {
+    const nameA = (a.name ?? "").toString();
+    const nameB = (b.name ?? "").toString();
+    const priceA = Number(getMinProductPrice(a) ?? 0);
+    const priceB = Number(getMinProductPrice(b) ?? 0);
+    const rand1 = Math.random();
+    const rand2 = Math.random();
+    const soldA = Number(rand1);
+    const soldB = Number( rand2);
+
+    switch (sortKey) {
+        case "name-asc": return nameA.localeCompare(nameB);
+        case "name-desc": return nameB.localeCompare(nameA);
+        case "price-asc": return priceA - priceB;
+        case "price-desc": return priceB - priceA;
+        case "bestseller": return soldB - soldA;
+        default: return 0;
+    }
+    });
+};
+
+const handleSortChange = (value: string) => {
+    selectedSort.value = value;
+    showSortDropdown.value = false;
+};
+
+const isCategorySelected = (category_id: string) => {
+    return selectedCategories.value.includes(category_id);
+};
+
+const clearAllFilters = () => {
+    selectedCategories.value = [];
+};
+
+const productDetail = ref<IProductMongoDetail>();
+const handleCart = async (product: IProductMongoDetail) => {
+    if (product) {
+        productDetail.value = product
+    showFormAdd.value = true;
+    }
+};
+</script>
     
     <template>
       <div class="bg-[#FAFAFA] min-h-screen font-sans text-gray-900">

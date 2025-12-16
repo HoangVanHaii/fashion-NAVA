@@ -2,11 +2,12 @@ import { NextFunction, Request, Response } from 'express'
 import *as orderService from '../../services/order'
 import { AppError } from '../../utils/appError';
 import *as productService from '../../services/product'
-import { StatisticalOrder } from '../../interfaces/order';
+import { IRevenueMonth, StatisticalOrder } from '../../interfaces/order';
 import { OderPayLoad, OrderItem } from "../../interfaces/order";
 import *as voucherService from "../../services/voucher";
 import { ConnectionPool } from "mssql";
 import { ProductDetailModel } from "../../models/product";
+import { getBranchPool } from '../../config/database';
 
 export const changeStatusOrder = async (req: Request, res: Response, next: NextFunction) => {
     const { order_id, status } = req.body
@@ -42,6 +43,36 @@ export const getOrderOfBranch = async (req: Request, res: Response, next: NextFu
         return res.status(200).json({
             success: true,
             message: `get order successfully`,
+            data: order
+        });
+    } catch (error) {
+        next(error);
+    }
+}
+
+export const getOrderOfTypeBranch = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        // 1. Lấy tham số từ Query String (URL)
+        // Ví dụ: ?method=online&branch=CT
+        const method_order = req.query.method as string;
+
+        const target_branch_code = (req.query.branch as string) || req.user?.branch_code;
+
+        if (!method_order || (method_order.toLowerCase() !== 'online' && method_order.toLowerCase() !== 'offline')) {
+            throw new AppError('Invalid method_order. Must be "online" or "offline"', 400);
+        }
+
+        if (!target_branch_code) {
+            throw new AppError('Branch code is required', 400);
+        }
+
+        // 3. Gọi Service
+        const order = await orderService.getOrderOfTypeBranchService(target_branch_code, method_order.toLowerCase());
+
+        // 4. Trả về kết quả
+        return res.status(200).json({
+            success: true,
+            message: `Get order successfully for branch ${target_branch_code} (${method_order})`,
             data: order
         });
     } catch (error) {
@@ -203,5 +234,160 @@ export const getDailyOrderComparison = async (req: Request, res: Response, next:
     }
     catch (err) {
         next(err);
+    }
+};
+const ALL_BRANCHES = ['HN', 'DN', 'HCM'];
+
+const calculateGrowth = (current: number, previous: number): number => {
+    if (previous === 0) return current > 0 ? 100 : 0;
+    return Number((((current - previous) / previous) * 100).toFixed(2));
+};
+
+// 1. Daily Revenue Comparison
+export const getDailyOrderComparisonForAdmin = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const type = (req.params.type as string) || 'hôm nay';
+        const target_branch_code = (req.query.branch as string) || req.user?.branch_code;
+
+        if (!target_branch_code) throw new AppError('Branch code required', 400);
+        let rawData;
+        if (req.user?.branch_code !== "CT") {
+            rawData = await orderService.getRevenueOrderComparisonService(req.user?.branch_code || "DN", type);
+        }
+        else {
+            rawData = await orderService.getRevenueOrderComparisonService(target_branch_code, type);
+            
+        }
+
+        const changePercent = calculateGrowth(rawData.total, rawData.previousTotal);
+
+        return res.status(200).json({
+            success: true,
+            message: "Get daily revenue comparison successfully",
+            results: {
+                total: rawData.total,
+                changePercent: changePercent,
+            }
+        });
+    } catch (err) {
+        next(err);
+    }
+};
+
+// 2. Total Orders Comparison
+export const getTotalOrderComparisonForAdmin = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const type = (req.params.type as string) || 'hôm nay';
+        const target_branch_code = (req.query.branch as string) || req.user?.branch_code;
+
+        if (!target_branch_code) throw new AppError('Branch code required', 400);
+
+        let rawData;
+        if (req.user?.branch_code !== "CT") {
+            rawData = await orderService.getTotalOrderComparisonService(req.user?.branch_code || 'DN', type);
+        }
+        else {
+             rawData = await orderService.getTotalOrderComparisonService(target_branch_code, type);
+        }
+        const changePercent = calculateGrowth(rawData.total, rawData.previousTotal);
+
+        return res.status(200).json({
+            success: true,
+            message: "Get total orders comparison successfully",
+            results: {
+                total: rawData.total,
+                changePercent: changePercent,
+            }
+        });
+    } catch (err) {
+        next(err);
+    }
+};
+
+// 3. Cancelled Orders Comparison
+export const getTotalCancelledOrderForAdmin = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const type = (req.params.type as string) || 'hôm nay';
+        const target_branch_code = (req.query.branch as string) || req.user?.branch_code;
+
+        if (!target_branch_code) throw new AppError('Branch code required', 400);
+        let rawData;
+        if (req.user?.branch_code !== "CT") {
+            rawData = await orderService.getTotalOrderCancelledService(req.user?.branch_code || 'DN', type);
+        }
+        else {
+            rawData = await orderService.getTotalOrderCancelledService(target_branch_code, type);
+        } 
+        const changePercent = calculateGrowth(rawData.total, rawData.previousTotal);
+
+        return res.status(200).json({
+            success: true,
+            message: "Get cancelled orders comparison successfully",
+            results: {
+                total: rawData.total,
+                changePercent: changePercent,
+            }
+        });
+    } catch (err) {
+        next(err);
+    }
+};
+
+// 4. Revenue By Year (Chart)
+export const getRevenueYearForAdmin = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const year = parseInt(req.params.year as string) || new Date().getFullYear();
+        const target_branch_code = (req.query.branch as string) || req.user?.branch_code;
+
+        if (!target_branch_code) throw new AppError('Branch code required', 400);
+        let data;
+        if (req.user?.branch_code !== "CT") {
+            data = await orderService.getRevenueByYearService(req.user?.branch_code ||'DN', year);
+        }
+        else {
+            data = await orderService.getRevenueByYearService(target_branch_code, year);
+        }
+        if (!data) {
+            return res.status(200).json({
+                success: true,
+                message: "Get revenue year successfully",
+                year: null,
+                monthlyRevenue: null
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: "Get revenue year successfully",
+            year: data.year,
+            monthlyRevenue: data.monthlyRevenue
+        });
+    } catch (err) {
+        next(err);
+    }
+};
+
+// 5. Top Orders
+export const getTopOrderOfBranch = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const top = parseInt(req.params.top as string) || 10;
+        const target_branch_code = (req.query.branch as string) || req.user?.branch_code;
+
+        if (!target_branch_code) throw new AppError('Branch code required', 400);
+        let orders;
+        if (req.user?.branch_code !== "CT") {
+            orders = await orderService.getTopOrderOfBranchService(req.user?.branch_code ||'DN', top);
+        }
+        else {
+            orders = await orderService.getTopOrderOfBranchService(target_branch_code, top);
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: "Get top orders successfully",
+            orders
+        });
+    } catch (error) {
+        next(error);
     }
 };

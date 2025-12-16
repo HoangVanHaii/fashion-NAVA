@@ -1,6 +1,6 @@
 import { ref, computed } from "vue";
 import { defineStore } from "pinia";
-import { getOrderOfBranch, changeStatus, createOrderByEmployee, getStatistical, getDailyOrderComparison, getProductBySize, getOrderById } from "@/services/employee/order";
+import { getOrderOfBranch, getOrderOfTypeBranch, changeStatus, createOrderByEmployee, getStatistical, getDailyOrderComparison, getProductBySize, getOrderById, getTopOrderOfBranch, getDailyOrderComparisonForAdmin, getTotalOrderComparisonForAdmin, getTotalOrderCancelledForAdmin, getTotalOrderMonthForAdmin } from "@/services/employee/order";
 import { type RevenueOrder, type GetOrder, type StatisticalOrder } from "@/interfaces/order";
 import type { IProductMongoDetail } from "@/interfaces/product";
 import { getOrderOfMe } from "@/services/order";
@@ -16,6 +16,13 @@ export const useOrderEmployeeStore = defineStore("orderEmployee", () => {
     const selectedStatus = ref<string>("Tất cả");
     const statistical = ref<StatisticalOrder | null>(null)
     const revenueOrder = ref<RevenueOrder | null>(null);
+    const sortOrdersByCreatedAt = (orders: GetOrder[]): GetOrder[] => {
+        return orders.sort((a, b) => {
+            const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
+            const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
+            return dateB - dateA;
+        });
+    };
     const reverseStatusMap: Record<string, string> = {
         "Tất cả": "all",
         "Chờ xác nhận": "pending",
@@ -29,8 +36,7 @@ export const useOrderEmployeeStore = defineStore("orderEmployee", () => {
         error.value = null;
         try {
             const data = await getOrderOfBranch(method_order);
-            listOrder.value = data.data;
-            console.log(listOrder.value[0])
+            listOrder.value = sortOrdersByCreatedAt(data.data);
             return data;
         } catch (err) {
             console.error(err);
@@ -39,7 +45,21 @@ export const useOrderEmployeeStore = defineStore("orderEmployee", () => {
             loading.value = false;
         }
     };
-
+    const getOrderOfTypeBranchStore = async (method_order: string, branch_code: string) => {
+        loading.value = true;
+        error.value = null;
+        try {
+            const data = await getOrderOfTypeBranch(method_order, branch_code);
+            listOrder.value = sortOrdersByCreatedAt(data.data);
+            return data;
+        } catch (err) {
+            console.error(err);
+            error.value = "Không thể tải danh sách đơn hàng";
+        } finally {
+            loading.value = false;
+        }
+    };
+    
     const filteredOrderByStatus = computed(() => {
         const statusKey = reverseStatusMap[selectedStatus.value];
         if (statusKey === "all") return listOrder.value;
@@ -96,13 +116,14 @@ export const useOrderEmployeeStore = defineStore("orderEmployee", () => {
             loading.value = false;
         }
     }
-    const getStatisticalStore = async (order_id: string, status: string) => {
+    const getStatisticalStore = async () => {
         loading.value = true;
         try {
             const result = await getStatistical();
             statistical.value = result.data;
         } catch (err: any) {
-            
+            loading.value = false;
+            console.log(err);
         } finally {
             loading.value = false;
         }
@@ -113,18 +134,85 @@ export const useOrderEmployeeStore = defineStore("orderEmployee", () => {
             const result = await getDailyOrderComparison(type);
             revenueOrder.value = result.data;
         } catch (err: any) {
-
+            loading.value = false;
+            console.log(err);
         } finally {
             loading.value = false;
         }
     }
+    // 1. Daily Order Comparison
+    const getDailyOrderComparisonForAdminStore = async (type: string, branch_code: string) => {
+        loading.value = true;
+        try {
+            const result = await getDailyOrderComparisonForAdmin(type, branch_code);
+            return result.results;
+        } catch (err: any) {
+            console.error(err);
+        } finally {
+            loading.value = false;
+        }
+    };
+
+    // 2. Total Order Comparison
+    const getTotalOrderComparisonForAdminStore = async (type: string, branch_code: string) => {
+        loading.value = true;
+        try {
+            const result = await getTotalOrderComparisonForAdmin(type, branch_code);
+            return result.results;
+        } catch (err: any) {
+            console.error(err);
+        } finally {
+            loading.value = false;
+        }
+    };
+
+    // 3. Revenue Month
+    const getTotalOrderMonthForAdminStore = async (year: string, branch_code: string) => {
+        loading.value = true;
+        try {
+            const result = await getTotalOrderMonthForAdmin(year, branch_code);
+            return result; // result ở đây là { year: ..., monthlyRevenue: [...] }
+        } catch (err: any) {
+            console.error(err);
+        } finally {
+            loading.value = false;
+        }
+    };
+
+    // 4. Cancelled Order
+    const getTotalOrderCancelledForAdminStore = async (type: string, branch_code: string) => {
+        loading.value = true;
+        try {
+            const result = await getTotalOrderCancelledForAdmin(type, branch_code);
+            return result.results;
+        } catch (err: any) {
+            console.error(err);
+        } finally {
+            loading.value = false;
+        }
+    };
+
+    // 5. Top Orders
+    const getTopOrderOfBranchStore = async (top: number, branch_code: string) => {
+        loading.value = true;
+        try {
+            const result = await getTopOrderOfBranch(top, branch_code);
+            return result.orders; // Trả về mảng orders
+        } catch (err: any) {
+            console.error(err);
+            return [];
+        } finally {
+            loading.value = false;
+        }
+    };
     const getProductBySizeStore = async (size_id: string) => {
         loading.value = true;
         try {
             const result = await getProductBySize(size_id);
             return result.product as IProductMongoDetail;
         } catch (err: any) {
-
+            console.log(err);
+            loading.value = false;
         } finally {
             loading.value = false;
         }
@@ -134,7 +222,8 @@ export const useOrderEmployeeStore = defineStore("orderEmployee", () => {
         try {
             await createOrderByEmployee(orderItems);
         } catch (err: any) {
-
+            loading.value = false;
+            console.log(err);
         } finally {
             loading.value = false;
         }
@@ -143,7 +232,6 @@ export const useOrderEmployeeStore = defineStore("orderEmployee", () => {
         loading.value = true;
         try {
             const result = await getOrderById(order_id);
-            console.log(result);
             orderDetail.value = result.data;
         } catch (err: any) {
             console.log(err);
@@ -157,7 +245,7 @@ export const useOrderEmployeeStore = defineStore("orderEmployee", () => {
         error.value = null;
         try {
             const data = await getOrderOfMe();
-            listOrder.value = data.data;
+            listOrder.value = sortOrdersByCreatedAt(data.data);
             return data;
         } catch (err) {
             console.error(err);
@@ -175,6 +263,7 @@ export const useOrderEmployeeStore = defineStore("orderEmployee", () => {
         selectedStatus,
         filteredOrder,
         getOrderOfBranchStore,
+        getOrderOfTypeBranchStore,
         resetFilter,
         changeStatusStore,
         getStatisticalStore,
@@ -185,6 +274,13 @@ export const useOrderEmployeeStore = defineStore("orderEmployee", () => {
         createOrderByEmployeeStore,
         orderDetail,
         getOrderByIdStore,
-        getOrderOfMeStore
+        getOrderOfMeStore,
+        getTopOrderOfBranchStore,
+
+
+        getDailyOrderComparisonForAdminStore,
+        getTotalOrderComparisonForAdminStore,
+        getTotalOrderCancelledForAdminStore,
+        getTotalOrderMonthForAdminStore
     };
 });

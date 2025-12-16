@@ -141,6 +141,7 @@ export const createVoucher = async (req: Request, res: Response, next: NextFunct
             end_date,
             created_by: user_id
         } as Voucher;
+        console.log(voucher);
         await voucherService.createVoucher(voucher,branch_code);
         return res.status(201).json({ message: 'Voucher created successfully' });
     }

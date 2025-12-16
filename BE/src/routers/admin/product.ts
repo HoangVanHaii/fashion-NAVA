@@ -20,6 +20,12 @@ router.post(
     validateRequest,
     productController.AddProductColor
 );
+router.get(
+    "/best-seller",
+    authMiddleware,
+    isAdmin, // Middleware chặn chỉ cho Admin
+    productController.getTopProductsBestSellerForAdmin
+);
 router.post(
     "/",
     authMiddleware,
