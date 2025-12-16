@@ -110,16 +110,8 @@ const handleAddToCart = async () => {
 
     // Đóng modal ngay lập tức để người dùng thấy hiệu ứng bay trên màn hình chính
     emit("close");
-  handleClose();
-  
-
-  } catch (error: any) {
-    // Chỉ hiện thông báo nếu có lỗi
-    toastText.value = error.message || "Thêm vào giỏ hàng thất bại!";
-    showNotification.value = true;
-  } finally {
+    handleClose();
     loading.value = false;
-  }
 };
 
 const viewDetail = () => {
@@ -287,7 +279,7 @@ const currentPrice = computed(() => sizeChose.value?.price || getMinProductPrice
 
         <div class="mt-auto pt-8 border-t border-gray-100">
           <button
-            @click="addToCart"
+            @click="handleAddToCart"
             :disabled="loading || currentStock <= 0"
             class="w-full py-4 bg-black text-white font-bold rounded-xl shadow-lg hover:bg-gray-800 hover:shadow-xl active:scale-[0.98] transition-all disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
