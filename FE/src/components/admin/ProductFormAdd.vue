@@ -312,7 +312,9 @@
         formData.append("status", status.value);
         formData.append("attributes", JSON.stringify(attributesObject));
         formData.append("colors", JSON.stringify(colors.value));
-        
+        if (videoFile.value) {
+            formData.append('video', videoFile.value);
+        }
         listImageMain.forEach((item: any) => {
             const key = Object.keys(item)[0];
             if (!key) return;
@@ -328,7 +330,48 @@
         });
         
         return formData;
-    };
+};
+const videoFile = ref<File | null>(null);
+const videoPreview = ref<string | null>(null);
+
+// --- Hàm xử lý khi chọn file ---
+const handleVideoUpload = (event: Event) => {
+  const target = event.target as HTMLInputElement;
+  if (target.files && target.files[0]) {
+    const file = target.files[0];
+
+    // Validate kích thước (Ví dụ: giới hạn 50MB)
+    if (file.size > 50 * 1024 * 1024) {
+      alert("Video quá lớn! Vui lòng chọn video dưới 50MB.");
+      return;
+    }
+
+    // Validate định dạng
+    if (!file.type.startsWith('video/')) {
+      alert("Vui lòng chỉ chọn file video.");
+      return;
+    }
+
+    videoFile.value = file;
+    // Tạo URL tạm thời để xem trước
+    videoPreview.value = URL.createObjectURL(file);
+  }
+};
+
+// --- Hàm xóa video ---
+const removeVideo = () => {
+  // Reset lại input file để có thể chọn lại cùng 1 file nếu muốn
+  const input = document.getElementById('video-upload') as HTMLInputElement;
+  if (input) input.value = '';
+
+  // Xóa URL object để giải phóng bộ nhớ
+  if (videoPreview.value && videoPreview.value.startsWith('blob:')) {
+    URL.revokeObjectURL(videoPreview.value);
+  }
+
+  videoFile.value = null;
+  videoPreview.value = null;
+};
     
     const handleCreateProduct = async () => {
         if (!validateForm()) return;
@@ -336,6 +379,10 @@
         try {
             loadingPage.value = true;
             const formData = MapFormData();
+            // for (const [key, value] of formData.entries()) {
+            //     console.log(key, value);
+            // }
+
             await productAdmin.addProductStore(formData);
             loadingPage.value = false;
             isSuccess.value = true;
@@ -455,6 +502,76 @@
         </div>
 
         <hr class="border-gray-100 my-8" />
+        <div class="mb-6">
+    <label class="block text-sm font-medium text-gray-700 mb-2">
+      Video giới thiệu (Tùy chọn)
+    </label>
+
+    <div
+      v-if="!videoPreview"
+      class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md hover:border-blue-500 transition-colors cursor-pointer relative"
+    >
+      <div class="space-y-1 text-center">
+        <svg
+          class="mx-auto h-12 w-12 text-gray-400"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+          />
+        </svg>
+        <div class="flex text-sm text-gray-600 justify-center">
+          <label
+            for="video-upload"
+            class="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none"
+          >
+            <span>Tải video lên</span>
+            <input
+              id="video-upload"
+              name="video-upload"
+              type="file"
+              class="sr-only"
+              accept="video/*"
+              @change="handleVideoUpload"
+            />
+          </label>
+        </div>
+        <p class="text-xs text-gray-500">MP4, WebM up to 50MB</p>
+      </div>
+    </div>
+
+    <div v-else class="relative mt-2 w-full max-w-md">
+      <video
+        :src="videoPreview"
+        controls
+        class="w-full h-48 object-contain rounded-lg border border-gray-200 bg-black/5"
+      ></video>
+      
+      <button
+        @click.prevent="removeVideo"
+        type="button"
+        class="absolute -top-3 -right-3 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600 focus:outline-none"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          class="h-5 w-5"
+          viewBox="0 0 20 20"
+          fill="currentColor"
+        >
+          <path
+            fill-rule="evenodd"
+            d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+            clip-rule="evenodd"
+          />
+        </svg>
+      </button>
+    </div>
+  </div>
 
         <h3
           class="text-lg font-bold text-gray-800 mb-6 flex items-center gap-2 border-l-4 border-purple-500 pl-3"
