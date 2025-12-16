@@ -11,4 +11,5 @@ router.put('/updateItemQuantity/:id', authMiddleware, cartValidator.updateCartIt
 router.put('/updateItem/:id' , authMiddleware, cartValidator.updateCartItem, validateRequest, cartController.updateCartItem);
 router.delete('/removeItem/:id', authMiddleware, cartValidator.removeCartItem, validateRequest, cartController.removeCartItem);
 router.delete('/clearCart', authMiddleware, cartController.clearCart);
+router.get('/count', authMiddleware, cartController.countCartItems);
 export default router;
