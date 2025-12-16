@@ -4,6 +4,12 @@
     import VoucherFormModal from "../../components/admin/VoucherForm.vue";
     import { voucherStore } from "@/stores/voucher";
 
+    import Loading from "@/components/Loading.vue";
+    const loadingPage = ref(false)
+    import Notification from "@/components/Notification.vue";
+
+    const isSuccess = ref(false);
+    const toastText = ref('')
     // --- 1. DEFINITIONS & INTERFACES ---
 
     export interface Voucher {
@@ -55,8 +61,9 @@
     const listVoucher = ref<Voucher[]>([]);
 
     onMounted(async () => {
+        loadingPage.value = true;
         listVoucher.value = await useVoucher.getAllVoucherStore();
-        console.log("aa", listVoucher.value)
+        loadingPage.value = false
     })
 
     // Hàm tính trạng thái dựa trên ngày tháng
@@ -200,16 +207,23 @@
     const handleSaveVoucher = async (payload: Voucher, isEditMode: boolean) => {
 
         if (isEditMode) {
-
+            loadingPage.value = true
             await useVoucher.updateVoucherStore(payload)
             if (useVoucher.success) {
                 const index = allVouchers.value.findIndex(v => v.ID === payload.ID);
                 if (index !== -1) {
                     listVoucher.value[index] = payload;
                 }
-
+                isSuccess.value = true;
+                toastText.value = 'Cập nhập voucher thành công!'
             }
+            else {
+                isSuccess.value = false;
+                toastText.value = 'Cập nhập voucher thất bại!'
+            }
+            loadingPage.value = false;
         } else {
+            loadingPage.value = true;
             await useVoucher.createVoucherStore(payload)
             if (useVoucher.success) {
                 const { status, text } = calculateStatus(payload.start_date, payload.end_date);
@@ -219,8 +233,15 @@
                     statusText: text // "Đang chạy" | ...
                 };
                 allVouchers.value.push(newVoucherUI);
+                isSuccess.value = true;
+                toastText.value = 'Thêm voucher thành công!'
 
             }
+            else {
+                isSuccess.value = false;
+                toastText.value = 'Thêm voucher thất bại!'
+            }
+            loadingPage.value = false
             currentPage.value = 1;
         }
 
@@ -237,6 +258,8 @@
         :initialVoucher="voucherToEdit"
         @save="handleSaveVoucher"
     />
+    <Notification :isSuccess="isSuccess" :text="toastText"></Notification>
+    <Loading :loading="loadingPage"></Loading>
     <div class="flex h-screen bg-[#F3F4F6] font-sans">
         <Navbar />
 

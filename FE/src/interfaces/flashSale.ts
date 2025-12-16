@@ -28,18 +28,18 @@ export interface ImageProducts {
   items?: FlashSaleItem[];
   is_participate?: boolean
 }
-export interface FlashSaleItem {
-  flash_sale_id?: string;
-  product_id?: string;
-  color_id_mongo?: string;
-  size_id_mongo?: string
-  product_name?: string;
-  flash_sale_price: number;
-  stock: number;
-  sold?: number;
-  status?: string;
-  created_at?: Date;
-}
+// export interface FlashSaleItem {
+//   flash_sale_id?: string;
+//   product_id?: string;
+//   color_id_mongo?: string;
+//   size_id_mongo?: string
+//   product_name?: string;
+//   flash_sale_price: number;
+//   stock: number;
+//   sold?: number;
+//   status?: string;
+//   created_at?: Date;
+// }
 export interface ImageProducts {
   color_id: string;
   image_url: string;

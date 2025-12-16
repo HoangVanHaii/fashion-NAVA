@@ -1,315 +1,358 @@
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from "vue";
-import type { Category } from "@/interfaces/category";
-import * as Brand from "../../interfaces/brand";
-import { useProductAdminStore } from "../../stores/admin/product";
-import { useBrandStore } from "@/stores/brand";
-import { useCategoryStore } from "@/stores/category";
-
-const brandStore = useBrandStore();
-const categoryStore = useCategoryStore();
-const category_id = ref<string>("");
-const brand_id = ref<string>("");
-const name = ref<string>("");
-const description = ref<string>("");
-const status = ref<string>("active");
-const listBrand = ref<Brand.IBrandResponse[]>([]);
-const listCategory = ref<Category[]>([]);
-
-const productAdmin = useProductAdminStore();
-
-const attributes = ref<{ key: string; value: string }[]>([
-  { key: "", value: "" },
-]);
-onMounted(async () => {
-  const [brandsPM, categoriesPM] = await Promise.all([
-    brandStore.getAllBrandStore(),
-    categoryStore.getActiveCategoryStore(),
-  ]);
-  listBrand.value = brandsPM;
-  listCategory.value = categoriesPM;
-});
-
-const colors = ref<any[]>([
-  {
-    color: "",
-    is_main: true,
-    sizes: [{ size: "", stock: 0, price: 0 }],
-  },
-]);
-
-const listImageMain = reactive<any[]>([]);
-const listImageColor = reactive<any[]>([]);
-
-interface ImageFiles {
-  mainImage: File | null;
-  mainImagePreview: string;
-  subImages: File[];
-  subImagePreviews: string[];
-}
-
-const colorImages = ref<Map<number, ImageFiles>>(
-  new Map([
-    [
-      0,
-      {
-        mainImage: null,
-        mainImagePreview: "",
-        subImages: [],
-        subImagePreviews: [],
-      },
-    ],
-  ])
-);
-
-const emit = defineEmits(["close"]);
-const showToast = (msg: string) => alert(msg);
-
-// const brands = ref([{ id: 1, name: 'Nike' }, { id: 2, name: 'Adidas' }, { id: 3, name: 'Puma' }]);
-// const categories = ref([{ id: 1, name: 'Áo' }, { id: 2, name: 'Quần' }]);
-
-const nameLength = computed(() => name.value.length);
-const descLength = computed(() => description.value.length || 0);
-
-const syncImagesToList = () => {
-  listImageMain.length = 0;
-  listImageColor.length = 0;
-
-  colors.value.forEach((color: any, index: number) => {
-    const imgFiles = colorImages.value.get(index);
-    if (!imgFiles) return;
-
-    if (imgFiles.mainImage) {
-      listImageMain.push({
-        [`image_main_${index}`]: imgFiles.mainImage,
-      });
+    import { ref, reactive, computed, onMounted } from "vue";
+    import type { Category } from "@/interfaces/category";
+    import * as Brand from "../../interfaces/brand";
+    import { useProductAdminStore } from "../../stores/admin/product";
+    import { useBrandStore } from "@/stores/brand";
+    import { useCategoryStore } from "@/stores/category";
+    import Notification from "../Notification.vue";
+    import Loading from "../Loading.vue";
+    
+    const brandStore = useBrandStore();
+    const categoryStore = useCategoryStore();
+    const productAdmin = useProductAdminStore();
+    
+    const category_id = ref<string>("");
+    const brand_id = ref<string>("");
+    const name = ref<string>("");
+    const description = ref<string>("");
+    const status = ref<string>("active");
+    const listBrand = ref<Brand.IBrandResponse[]>([]);
+    const listCategory = ref<Category[]>([]);
+    
+    const isSuccess = ref(false);
+    const toastText = ref("");
+    const loadingPage = ref(false);
+    
+    const attributes = ref<{ key: string; value: string }[]>([
+        { key: "", value: "" },
+    ]);
+    
+    onMounted(async () => {
+        loadingPage.value = true;
+        const [brandsPM, categoriesPM] = await Promise.all([
+            brandStore.getAllBrandStore(),
+            categoryStore.getActiveCategoryStore(),
+        ]);
+        listBrand.value = brandsPM;
+        listCategory.value = categoriesPM;
+        loadingPage.value = false;
+    });
+    
+    const colors = ref<any[]>([
+        {
+            color: "",
+            is_main: true,
+            sizes: [{ size: "", stock: 0, price: 0 }],
+        },
+    ]);
+    
+    const listImageMain = reactive<any[]>([]);
+    const listImageColor = reactive<any[]>([]);
+    
+    interface ImageFiles {
+        mainImage: File | null;
+        mainImagePreview: string;
+        subImages: File[];
+        subImagePreviews: string[];
     }
-
-    if (imgFiles.subImages.length > 0) {
-      imgFiles.subImages.forEach((file: File) => {
-        listImageColor.push({
-          [`color_images_${index}`]: file,
+    
+    const colorImages = ref<Map<number, ImageFiles>>(
+        new Map([
+            [
+                0,
+                {
+                    mainImage: null,
+                    mainImagePreview: "",
+                    subImages: [],
+                    subImagePreviews: [],
+                },
+            ],
+        ])
+    );
+    
+    const emit = defineEmits(["close"]);
+    
+    const nameLength = computed(() => name.value.length);
+    const descLength = computed(() => description.value.length || 0);
+    
+    const syncImagesToList = () => {
+        listImageMain.length = 0;
+        listImageColor.length = 0;
+    
+        colors.value.forEach((color: any, index: number) => {
+            const imgFiles = colorImages.value.get(index);
+            if (!imgFiles) return;
+    
+            if (imgFiles.mainImage) {
+                listImageMain.push({
+                    [`image_main_${index}`]: imgFiles.mainImage,
+                });
+            }
+    
+            if (imgFiles.subImages.length > 0) {
+                imgFiles.subImages.forEach((file: File) => {
+                    listImageColor.push({
+                        [`color_images_${index}`]: file,
+                    });
+                });
+            }
         });
-      });
-    }
-  });
-};
-
-const addAttribute = () => {
-  const lastAttr = attributes.value[attributes.value.length - 1];
-  if (lastAttr && (!lastAttr.key.trim() || !lastAttr.value.trim())) {
-    showToast("Vui lòng điền dòng hiện tại trước!");
-    return;
-  }
-  attributes.value.push({ key: "", value: "" });
-};
-
-const removeAttribute = (index: number) => {
-  attributes.value.splice(index, 1);
-};
-
-const initImageFiles = (colorIndex: number) => {
-  if (!colorImages.value.has(colorIndex)) {
-    colorImages.value.set(colorIndex, {
-      mainImage: null,
-      mainImagePreview: "",
-      subImages: [],
-      subImagePreviews: [],
-    });
-  }
-};
-
-const handleMainImageUpload = (colorIndex: number, event: Event) => {
-  const target = event.target as HTMLInputElement;
-  const file = target.files?.[0];
-  if (file) {
-    initImageFiles(colorIndex);
-    const imageData = colorImages.value.get(colorIndex)!;
-    imageData.mainImage = file;
-    const reader = new FileReader();
-    reader.onload = (e) =>
-      (imageData.mainImagePreview = e.target?.result as string);
-    reader.readAsDataURL(file);
-
-    setTimeout(syncImagesToList, 100); // Sync ngay
-  }
-};
-
-const handleSubImagesUpload = (colorIndex: number, event: Event) => {
-  const target = event.target as HTMLInputElement;
-  const files = target.files;
-  if (files) {
-    initImageFiles(colorIndex);
-    const imageData = colorImages.value.get(colorIndex)!;
-    Array.from(files).forEach((file) => {
-      if (imageData.subImages.length < 7) {
-        imageData.subImages.push(file);
-        const reader = new FileReader();
-        reader.onload = (e) =>
-          imageData.subImagePreviews.push(e.target?.result as string);
-        reader.readAsDataURL(file);
-      }
-    });
-    setTimeout(syncImagesToList, 100); // Sync ngay
-  }
-};
-
-const removeSubImage = (colorIndex: number, imageIndex: number) => {
-  const imageData = colorImages.value.get(colorIndex);
-  if (imageData) {
-    imageData.subImages.splice(imageIndex, 1);
-    imageData.subImagePreviews.splice(imageIndex, 1);
-    syncImagesToList();
-  }
-};
-
-const addSize = (colorIndex: number) => {
-  colors.value[colorIndex].sizes.push({ size: "", stock: 0, price: 0 });
-};
-
-const removeSize = (colorIndex: number, sizeIndex: number) => {
-  if (colors.value[colorIndex].sizes.length > 1) {
-    colors.value[colorIndex].sizes.splice(sizeIndex, 1);
-  }
-};
-
-const addColor = () => {
-  const newIndex = colors.value.length;
-  colors.value.push({
-    color: "",
-    is_main: false,
-    sizes: [{ size: "", stock: 0, price: 0 }],
-  });
-  initImageFiles(newIndex);
-};
-
-const removeColor = (index: number) => {
-  if (colors.value.length > 1) {
-    colors.value.splice(index, 1);
-
-    const newMap = new Map<number, ImageFiles>();
-    colorImages.value.forEach((value, key) => {
-      if (key < index) newMap.set(key, value);
-      else if (key > index) newMap.set(key - 1, value);
-    });
-    colorImages.value = newMap;
-
-    if (!colors.value.some((c) => c.is_main)) colors.value[0].is_main = true;
-
-    syncImagesToList();
-  }
-};
-
-const handleCancel = () => {
-  emit("close");
-};
-
-const validateForm = (): boolean => {
-  if (!name.value.trim()) {
-    showToast("Nhập tên SP");
-    return false;
-  }
-  if (name.value.length > 200) {
-    showToast("Tên quá dài");
-    return false;
-  }
-  if (!category_id.value) {
-    showToast("Chọn thể loại");
-    return false;
-  }
-  if (!brand_id.value) {
-    showToast("Chọn thương hiệu");
-    return false;
-  }
-
-  if (listImageMain.length === 0) {
-    showToast("Vui lòng chọn ít nhất 1 ảnh đại diện!");
-    return false;
-  }
-
-  for (const color of colors.value) {
-    for (const size of color.sizes) {
-      if (!size.size.trim()) {
-        showToast("Nhập tên size");
-        return false;
-      }
-    }
-  }
-
-  for (const attr of attributes.value) {
-    if (
-      attr.key.length < 2 ||
-      attr.key === undefined ||
-      attr.value.length < 2 ||
-      attr.value === undefined
-    ) {
-      showToast("Điền đủ thông tin thuộc tính");
-      return false;
-    }
-  }
-  if (!description.value || description.value.length < 1) {
-    showToast("Nhập mô tả");
-    return false;
-  }
-
-  return true;
-};
-const convertArrayToObject = (arr: any[]) => {
-  const result: any = {};
-  arr.forEach((item) => {
-    if (
-      item.key &&
-      item.value &&
-      item.key.length >= 2 &&
-      item.value.length >= 2
-    ) {
-      result[item.key] = item.value;
-    }
-  });
-  return result;
-};
-
-const MapFormData = () => {
-  const formData = new FormData();
-  const attributesObject = convertArrayToObject(attributes.value);
-  formData.append("name", name.value);
-  formData.append("description", description.value);
-  formData.append("brand_id", brand_id.value);
-  formData.append("category_id", category_id.value);
-  formData.append("status", status.value);
-  formData.append("attributes", JSON.stringify(attributesObject));
-  formData.append("colors", JSON.stringify(colors.value));
-  listImageMain.forEach((item: any) => {
-    const key = Object.keys(item)[0];
-    if (!key) return;
-    const file = item[key];
-    formData.append(key, file);
-  });
-  listImageColor.forEach((item: any) => {
-    const key = Object.keys(item)[0];
-    if (!key) return;
-    const file = item[key];
-    formData.append(key, file);
-  });
-  return formData;
-};
-
-const handleCreateProduct = async () => {
-  if (!validateForm()) return;
-
-  try {
-    const formData = MapFormData();
-    await productAdmin.addProductStore(formData);
-    if (productAdmin.success) {
-      emit("close");
-    }
-  } catch (error: any) {
-    console.error(error);
-  }
-};
-</script>
-
+    };
+    
+    const addAttribute = () => {
+        const lastAttr = attributes.value[attributes.value.length - 1];
+        if (lastAttr && (!lastAttr.key.trim() || !lastAttr.value.trim())) {
+            isSuccess.value = false;
+            setTimeout(() => {
+                toastText.value = "Vui lòng điền dòng hiện tại trước!";
+            }, 0);
+            return;
+        }
+        attributes.value.push({ key: "", value: "" });
+    };
+    
+    const removeAttribute = (index: number) => {
+        attributes.value.splice(index, 1);
+    };
+    
+    const initImageFiles = (colorIndex: number) => {
+        if (!colorImages.value.has(colorIndex)) {
+            colorImages.value.set(colorIndex, {
+                mainImage: null,
+                mainImagePreview: "",
+                subImages: [],
+                subImagePreviews: [],
+            });
+        }
+    };
+    
+    const handleMainImageUpload = (colorIndex: number, event: Event) => {
+        const target = event.target as HTMLInputElement;
+        const file = target.files?.[0];
+        if (file) {
+            initImageFiles(colorIndex);
+            const imageData = colorImages.value.get(colorIndex)!;
+            imageData.mainImage = file;
+            const reader = new FileReader();
+            reader.onload = (e) =>
+                (imageData.mainImagePreview = e.target?.result as string);
+            reader.readAsDataURL(file);
+    
+            setTimeout(syncImagesToList, 100); // Sync ngay
+        }
+    };
+    
+    const handleSubImagesUpload = (colorIndex: number, event: Event) => {
+        const target = event.target as HTMLInputElement;
+        const files = target.files;
+        if (files) {
+            initImageFiles(colorIndex);
+            const imageData = colorImages.value.get(colorIndex)!;
+            Array.from(files).forEach((file) => {
+                if (imageData.subImages.length < 7) {
+                    imageData.subImages.push(file);
+                    const reader = new FileReader();
+                    reader.onload = (e) =>
+                        imageData.subImagePreviews.push(e.target?.result as string);
+                    reader.readAsDataURL(file);
+                }
+            });
+            setTimeout(syncImagesToList, 100); // Sync ngay
+        }
+    };
+    
+    const removeSubImage = (colorIndex: number, imageIndex: number) => {
+        const imageData = colorImages.value.get(colorIndex);
+        if (imageData) {
+            imageData.subImages.splice(imageIndex, 1);
+            imageData.subImagePreviews.splice(imageIndex, 1);
+            syncImagesToList();
+        }
+    };
+    
+    const addSize = (colorIndex: number) => {
+        colors.value[colorIndex].sizes.push({ size: "", stock: 0, price: 0 });
+    };
+    
+    const removeSize = (colorIndex: number, sizeIndex: number) => {
+        if (colors.value[colorIndex].sizes.length > 1) {
+            colors.value[colorIndex].sizes.splice(sizeIndex, 1);
+        }
+    };
+    
+    const addColor = () => {
+        const newIndex = colors.value.length;
+        colors.value.push({
+            color: "",
+            is_main: false,
+            sizes: [{ size: "", stock: 0, price: 0 }],
+        });
+        initImageFiles(newIndex);
+    };
+    
+    const removeColor = (index: number) => {
+        if (colors.value.length > 1) {
+            colors.value.splice(index, 1);
+    
+            const newMap = new Map<number, ImageFiles>();
+            colorImages.value.forEach((value, key) => {
+                if (key < index) newMap.set(key, value);
+                else if (key > index) newMap.set(key - 1, value);
+            });
+            colorImages.value = newMap;
+    
+            if (!colors.value.some((c) => c.is_main)) colors.value[0].is_main = true;
+    
+            syncImagesToList();
+        }
+    };
+    
+    const handleCancel = () => {
+        emit("close");
+    };
+    
+    const validateForm = (): boolean => {
+        toastText.value = "";
+        if (!name.value.trim()) {
+            isSuccess.value = false;
+            setTimeout(() => {
+                toastText.value = "Nhập tên sản phẩm";
+            }, 0);
+            return false;
+        }
+        if (name.value.length < 11) {
+            isSuccess.value = false;
+            setTimeout(() => {
+                toastText.value = "Tên sản phẩm quá ngắn";
+            }, 0);
+            return false;
+        }
+        if (!category_id.value) {
+            isSuccess.value = false;
+            setTimeout(() => {
+                toastText.value = "Chọn thể loại";
+            }, 0);
+            return false;
+        }
+        if (!brand_id.value) {
+            isSuccess.value = false;
+            setTimeout(() => {
+                toastText.value = "Chọn thương hiệu";
+            }, 0);
+            return false;
+        }
+    
+        if (listImageMain.length === 0) {
+            isSuccess.value = false;
+            toastText.value = "Vui lòng chọn ít nhất 1 ảnh đại diện!";
+            return false;
+        }
+    
+        for (const color of colors.value) {
+            for (const size of color.sizes) {
+                if (!size.size.trim()) {
+                    isSuccess.value = false;
+                    setTimeout(() => {
+                        toastText.value = "Nhập tên size";
+                    }, 0);
+                    return false;
+                }
+            }
+        }
+    
+        for (const attr of attributes.value) {
+            toastText.value = "";
+            if (
+                attr.key.length < 2 ||
+                attr.key === undefined ||
+                attr.value.length < 2 ||
+                attr.value === undefined
+            ) {
+                isSuccess.value = false;
+                setTimeout(() => {
+                    toastText.value = "Điền đủ thông tin thuộc tính!";
+                }, 0);
+                return false;
+            }
+        }
+        if (!description.value || description.value.length < 10) {
+            isSuccess.value = false;
+            setTimeout(() => {
+                toastText.value = "Vui lòng nhập mô tả!";
+            }, 0);
+            return false;
+        }
+    
+        return true;
+    };
+    
+    const convertArrayToObject = (arr: any[]) => {
+        const result: any = {};
+        arr.forEach((item) => {
+            if (
+                item.key &&
+                item.value &&
+                item.key.length >= 2 &&
+                item.value.length >= 2
+            ) {
+                result[item.key] = item.value;
+            }
+        });
+        return result;
+    };
+    
+    const MapFormData = () => {
+        const formData = new FormData();
+        const attributesObject = convertArrayToObject(attributes.value);
+        formData.append("name", name.value);
+        formData.append("description", description.value);
+        formData.append("brand_id", brand_id.value);
+        formData.append("category_id", category_id.value);
+        formData.append("status", status.value);
+        formData.append("attributes", JSON.stringify(attributesObject));
+        formData.append("colors", JSON.stringify(colors.value));
+        
+        listImageMain.forEach((item: any) => {
+            const key = Object.keys(item)[0];
+            if (!key) return;
+            const file = item[key];
+            formData.append(key, file);
+        });
+        
+        listImageColor.forEach((item: any) => {
+            const key = Object.keys(item)[0];
+            if (!key) return;
+            const file = item[key];
+            formData.append(key, file);
+        });
+        
+        return formData;
+    };
+    
+    const handleCreateProduct = async () => {
+        if (!validateForm()) return;
+    
+        try {
+            loadingPage.value = true;
+            const formData = MapFormData();
+            await productAdmin.addProductStore(formData);
+            loadingPage.value = false;
+            isSuccess.value = true;
+            toastText.value = "Thêm sản phẩm thành công!";
+            emit("close");
+        } catch (error: any) {
+            isSuccess.value = false;
+            toastText.value = "Thêm sản phẩm thất bại!";
+            loadingPage.value = false;
+            console.error(error);
+            emit("close");
+        }
+    };
+    </script>
 <template>
+    <Loading :loading="loadingPage"></Loading>
+    <Notification :isSuccess="isSuccess" :text="toastText"></Notification>
   <div
     @click="handleCancel"
     class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in"

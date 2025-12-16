@@ -1,7 +1,7 @@
 import { FlashSale, FlashSaleItem, FlashSaleProductSold } from "../interfaces/flashSale";
 import { IProductMongoDetail } from "../interfaces/product";
 import { AppError } from "../utils/appError";
-import mssql, { ConnectionPool } from "mssql";
+import mssql, { ConnectionPool, Transaction } from "mssql";
 import { buildInventoryMap, getMongoProductsByIds, mergeSqlMongoProducts } from "./product";
 
 export const createFlashSale = async (flashSale: FlashSale, pool: ConnectionPool): Promise<number> => {
@@ -26,21 +26,29 @@ export const addItemToFlashSale = async (branch_id: string, flash_sale_id: strin
     const transaction = new mssql.Transaction(pool);
     try {
         await transaction.begin();
+        console.log(flash_sale_id, branch_id);
 
         const checkFlashSale = await new mssql.Request(transaction)
             .input("flash_sale_id", flash_sale_id)
-            .query(`SELECT fs.status
-                FROM flash_sales fs
-                WHERE fs.id = @flash_sale_id`);
+            .query(`
+                SELECT id, title, status, start_date, end_date
+                FROM flash_sales
+                WHERE id = @flash_sale_id
+                  AND status IN ('active', 'pending')
+                  AND end_date >= GETDATE()
+              `);
 
         const flash_sale = checkFlashSale.recordset[0];
         if (!flash_sale) {
-            throw new AppError("Flash sale not found", 404,);
+            throw new AppError(
+                "Flash sale has ended or is not available",
+                400
+            );
         }
-
-        if (flash_sale.status !== "active") {
-            throw new AppError(`Cannot add items while the flash sale is ${flash_sale.status}`, 400);
-        }
+        
+        // if (flash_sale.status !== "active") {
+        //     throw new AppError(`Cannot add items while the flash sale is ${flash_sale.status}`, 400);
+        // }
         for (const item of items) {
             const existingItem = await new mssql.Request(transaction)
                 .input("flash_sale_id", flash_sale_id)
@@ -59,28 +67,30 @@ export const addItemToFlashSale = async (branch_id: string, flash_sale_id: strin
 
             const checkConflict = await new mssql.Request(transaction)
                 .input("size_id_mongo", item.size_id_mongo)
-                .input('branch_id', branch_id)
+                .input("branch_id", branch_id)
                 .input("new_start_date", flash_sale.start_date)
                 .input("new_end_date", flash_sale.end_date)
                 .input("flash_sale_id", flash_sale_id)
                 .query(`
                     SELECT fsi.id, fs.title
                     FROM flash_sale_items fsi
-                    JOIN flash_sales fs ON fsi.flash_sale_id = fs.id 
-                                        AND fs.status IN ('active')
+                    JOIN flash_sales fs ON fs.id = fsi.flash_sale_id
                     WHERE fsi.size_id_mongo = @size_id_mongo
                         AND fsi.branch_id = @branch_id
                         AND fs.id <> @flash_sale_id
-                        AND fsi.status = 'active'
+                        AND fs.status IN ('active', 'pending')
+                        AND fs.start_date <= @new_end_date
+                        AND fs.end_date >= @new_start_date
                 `);
+
 
             if (checkConflict.recordset.length > 0) {
                 throw new AppError(`Product with ID ${item.product_id} is already in another active flash sale during the same period <${checkConflict.recordset[0].title}>`, 400);
             }
             console.log(branch_id);
             await new mssql.Request(transaction)
-                .input("flash_sale_id", flash_sale_id)
-                .input("product_id", item.product_id)
+                .input("flash_sale_id", mssql.UniqueIdentifier, flash_sale_id)
+                .input("product_id", mssql.UniqueIdentifier, item.product_id)
                 .input('color_id_mongo', item.color_id_mongo)
                 .input("size_id_mongo", item.size_id_mongo)
                 .input('branch_id', branch_id)
@@ -90,8 +100,13 @@ export const addItemToFlashSale = async (branch_id: string, flash_sale_id: strin
                         VALUES (@flash_sale_id, @product_id, @color_id_mongo, @size_id_mongo, @branch_id, @flash_sale_price, @stock)`);
         }
         await transaction.commit();
+        console.log("success");
     } catch (err) {
-        await transaction.rollback();
+        try {
+            // if (!transaction._ab) {
+                await transaction.rollback();
+            // }
+        } catch (_) {}    
         console.error(err);
         if (err instanceof AppError) throw err;
         throw new AppError("Failed to add items to flash sale", 500, false);
@@ -132,6 +147,7 @@ export const sortDeleteFlashSale = async (dbBranch: ConnectionPool, idFlashSale:
         await dbBranch.request()
             .input('idFlashSale', idFlashSale)
             .query(updateFlashSaleQuery);
+        
 
     } catch (error) {
         if (error instanceof AppError) {
@@ -312,5 +328,141 @@ export const getProductsActive = async (flash_sale_id: string, pool: ConnectionP
     } catch (err) {
         console.error("Failed to fetch all products", err);
         throw new AppError("Failed to fetch all products", 500, false);
+    }
+};
+
+
+export const getProductsNotSale = async (pool: ConnectionPool, branch_id: string): Promise<IProductMongoDetail[]> => {
+    try {
+        let query = queryGlobalTmp;
+        const req = pool.request()
+            .input("branch_id", branch_id)
+            .input("status", "active")
+        
+        const sqlResult = await req.query(query)
+        
+        const productSql = sqlResult.recordset;
+
+        const mongoIds = productSql
+            .map(p => p.mongodb_id)
+            .filter(Boolean);
+        
+        const mongoProducts = await getMongoProductsByIds(mongoIds);
+
+        const inventoryMap = buildInventoryMap(productSql);
+
+        const productResult = mergeSqlMongoProducts(productSql, mongoProducts, inventoryMap);
+        
+        return productResult;
+
+    } catch (err) {
+        console.error("Failed to fetch all products", err);
+        throw new AppError("Failed to fetch all products", 500, false);
+    }
+};
+const queryGlobalTmp = `
+    SELECT 
+        p.id,
+        p.mongodb_id,
+        p.name,
+        p.category_id,
+        p.brand_id,
+        p.status,
+        p.created_at,
+        bi.color_id_mongo,
+        bi.size_id_mongo,
+        bi.price,
+        bi.stock
+    FROM products p
+    INNER JOIN branch_inventories bi
+        ON bi.product_id = p.id
+        AND bi.branch_id = @branch_id
+    WHERE p.status = @status
+      AND NOT EXISTS (
+        SELECT 1
+        FROM branch_inventories bi2
+        INNER JOIN flash_sale_items fsi
+            ON fsi.product_id = bi2.product_id
+            AND fsi.color_id_mongo = bi2.color_id_mongo
+            AND fsi.size_id_mongo = bi2.size_id_mongo
+            AND fsi.branch_id = @branch_id
+        INNER JOIN flash_sales fs
+            ON fs.id = fsi.flash_sale_id
+            AND fs.status IN ('active', 'pending')
+            AND fs.start_date <= GETDATE()
+            AND fs.end_date >= GETDATE()
+        WHERE bi2.product_id = p.id
+          AND bi2.branch_id = @branch_id
+      );
+`;
+
+
+
+
+
+
+export const updateFlashSaleStatusWithTransaction = async (transaction: Transaction, idFlashSale: string, branch_id: string): Promise<void> => {
+    
+    // 1. Kiểm tra Flash Sale (Dùng request của transaction truyền vào)
+    const checkResult = await new mssql.Request(transaction)
+        .input('idFlashSale', idFlashSale)
+        .query(`
+            SELECT id, title, status, start_date, end_date 
+            FROM flash_sales 
+            WHERE id = @idFlashSale
+        `);
+
+    const flashSale = checkResult.recordset[0];
+    if (!flashSale) {
+        throw new AppError("Flash sale not found", 404);
+    }
+
+    // 2. Tính toán trạng thái (Logic giữ nguyên)
+    let newStatus = flashSale.status;
+    let newStartDate = flashSale.start_date;
+    let newEndDate = flashSale.end_date;
+    const now = new Date();
+
+    switch (flashSale.status) {
+        case 'pending':
+            newStatus = 'active';
+            newStartDate = now; 
+            break;
+        case 'active':
+            newStatus = 'ended';
+            newEndDate = now;
+            break;
+        case 'ended':
+            newStatus = 'cancelled';
+            break;
+        case 'cancelled':
+            // Nếu đã hủy thì không cần làm gì, nhưng cũng không throw lỗi
+            return; 
+        default:
+            throw new AppError(`Unknown status: ${flashSale.status}`, 400);
+    }
+
+    // 3. Update bảng cha
+    await new mssql.Request(transaction)
+        .input('idFlashSale', idFlashSale)
+        .input('newStatus', newStatus)
+        .input('newStartDate', newStartDate)
+        .input('newEndDate', newEndDate)
+        .query(`
+            UPDATE flash_sales
+            SET status = @newStatus, start_date = @newStartDate, end_date = @newEndDate
+            WHERE id = @idFlashSale
+        `);
+
+    // 4. Update bảng con nếu cần
+    if (newStatus === 'ended' || newStatus === 'cancelled') {
+        await new mssql.Request(transaction)
+            .input('idFlashSale', idFlashSale)
+            .input('branch_id', branch_id)
+            .query(`
+                UPDATE flash_sale_items
+                SET status = 'removed'
+                WHERE flash_sale_id = @idFlashSale AND branch_id = @branch_id
+            `);
     }
 };

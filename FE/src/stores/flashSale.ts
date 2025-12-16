@@ -1,6 +1,6 @@
-import { getFlashSale, getTotalSoldFlashSaleById, getFlashSaleNotIn, getFlashSaleActive, getProductActiveByFlashSaleId } from "../services/flashSale";
+import { getFlashSale, getTotalSoldFlashSaleById, getFlashSaleNotIn, getFlashSaleActive, getProductActiveByFlashSaleId, createFlashSale, getProductNotSale, addFlashSaleItem, changeStatus, getProductActiveByFlashSaleIdBranch } from "../services/flashSale";
 import { defineStore } from "pinia";
-import type { FlashSale, FlashSaleProductSold } from "../interfaces/flashSale";
+import type { FlashSale, FlashSaleItem, FlashSaleProductSold } from "../interfaces/flashSale";
 import { ref } from "vue";
 
 export const flashSaleStore = defineStore("flashSale", () => {
@@ -46,6 +46,19 @@ export const flashSaleStore = defineStore("flashSale", () => {
             loading.value = false
         }
     }
+    const getProductNotSaleStore = async (branch_code: string) => {
+        loading.value = true;
+        hotDeal1.value = null;
+        error.value = null;
+        try {
+            const data = await getProductNotSale(branch_code);
+            return data.products;
+        } catch (err) {
+            console.log(err);
+        } finally {
+            loading.value = false
+        }
+    }
     const getFlashSaleHotDeal2NotIN = async (excludeId: string) => {
         hotDeal2.value = null;
         error.value = null;
@@ -58,6 +71,42 @@ export const flashSaleStore = defineStore("flashSale", () => {
             };
         } catch (err) {
             console.log(err);
+        } finally {
+            loading.value = false;
+        }
+    }
+    const createFlashSaleStore = async (title: string, start_date: Date, end_date: Date) => {
+        hotDeal2.value = null;
+        error.value = null;
+        loading.value = true;
+        try {
+            await createFlashSale(title, start_date, end_date);
+        } catch (err) {
+            console.log(err);
+        } finally {
+            loading.value = false;
+        }
+    }
+    const changeStatusStore = async (id: string) => {
+        hotDeal2.value = null;
+        error.value = null;
+        loading.value = true;
+        try {
+            await changeStatus(id)
+        } catch (err) {
+            console.log(err);
+        } finally {
+            loading.value = false;
+        }
+    }
+    const addFlashSaleItemStore = async (id: string, items: FlashSaleItem[], branch_code: string) => {
+        hotDeal2.value = null;
+        error.value = null;
+        loading.value = true;
+        try {
+            await addFlashSaleItem(id, items, branch_code)
+        } catch (err) {
+            console.log("err",  err);
         } finally {
             loading.value = false;
         }
@@ -99,7 +148,19 @@ export const flashSaleStore = defineStore("flashSale", () => {
             loading.value = false;
         }
     }
-    return { loading, error, flashSales, hotDeal1, hotDeal2, totalSolds, listFlashSale, getFlashSaleHome, getTotalSoldFlashSaleByIdStore, getFlashSaleHotDeal1NotIN, getFlashSaleHotDeal2NotIN, getFlashSaleActiveStore, getProductActiveByFlashSaleIdStore }
+    const getProductActiveByFlashSaleIdBranchStore = async (flash_id: string, branch_code: string) => {
+        loading.value = true;
+        try {
+            const result = await getProductActiveByFlashSaleIdBranch(flash_id, branch_code);
+            return result.data;
+        } catch (err) {
+            loading.value = false;
+            console.log(err);
+        } finally {
+            loading.value = false;
+        }
+    }
+    return { loading, error, createFlashSaleStore, getProductActiveByFlashSaleIdBranchStore, changeStatusStore, addFlashSaleItemStore, getProductNotSaleStore, flashSales, hotDeal1, hotDeal2, totalSolds, listFlashSale, getFlashSaleHome, getTotalSoldFlashSaleByIdStore, getFlashSaleHotDeal1NotIN, getFlashSaleHotDeal2NotIN, getFlashSaleActiveStore, getProductActiveByFlashSaleIdStore }
 })
 
 

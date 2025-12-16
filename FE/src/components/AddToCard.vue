@@ -94,19 +94,14 @@ const handleSelectColor = (color: IProductColorResponse) => {
 const handleAddToCart = async () => {
   if (!sizeChose.value) return;
 
-  showNotification.value = false;
-  toastText.value = "";
 
   const login = localStorage.getItem("accessToken") ? true : false;
   if (!login) {
-    setTimeout(() => {
-      toastText.value = "Vui lòng đăng nhập để thêm vào giỏ hàng!";
-      showNotification.value = true;
-    }, 0);
+    router.push('auth/login')
     return;
   }
 
-  if (loading.value) return;
+    if (loading.value) return;
     loading.value = true;
     const cartItem: ICartItem = {
         size_id_mongo: sizeChose.value._id,
@@ -115,18 +110,15 @@ const handleAddToCart = async () => {
     }
 
     await useCart.addToCartAction(cartItem);
-
     if (useCart.success) {
-      showNotification.value = true;
-      toastText.value = "Thêm vào giỏ hàng thành công!";
       setTimeout(() => {
         loading.value = false;
         handleClose();
       }, 1500);
     } else {
-      toastText.value = "Thêm vào giỏ hàng thất bại!";
-      showNotification.value = true;
-      loading.value = false;
+        router.push('auth/login')
+        loading.value = false;
+            handleClose();
     }
 };
 
@@ -148,7 +140,6 @@ const viewDetail = () => {
     <div class="absolute inset-0 bg-black/60 backdrop-blur-sm"></div>
 
     <!-- Notification Toast (Local) -->
-    <Notification :text="toastText" :isSuccess="showNotification" />
 
     <!-- Modal Content -->
     <!-- Reduced max-w-4xl to max-w-2xl for smaller width -->

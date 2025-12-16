@@ -1,532 +1,595 @@
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, watch, nextTick } from "vue";
-import { useProductAdminStore } from "../../stores/admin/product";
-import * as IProduct from "../../interfaces/product";
-import type { Category } from "@/interfaces/category";
-import * as Brand from "../../interfaces/brand";
-import { useBrandStore } from "@/stores/brand";
-import { useCategoryStore } from "@/stores/category";
-const listBrand = ref<Brand.IBrandResponse[]>([]);
-const listCategory = ref<Category[]>([]);
-
-const productAdmin = useProductAdminStore();
-
-const props = defineProps<{ product?: any }>();
-const emit = defineEmits(["close", "refresh"]);
-
-const currentTab = ref<"general" | number>("general");
-const textToast = ref<string>("");
-const showNotification = ref<boolean>(false);
-
-const currentTabSnapshot = ref<string>("");
-const brandStore = useBrandStore();
-const categoryStore = useCategoryStore();
-
-// Interface cục bộ để lưu trữ thuộc tính dưới dạng MẢNG KEY-VALUE cho giao diện
-interface LocalAttributeItem {
-  key: string;
-  value: string;
-}
-
-interface ImageFiles {
-  mainImage: File | null;
-  mainImagePreview: string;
-  subImages: File[];
-  subImagePreviews: string[];
-}
-
-const productData = reactive<IProduct.IProductMongoDetail>({
-  _id: "",
-  product_id_sql: "",
-  category_id: 0 as any,
-  brand_id: 0 as any,
-  name: "",
-  description: "",
-  // Attributes dạng Object (theo Interface IProductMongoDetail)
-  attributes: {},
-  colors: [],
-});
-
-// STATE TRUNG GIAN DÙNG CHO INPUT (MẢNG CÁC CẶP KEY-VALUE)
-const localAttributes = ref<LocalAttributeItem[]>([]);
-
-const colorImages = ref<Map<number, ImageFiles>>(new Map());
-const activeColor = computed(() =>
-  typeof currentTab.value === "number"
-    ? productData.colors[currentTab.value]
-    : undefined
-);
-
-const getCurrentTabData = () => {
-  if (currentTab.value === "general") {
-    return {
-      name: productData.name,
-      category_id: productData.category_id,
-      brand_id: productData.brand_id,
-      description: productData.description,
-      // So sánh cả localAttributes (biến state trung gian)
-      attributes: localAttributes.value,
+    import { ref, reactive, computed, onMounted, watch, nextTick } from "vue";
+    import { useProductAdminStore } from "../../stores/admin/product";
+    import * as IProduct from "../../interfaces/product";
+    import type { Category } from "@/interfaces/category";
+    import * as Brand from "../../interfaces/brand";
+    import { useBrandStore } from "@/stores/brand";
+    import { useCategoryStore } from "@/stores/category";
+    import Loading from "../Loading.vue";
+    import Notification from "../Notification.vue";
+    
+    const loadingPage = ref(false);
+    const isSuccess = ref(false);
+    const toastText = ref('');
+    const listBrand = ref<Brand.IBrandResponse[]>([]);
+    const listCategory = ref<Category[]>([]);
+    
+    const productAdmin = useProductAdminStore();
+    
+    const props = defineProps<{ product?: any }>();
+    const emit = defineEmits(["close", "refresh"]);
+    
+    const currentTab = ref<"general" | number>("general");
+    const textToast = ref<string>("");
+    const showNotification = ref<boolean>(false);
+    
+    const currentTabSnapshot = ref<string>("");
+    const brandStore = useBrandStore();
+    const categoryStore = useCategoryStore();
+    
+    // Interface cục bộ để lưu trữ thuộc tính dưới dạng MẢNG KEY-VALUE cho giao diện
+    interface LocalAttributeItem {
+        key: string;
+        value: string;
+    }
+    
+    interface ImageFiles {
+        mainImage: File | null;
+        mainImagePreview: string;
+        subImages: File[];
+        subImagePreviews: string[];
+    }
+    
+    const productData = reactive<IProduct.IProductMongoDetail>({
+        _id: "",
+        product_id_sql: "",
+        category_id: 0 as any,
+        brand_id: 0 as any,
+        name: "",
+        description: "",
+        // Attributes dạng Object (theo Interface IProductMongoDetail)
+        attributes: {},
+        colors: [],
+    });
+    
+    // STATE TRUNG GIAN DÙNG CHO INPUT (MẢNG CÁC CẶP KEY-VALUE)
+    const localAttributes = ref<LocalAttributeItem[]>([]);
+    
+    const colorImages = ref<Map<number, ImageFiles>>(new Map());
+    const activeColor = computed(() =>
+        typeof currentTab.value === "number"
+            ? productData.colors[currentTab.value]
+            : undefined
+    );
+    
+    const getCurrentTabData = () => {
+        if (currentTab.value === "general") {
+            return {
+                name: productData.name,
+                category_id: productData.category_id,
+                brand_id: productData.brand_id,
+                description: productData.description,
+                // So sánh cả localAttributes (biến state trung gian)
+                attributes: localAttributes.value,
+            };
+        } else if (typeof currentTab.value === "number") {
+            return productData.colors[currentTab.value];
+        }
+        return null;
     };
-  } else if (typeof currentTab.value === "number") {
-    return productData.colors[currentTab.value];
-  }
-  return null;
-};
-
-const isModified = computed(() => {
-  const currentData = JSON.stringify(getCurrentTabData());
-  return currentData !== currentTabSnapshot.value;
-});
-
-onMounted(async () => {
-  const p = props.product;
-
-  productData._id = p._id?.$oid || p._id || "";
-  productData.product_id_sql = p.product_id_sql || p.id || "";
-  productData.name = p.name || "";
-  productData.category_id = p.category_id || 0;
-  productData.brand_id = p.brand_id || 0;
-  productData.description = p.description || "";
-
-  let rawAttrs = p.attributes;
-  if (typeof rawAttrs === "string") {
-    try {
-      rawAttrs = JSON.parse(rawAttrs);
-    } catch (e) {
-      rawAttrs = {};
-    }
-  }
-
-  // CHUYỂN OBJECT SANG MẢNG KEY-VALUE (dùng cho localAttributes)
-  if (rawAttrs && typeof rawAttrs === "object" && !Array.isArray(rawAttrs)) {
-    localAttributes.value = Object.entries(rawAttrs).map(([k, v]) => ({
-      key: k,
-      value: String(v),
-    }));
-  }
-  // Đảm bảo luôn có ít nhất 1 dòng trống để thêm mới
-  if (localAttributes.value.length === 0) {
-    localAttributes.value.push({ key: "", value: "" });
-  }
-
-  const rawColors = p.colors || [];
-  productData.colors = rawColors.map((c: any) => ({
-    _id: c._id?.$oid || c._id || "",
-    color: c.color,
-    is_main: c.is_main || false,
-    image_main: c.image_main || c.image_url || "",
-    color_images: c.color_images || c.images || [],
-    sizes: Array.isArray(c.sizes)
-      ? c.sizes.map((s: any) => ({
-          _id: s._id?.$oid || s._id || "",
-          size: s.size || "",
-          price: s.price || null,
-          stock: s.stock || 0,
-          sale_price: s.sale_price || null,
-          sale_stock: s.sale_stock || 0,
-          sale_sold: s.sale_sold || 0,
-        }))
-      : ([
-          { _id: "", size: "", stock: 0, price: 0 },
-        ] as IProduct.IProductSizeResponse[]),
-  }));
-
-  productData.colors.forEach((color, index) => {
-    colorImages.value.set(index, {
-      mainImage: null,
-      mainImagePreview: (color.image_main as string) || "",
-      subImages: [],
-      subImagePreviews: (color.color_images as string[]) || [],
+    
+    const isModified = computed(() => {
+        const currentData = JSON.stringify(getCurrentTabData());
+        return currentData !== currentTabSnapshot.value;
     });
-  });
-
-  // Lưu snapshot ban đầu của localAttributes
-  currentTabSnapshot.value = JSON.stringify(getCurrentTabData());
-  const [brandsPM, categoriesPM] = await Promise.all([
-    brandStore.getAllBrandStore(),
-    categoryStore.getActiveCategoryStore(),
-  ]);
-  listBrand.value = brandsPM;
-  listCategory.value = categoriesPM;
-});
-
-const showToast = (msg: string) => {
-  textToast.value = msg;
-  showNotification.value = true;
-  setTimeout(() => (showNotification.value = false), 3000);
-};
-
-const switchTab = (tab: "general" | number) => {
-  if (isModified.value) {
-    showToast(
-      "⚠️ Bạn có thay đổi chưa lưu! Vui lòng lưu lại trước khi chuyển tab."
-    );
-    return;
-  }
-
-  currentTab.value = tab;
-
-  nextTick(() => {
-    currentTabSnapshot.value = JSON.stringify(getCurrentTabData());
-  });
-};
-
-const addColor = () => {
-  if (currentTab.value === "general" && isModified.value) {
-    showToast("Vui lòng lưu Thông tin chung trước khi thêm màu!");
-    return;
-  }
-
-  const lastColor = productData.colors[productData.colors.length - 1];
-  if (lastColor && !lastColor.color?.trim()) {
-    showToast("Nhập tên màu hiện tại trước khi thêm!");
-    switchTab(productData.colors.length - 1);
-    return;
-  }
-
-  const newIndex = productData.colors.length;
-  productData.colors.push({
-    _id: "",
-    color: "",
-    image_main: "",
-    is_main: false,
-    sizes: [
-      { _id: "", size: "", stock: 0, price: 0 },
-    ] as IProduct.IProductSizeResponse[],
-    color_images: [],
-  });
-  colorImages.value.set(newIndex, {
-    mainImage: null,
-    mainImagePreview: "",
-    subImages: [],
-    subImagePreviews: [],
-  });
-
-  currentTab.value = newIndex;
-  nextTick(() => {
-    currentTabSnapshot.value = JSON.stringify(getCurrentTabData());
-  });
-};
-
-const removeColor = async (index: number) => {
-  const targetColor = productData.colors[index];
-  alert(1);
-  if (!targetColor) return;
-  alert(2);
-  if (!targetColor._id || targetColor._id === "") {
-    productData.colors.splice(index, 1);
-    const newImageMap = new Map<number, ImageFiles>();
-    productData.colors.forEach((c, i) => {
-      newImageMap.set(i, {
-        mainImage: null,
-        mainImagePreview: (c.image_main as string) || "",
-        subImages: [],
-        subImagePreviews: (c.color_images as string[]) || [],
-      });
+    
+    onMounted(async () => {
+        const p = props.product;
+    
+        productData._id = p._id?.$oid || p._id || "";
+        productData.product_id_sql = p.product_id_sql || p.id || "";
+        productData.name = p.name || "";
+        productData.category_id = p.category_id || 0;
+        productData.brand_id = p.brand_id || 0;
+        productData.description = p.description || "";
+    
+        let rawAttrs = p.attributes;
+        if (typeof rawAttrs === "string") {
+            try {
+                rawAttrs = JSON.parse(rawAttrs);
+            } catch (e) {
+                rawAttrs = {};
+            }
+        }
+    
+        // CHUYỂN OBJECT SANG MẢNG KEY-VALUE (dùng cho localAttributes)
+        if (rawAttrs && typeof rawAttrs === "object" && !Array.isArray(rawAttrs)) {
+            localAttributes.value = Object.entries(rawAttrs).map(([k, v]) => ({
+                key: k,
+                value: String(v),
+            }));
+        }
+        // Đảm bảo luôn có ít nhất 1 dòng trống để thêm mới
+        if (localAttributes.value.length === 0) {
+            localAttributes.value.push({ key: "", value: "" });
+        }
+    
+        const rawColors = p.colors || [];
+        productData.colors = rawColors.map((c: any) => ({
+            _id: c._id?.$oid || c._id || "",
+            color: c.color,
+            is_main: c.is_main || false,
+            image_main: c.image_main || c.image_url || "",
+            color_images: c.color_images || c.images || [],
+            sizes: Array.isArray(c.sizes)
+                ? c.sizes.map((s: any) => ({
+                    _id: s._id?.$oid || s._id || "",
+                    size: s.size || "",
+                    price: s.price || null,
+                    stock: s.stock || 0,
+                    sale_price: s.sale_price || null,
+                    sale_stock: s.sale_stock || 0,
+                    sale_sold: s.sale_sold || 0,
+                }))
+                : ([
+                    { _id: "", size: "", stock: 0, price: 0 },
+                ] as IProduct.IProductSizeResponse[]),
+        }));
+    
+        productData.colors.forEach((color, index) => {
+            colorImages.value.set(index, {
+                mainImage: null,
+                mainImagePreview: (color.image_main as string) || "",
+                subImages: [],
+                subImagePreviews: (color.color_images as string[]) || [],
+            });
+        });
+    
+        // Lưu snapshot ban đầu của localAttributes
+        currentTabSnapshot.value = JSON.stringify(getCurrentTabData());
+        const [brandsPM, categoriesPM] = await Promise.all([
+            brandStore.getAllBrandStore(),
+            categoryStore.getActiveCategoryStore(),
+        ]);
+        listBrand.value = brandsPM;
+        listCategory.value = categoriesPM;
     });
-    colorImages.value = newImageMap;
-
-    currentTab.value = "general";
-    return;
-  }
-  alert(4);
-  if (targetColor?._id) {
-    console.log(productData.product_id_sql, targetColor._id);
-    await productAdmin.deleteProductColorStore(
-      productData.product_id_sql,
-      targetColor?._id
-    );
-  }
-  if (!targetColor?._id || productAdmin.success) {
-    targetColor.sizes.forEach((sizeItem) => {
-      sizeItem.price = null;
-      sizeItem.sale_price = null;
-      sizeItem.sale_stock = 0;
-      sizeItem.stock = 0;
-    });
-  }
-
-  currentTab.value = "general";
-  nextTick(
-    () => (currentTabSnapshot.value = JSON.stringify(getCurrentTabData()))
-  );
-};
-const setMainColor = (index: number) => {
-  productData.colors.forEach((c, i) => (c.is_main = i === index));
-};
-
-const handleMainImageUpload = (event: Event) => {
-  const target = event.target as HTMLInputElement;
-  const file = target.files?.[0];
-  if (file && typeof currentTab.value === "number") {
-    const imgData = colorImages.value.get(currentTab.value)!;
-    imgData.mainImage = file;
-    const reader = new FileReader();
-    reader.onload = (e) =>
-      (imgData.mainImagePreview = e.target?.result as string);
-    reader.readAsDataURL(file);
-  }
-};
-const handleSubImagesUpload = (event: Event) => {
-  const target = event.target as HTMLInputElement;
-  const files = target.files;
-  if (files && typeof currentTab.value === "number") {
-    const imgData = colorImages.value.get(currentTab.value)!;
-    Array.from(files).forEach((file) => {
-      if (imgData.subImages.length + imgData.subImagePreviews.length < 7) {
-        imgData.subImages.push(file);
-        const reader = new FileReader();
-        reader.onload = (e) =>
-          imgData.subImagePreviews.push(e.target?.result as string);
-        reader.readAsDataURL(file);
-      }
-    });
-  }
-};
-const removeSubImage = (imgIndex: number) => {
-  if (typeof currentTab.value !== "number" || !activeColor.value) return;
-  const imgData = colorImages.value.get(currentTab.value);
-  if (imgData) {
-    imgData.subImagePreviews.splice(imgIndex, 1);
-    if (
-      activeColor.value.color_images &&
-      imgIndex < activeColor.value.color_images.length
-    ) {
-      activeColor.value.color_images.splice(imgIndex, 1);
-    } else {
-      imgData.subImages.pop();
-    }
-  }
-};
-const addSize = () => {
-  if (!activeColor.value) return;
-
-  // Lấy dòng size cuối cùng
-  const lastSize = activeColor.value.sizes[activeColor.value.sizes.length - 1];
-
-  // Kiểm tra validate dòng cuối trước khi thêm dòng mới
-  if (lastSize) {
-    // 1. Kiểm tra Tên Size
-    if (!lastSize.size.trim()) {
-      return showToast("Vui lòng nhập tên Size trước khi thêm dòng mới!");
-    }
-    // 2. Kiểm tra Giá (Phải lớn hơn 0)
-    if (!lastSize.price || lastSize.price <= 0) {
-      return showToast("Vui lòng nhập Giá bán hợp lệ (> 0) trước khi thêm!");
-    }
-    // 3. Kiểm tra Stock (Phải nhập và không được âm)
-    // Lưu ý: Nếu cho phép stock = 0 thì dùng điều kiện < 0.
-    // Ở đây mình check null/undefined phòng trường hợp user xóa trắng ô input
-    if (
-      lastSize.stock === null ||
-      lastSize.stock === undefined ||
-      String(lastSize.stock) === ""
-    ) {
-      return showToast("Vui lòng nhập Số lượng kho!");
-    }
-  }
-
-  // Nếu tất cả ok thì mới push dòng mới
-  activeColor.value.sizes.push({ _id: "", size: "", stock: 0, price: 0 });
-};
-const removeSize = async (idx: number) => {
-  if (activeColor.value && activeColor.value.sizes.length > 0) {
-    const targetSize = activeColor.value.sizes[idx];
-    if (!targetSize || !targetSize._id || targetSize._id === "") {
-      activeColor.value.sizes.splice(idx, 1);
-      return;
-    }
-    const deleted: IProduct.deleteInventory = {
-      product_id: productData.product_id_sql,
-      color_id_mongo: activeColor.value._id,
-      size_id_mongo: targetSize?._id!,
+    
+    const switchTab = (tab: "general" | number) => {
+        if (isModified.value) {
+            isSuccess.value = false;
+            setTimeout(() => {
+                toastText.value = 'Bạn có thay đổi chưa lưu! Vui lòng lưu lại trước khi chuyển tab.'
+            }, 0);
+            return;
+        }
+    
+        currentTab.value = tab;
+    
+        nextTick(() => {
+            currentTabSnapshot.value = JSON.stringify(getCurrentTabData());
+        });
     };
-    await productAdmin.deleteBranchInnventoryStore(deleted);
-    if (productAdmin.success) {
-      const targetSize = activeColor.value.sizes[idx];
-      if (targetSize) {
-        targetSize.price = null;
-        targetSize.stock = 0;
-        targetSize.sale_price = null;
-        targetSize.sale_stock = 0;
-        targetSize.sale_sold = 0;
-      }
-    }
-    nextTick(
-      () => (currentTabSnapshot.value = JSON.stringify(getCurrentTabData()))
-    );
-  }
-};
-
-// LOGIC THÊM/XÓA ATTRIBUTE DÙNG localAttributes
-const addAttribute = () => {
-  const lastAttr = localAttributes.value[localAttributes.value.length - 1];
-  if (lastAttr && (!lastAttr.key.trim() || !lastAttr.value.trim()))
-    return showToast("Điền đủ thông số dòng cuối!");
-  localAttributes.value.push({ key: "", value: "" });
-};
-const removeAttribute = (idx: number) => localAttributes.value.splice(idx, 1);
-
-const updateGeneralInfo = async () => {
-  if (!productData.name!.trim()) return showToast("Thiếu tên sản phẩm");
-
-  try {
-    console.log("AA");
-    const attributesObject: Record<string, string | number | boolean> = {};
-
-    localAttributes.value.forEach((curr) => {
-      if (curr.key.trim() && curr.value.trim()) {
-        const value = curr.value.toString();
-        attributesObject[curr.key.trim()] = value;
-      }
-    });
-
-    console.log(productData);
-    await productAdmin.updateProductInfoStore(
-      productData.product_id_sql,
-      productData.name || "",
-      productData.description,
-      productData.brand_id || "",
-      productData.category_id || "",
-      attributesObject
-    );
-    showToast("✅ Đã lưu thông tin cơ bản!");
-
-    currentTabSnapshot.value = JSON.stringify(getCurrentTabData());
-  } catch (error: any) {
-    console.log("error", error);
-    showToast("Lỗi: " + error.message);
-  }
-};
-
-const updateColorDetail = async () => {
-  if (typeof currentTab.value !== "number" || !activeColor.value) return;
-  const colorIndex = currentTab.value;
-  const color = activeColor.value;
-  const sizesPayload: IProduct.updateSize[] = color.sizes.map((s) => ({
-    size_id_mongo: s._id,
-    size: s.size,
-    price: s.price ?? 0,
-    stock: s.stock ?? 0,
-  }));
-  const formData = new FormData();
-  formData.append("product_id_sql", String(productData.product_id_sql));
-  formData.append("color_id_mongo", color._id);
-  if (color.color) {
-    formData.append("color", color.color);
-  }
-  formData.append("is_main", String(color.is_main));
-  formData.append("sizes", JSON.stringify(sizesPayload));
-  const imgData = colorImages.value.get(currentTab.value);
-  if (!imgData) return;
-  const oldUrls = (imgData.subImagePreviews || []).filter(
-    (preview) => typeof preview === "string" && !preview.startsWith("data:")
-  );
-
-  oldUrls.forEach((url) => {
-    formData.append("color_images", url);
-  });
-  if (imgData.subImages && imgData.subImages.length > 0) {
-    imgData.subImages.forEach((file: File) => {
-      formData.append("color_images", file);
-    });
-  }
-  if (imgData && imgData.mainImage) {
-    formData.append("image_main", imgData.mainImage);
-  } else {
-    formData.append("image_main", color.image_main || "");
-  }
-  await productAdmin.updateProductColorStore(formData);
-  if (productAdmin.success) {
-    showToast(`✅ Đã lưu màu: ${color.color}`);
-    if (imgData) {
-      imgData.subImages = [];
-    }
-    currentTabSnapshot.value = JSON.stringify(getCurrentTabData());
-  }
-};
-const createNewColor = async (colorData: any, index: number) => {
-  if (colorData.sizes.length === 0) return showToast("Phải có ít nhất 1 size");
-
-  const sizesList: IProduct.IProductSizePayload[] = colorData.sizes.map(
-    (s: any) => ({
-      size: s.size,
-      price: Number(s.price) || 0,
-      stock: Number(s.stock) || 0,
-    })
-  );
-  const formData = new FormData();
-
-  if (colorData.color && colorData.color.trim() !== "") {
-    formData.append("color", JSON.stringify(colorData.color.trim()));
-  }
-  formData.append("is_main", JSON.stringify(false));
-  formData.append("sizes", JSON.stringify(sizesList));
-  const imgData = colorImages.value.get(index);
-  if (imgData) {
-    if (imgData.mainImage) {
-      formData.append("image_main", imgData.mainImage);
-    }
-    if (imgData.subImages && imgData.subImages.length > 0) {
-      imgData.subImages.forEach((file: File) => {
-        formData.append("color_images", file);
-      });
-    }
-  }
-  await productAdmin.addProductColorStore(productData.product_id_sql, formData);
-  if (productAdmin.success) {
-    showToast(`✅ Đã thêm mới màu: ${colorData.color}`);
-    if (imgData) {
-      imgData.mainImage = null;
-      imgData.subImages = [];
-    }
-  }
-};
-const handleSave = () => {
-  if (currentTab.value === "general") {
-    updateGeneralInfo();
-    return;
-  }
-  if (typeof currentTab.value === "number" && activeColor.value) {
-    const colorObj = activeColor.value;
-    const colorIndex = currentTab.value;
-    if (!colorObj._id || colorObj._id === "") {
-      createNewColor(colorObj, colorIndex);
-    } else {
-      updateColorDetail();
-    }
-  }
-};
-
-const handleCancel = () => emit("close");
-
-const handleFocus = (e: FocusEvent, size: IProduct.IProductSizeResponse) => {
-  if (size.price === null) {
-    size.price = 0;
-    const target = e.target as HTMLInputElement;
-    setTimeout(() => target.select(), 0);
-  }
-};
-
-const handlePriceInput = (e: Event, size: IProduct.IProductSizeResponse) => {
-  const target = e.target as HTMLInputElement;
-  let val = target.value;
-  val = val.replace(/[^0-9]/g, "");
-  if (target.value !== val) {
-    target.value = val;
-  }
-  size.price = val === "" ? null : Number(val);
-};
-const handleBlur = (size: IProduct.IProductSizeResponse) => {
-  if (size.price === 0) {
-    size.price = null;
-  }
-};
-</script>
-
+    
+    const addColor = () => {
+        if (currentTab.value === "general" && isModified.value) {
+            isSuccess.value = false;
+            setTimeout(() => {
+                toastText.value = 'Vui lòng lưu Thông tin chung trước khi thêm màu!'
+            }, 0);
+            return;
+        }
+    
+        const lastColor = productData.colors[productData.colors.length - 1];
+        if (lastColor && !lastColor.color?.trim()) {
+            isSuccess.value = false;
+            setTimeout(() => {
+                toastText.value = 'Nhập tên màu hiện tại trước khi thêm!'
+            }, 0);
+            switchTab(productData.colors.length - 1);
+            return;
+        }
+    
+        const newIndex = productData.colors.length;
+        productData.colors.push({
+            _id: "",
+            color: "",
+            image_main: "",
+            is_main: false,
+            sizes: [
+                { _id: "", size: "", stock: 0, price: 0 },
+            ] as IProduct.IProductSizeResponse[],
+            color_images: [],
+        });
+        colorImages.value.set(newIndex, {
+            mainImage: null,
+            mainImagePreview: "",
+            subImages: [],
+            subImagePreviews: [],
+        });
+    
+        currentTab.value = newIndex;
+        nextTick(() => {
+            currentTabSnapshot.value = JSON.stringify(getCurrentTabData());
+        });
+    };
+    
+    const removeColor = async (index: number) => {
+        const targetColor = productData.colors[index];
+        if (!targetColor) return;
+        if (!targetColor._id || targetColor._id === "") {
+            productData.colors.splice(index, 1);
+            const newImageMap = new Map<number, ImageFiles>();
+            productData.colors.forEach((c, i) => {
+                newImageMap.set(i, {
+                    mainImage: null,
+                    mainImagePreview: (c.image_main as string) || "",
+                    subImages: [],
+                    subImagePreviews: (c.color_images as string[]) || [],
+                });
+            });
+            colorImages.value = newImageMap;
+    
+            currentTab.value = "general";
+            return;
+        }
+        if (targetColor?._id) {
+            console.log(productData.product_id_sql, targetColor._id);
+            await productAdmin.deleteProductColorStore(
+                productData.product_id_sql,
+                targetColor?._id
+            );
+        }
+        if (!targetColor?._id || productAdmin.success) {
+            targetColor.sizes.forEach((sizeItem) => {
+                sizeItem.price = null;
+                sizeItem.sale_price = null;
+                sizeItem.sale_stock = 0;
+                sizeItem.stock = 0;
+            });
+        }
+    
+        currentTab.value = "general";
+        nextTick(
+            () => (currentTabSnapshot.value = JSON.stringify(getCurrentTabData()))
+        );
+    };
+    
+    const setMainColor = (index: number) => {
+        productData.colors.forEach((c, i) => (c.is_main = i === index));
+    };
+    
+    const handleMainImageUpload = (event: Event) => {
+        const target = event.target as HTMLInputElement;
+        const file = target.files?.[0];
+        if (file && typeof currentTab.value === "number") {
+            const imgData = colorImages.value.get(currentTab.value)!;
+            imgData.mainImage = file;
+            const reader = new FileReader();
+            reader.onload = (e) =>
+                (imgData.mainImagePreview = e.target?.result as string);
+            reader.readAsDataURL(file);
+        }
+    };
+    
+    const handleSubImagesUpload = (event: Event) => {
+        const target = event.target as HTMLInputElement;
+        const files = target.files;
+        if (files && typeof currentTab.value === "number") {
+            const imgData = colorImages.value.get(currentTab.value)!;
+            Array.from(files).forEach((file) => {
+                if (imgData.subImages.length + imgData.subImagePreviews.length < 7) {
+                    imgData.subImages.push(file);
+                    const reader = new FileReader();
+                    reader.onload = (e) =>
+                        imgData.subImagePreviews.push(e.target?.result as string);
+                    reader.readAsDataURL(file);
+                }
+            });
+        }
+    };
+    
+    const removeSubImage = (imgIndex: number) => {
+        if (typeof currentTab.value !== "number" || !activeColor.value) return;
+        const imgData = colorImages.value.get(currentTab.value);
+        if (imgData) {
+            imgData.subImagePreviews.splice(imgIndex, 1);
+            if (
+                activeColor.value.color_images &&
+                imgIndex < activeColor.value.color_images.length
+            ) {
+                activeColor.value.color_images.splice(imgIndex, 1);
+            } else {
+                imgData.subImages.pop();
+            }
+        }
+    };
+    
+    const addSize = () => {
+        if (!activeColor.value) return;
+    
+        // Lấy dòng size cuối cùng
+        const lastSize = activeColor.value.sizes[activeColor.value.sizes.length - 1];
+    
+        // Kiểm tra validate dòng cuối trước khi thêm dòng mới
+        if (lastSize) {
+            // 1. Kiểm tra Tên Size
+            if (!lastSize.size.trim()) {
+                isSuccess.value = false;
+                setTimeout(() => {
+                    toastText.value = 'Vui lòng nhập tên Size trước khi thêm dòng mới!'
+                }, 0);
+            }
+            // 2. Kiểm tra Giá (Phải lớn hơn 0)
+            if (!lastSize.price || lastSize.price <= 0) {
+                isSuccess.value = false;
+                setTimeout(() => {
+                    toastText.value = 'Vui lòng nhập Giá bán hợp lệ (> 0) trước khi thêm!'
+                }, 0);
+            }
+            // 3. Kiểm tra Stock (Phải nhập và không được âm)
+            // Lưu ý: Nếu cho phép stock = 0 thì dùng điều kiện < 0.
+            // Ở đây mình check null/undefined phòng trường hợp user xóa trắng ô input
+            if (
+                lastSize.stock === null ||
+                lastSize.stock === undefined ||
+                String(lastSize.stock) === ""
+            ) {
+                isSuccess.value = false;
+                setTimeout(() => {
+                    toastText.value = 'Vui lòng nhập Số lượng kho!'
+                }, 0);
+            }
+        }
+    
+        // Nếu tất cả ok thì mới push dòng mới
+        activeColor.value.sizes.push({ _id: "", size: "", stock: 0, price: 0 });
+    };
+    
+    const removeSize = async (idx: number) => {
+        if (activeColor.value && activeColor.value.sizes.length > 0) {
+            const targetSize = activeColor.value.sizes[idx];
+            if (!targetSize || !targetSize._id || targetSize._id === "") {
+                activeColor.value.sizes.splice(idx, 1);
+                return;
+            }
+            const deleted: IProduct.deleteInventory = {
+                product_id: productData.product_id_sql,
+                color_id_mongo: activeColor.value._id,
+                size_id_mongo: targetSize?._id!,
+            };
+            loadingPage.value = true;
+            await productAdmin.deleteBranchInnventoryStore(deleted);
+            loadingPage.value = false;
+            if (productAdmin.success) {
+                const targetSize = activeColor.value.sizes[idx];
+                if (targetSize) {
+                    targetSize.price = null;
+                    targetSize.stock = 0;
+                    targetSize.sale_price = null;
+                    targetSize.sale_stock = 0;
+                    targetSize.sale_sold = 0;
+                }
+            }
+            nextTick(
+                () => (currentTabSnapshot.value = JSON.stringify(getCurrentTabData()))
+            );
+        }
+    };
+    
+    // LOGIC THÊM/XÓA ATTRIBUTE DÙNG localAttributes
+    const addAttribute = () => {
+        const lastAttr = localAttributes.value[localAttributes.value.length - 1];
+        if (lastAttr && (!lastAttr.key.trim() || !lastAttr.value.trim())) {
+            isSuccess.value = false;
+            setTimeout(() => {
+                toastText.value = 'Điền đủ thông số dòng cuối!'
+            }, 0);
+    
+        }
+    
+        localAttributes.value.push({ key: "", value: "" });
+    };
+    
+    const removeAttribute = (idx: number) => localAttributes.value.splice(idx, 1);
+    
+    const updateGeneralInfo = async () => {
+        if (!productData.name!.trim()) {
+            isSuccess.value = false;
+            setTimeout(() => {
+                toastText.value = 'Thiếu tên sản phẩm'
+            }, 0);
+            return;
+        }
+    
+        try {
+            const attributesObject: Record<string, string | number | boolean> = {};
+    
+            localAttributes.value.forEach((curr) => {
+                if (curr.key.trim() && curr.value.trim()) {
+                    const value = curr.value.toString();
+                    attributesObject[curr.key.trim()] = value;
+                }
+            });
+    
+            console.log(productData);
+            loadingPage.value = true;
+            await productAdmin.updateProductInfoStore(
+                productData.product_id_sql,
+                productData.name || "",
+                productData.description,
+                productData.brand_id || "",
+                productData.category_id || "",
+                attributesObject
+            );
+            if (productAdmin.success) {
+                isSuccess.value = true;
+                toastText.value = 'Đã lưu thông tin cơ bản!'
+                loadingPage.value = false;
+                currentTabSnapshot.value = JSON.stringify(getCurrentTabData());
+                
+            }
+            else {
+                loadingPage.value = false;
+                isSuccess.value = false;
+                toastText.value = 'Lưu thông tin thất bại!'
+            }
+        } catch (error: any) {
+            loadingPage.value = false;
+            console.log("error", error);
+            isSuccess.value = false;
+            toastText.value = 'Lưu thông tin thất bại!'
+        }
+    };
+    
+    const updateColorDetail = async () => {
+        if (typeof currentTab.value !== "number" || !activeColor.value) return;
+        const colorIndex = currentTab.value;
+        const color = activeColor.value;
+        const sizesPayload: IProduct.updateSize[] = color.sizes.map((s) => ({
+            size_id_mongo: s._id,
+            size: s.size,
+            price: s.price ?? 0,
+            stock: s.stock ?? 0,
+        }));
+        const formData = new FormData();
+        formData.append("product_id_sql", String(productData.product_id_sql));
+        formData.append("color_id_mongo", color._id);
+        if (color.color) {
+            formData.append("color", color.color);
+        }
+        formData.append("is_main", String(color.is_main));
+        formData.append("sizes", JSON.stringify(sizesPayload));
+        const imgData = colorImages.value.get(currentTab.value);
+        if (!imgData) return;
+        const oldUrls = (imgData.subImagePreviews || []).filter(
+            (preview) => typeof preview === "string" && !preview.startsWith("data:")
+        );
+    
+        oldUrls.forEach((url) => {
+            formData.append("color_images", url);
+        });
+        if (imgData.subImages && imgData.subImages.length > 0) {
+            imgData.subImages.forEach((file: File) => {
+                formData.append("color_images", file);
+            });
+        }
+        if (imgData && imgData.mainImage) {
+            formData.append("image_main", imgData.mainImage);
+        } else {
+            formData.append("image_main", color.image_main || "");
+        }
+        await productAdmin.updateProductColorStore(formData);
+        if (productAdmin.success) {
+            isSuccess.value = true;
+            toastText.value = `Đã lưu màu: ${color.color}`;
+            if (imgData) {
+                imgData.subImages = [];
+            }
+            currentTabSnapshot.value = JSON.stringify(getCurrentTabData());
+        }
+        else {
+            isSuccess.value = false;
+            toastText.value = `Lưu màu thất bại!!`;
+        }
+    };
+    
+    const createNewColor = async (colorData: any, index: number) => {
+        if (colorData.sizes.length === 0) {
+            isSuccess.value = false;
+            setTimeout(() => {
+                toastText.value = 'Phải có ít nhất 1 size'
+            }, 0);
+            return;
+        }
+    
+        const sizesList: IProduct.IProductSizePayload[] = colorData.sizes.map(
+            (s: any) => ({
+                size: s.size,
+                price: Number(s.price) || 0,
+                stock: Number(s.stock) || 0,
+            })
+        );
+        const formData = new FormData();
+    
+        if (colorData.color && colorData.color.trim() !== "") {
+            formData.append("color", JSON.stringify(colorData.color.trim()));
+        }
+        formData.append("is_main", JSON.stringify(false));
+        formData.append("sizes", JSON.stringify(sizesList));
+        const imgData = colorImages.value.get(index);
+        if (imgData) {
+            if (imgData.mainImage) {
+                formData.append("image_main", imgData.mainImage);
+            }
+            if (imgData.subImages && imgData.subImages.length > 0) {
+                imgData.subImages.forEach((file: File) => {
+                    formData.append("color_images", file);
+                });
+            }
+        }
+        await productAdmin.addProductColorStore(productData.product_id_sql, formData);
+        if (productAdmin.success) {
+            isSuccess.value = true;
+            toastText.value = `Đã thêm mới màu: ${colorData.color}`
+            if (imgData) {
+                imgData.mainImage = null;
+                imgData.subImages = [];
+            }
+        }
+        else {
+            isSuccess.value = false;
+            toastText.value = `Thêm màu mới thất bại!`
+        }
+    };
+    
+    const handleSave = () => {
+        if (currentTab.value === "general") {
+            updateGeneralInfo();
+            return;
+        }
+        if (typeof currentTab.value === "number" && activeColor.value) {
+            const colorObj = activeColor.value;
+            const colorIndex = currentTab.value;
+            if (!colorObj._id || colorObj._id === "") {
+                createNewColor(colorObj, colorIndex);
+            } else {
+                updateColorDetail();
+            }
+        }
+    };
+    
+    const handleCancel = () => emit("close");
+    
+    const handleFocus = (e: FocusEvent, size: IProduct.IProductSizeResponse) => {
+        if (size.price === null) {
+            size.price = 0;
+            const target = e.target as HTMLInputElement;
+            setTimeout(() => target.select(), 0);
+        }
+    };
+    
+    const handlePriceInput = (e: Event, size: IProduct.IProductSizeResponse) => {
+        const target = e.target as HTMLInputElement;
+        let val = target.value;
+        val = val.replace(/[^0-9]/g, "");
+        if (target.value !== val) {
+            target.value = val;
+        }
+        size.price = val === "" ? null : Number(val);
+    };
+    
+    const handleBlur = (size: IProduct.IProductSizeResponse) => {
+        if (size.price === 0) {
+            size.price = null;
+        }
+    };
+    </script>
 <template>
   <Notification :text="textToast" :isSuccess="showNotification" />
-
+  <Loading :loading="loadingPage"></Loading>
+    <Notification :isSuccess="isSuccess" :text="toastText"></Notification>
   <div
     @click.self="handleCancel"
     class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fade-in font-sans"
