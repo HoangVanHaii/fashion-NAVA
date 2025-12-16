@@ -32,7 +32,7 @@ export const updateCartItem: ValidationChain[] = [
     param("id")
         .exists({ checkFalsy: true }).withMessage("Cart item ID (id) is required in parameters")
         .isMongoId().withMessage("ID in parameters must be a valid MongoDB ObjectId"),
-    body("new_size_id")
+    body("size_id")
         .exists({ checkFalsy: true }).withMessage("new_size_id is required")
         .isMongoId().withMessage("new_size_id must be a valid MongoDB ObjectId"),
 ];

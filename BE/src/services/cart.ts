@@ -180,7 +180,7 @@ export const getCartItems = async (
                         bi.price AS base_price,
                         fsi.flash_sale_price
                     FROM products p
-                    JOIN branch_inventories bi ON p.id = bi.product_id
+                    JOIN branch_inventories bi ON p.id = bi.product_id AND bi.size_id_mongo = @size_id
                     LEFT JOIN flash_sale_items fsi 
                         ON fsi.product_id = p.id
                         AND fsi.size_id_mongo = @size_id

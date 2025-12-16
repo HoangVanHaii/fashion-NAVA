@@ -70,7 +70,7 @@ const makeOrderItem = async (orderItems: any, dbBranch: ConnectionPool, branch_i
 }
 export const createOrder = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const { orderItems, voucherCode, address, methodPayment, note } = req.body;
+        const { orderItems, voucherCode, address, methodPayment, note,checkout_source } = req.body;
 
         const userId = req.user?.id as string;
         const branch_id = req.user?.branch_id as string;
@@ -97,11 +97,13 @@ export const createOrder = async (req: Request, res: Response, next: NextFunctio
             order: {
                 user_id: userId, 
                 voucher_id: validVoucherId ? validVoucherId : undefined,
+                discount_value: discount_value,
                 total: total - discount_value,
                 discount_value: discount_value,
                 payment_method: methodPayment,
                 address: address,
-                note: note
+                note: note,
+                checkout_source:checkout_source
             },
             orderItems: orderItemsData
         };
@@ -147,6 +149,7 @@ export const getOrderOfMe = async (req: Request, res: Response, next: NextFuncti
             data: orders
         });
     } catch (err) {
+        console.log(err)
         next(err);
     }
 };

@@ -121,18 +121,20 @@ const insertPayment = async (tranRequest: Transaction, orderIdSql: string, order
         .query(query);
 }
 
-const removeItemsFromCart = async (userIdSql: string, orderItems: OrderItem[]): Promise<void> => {
-    const sizeIdsToRemove = orderItems.map(item => item.size_id_mongo);
-    await CartItemMongo.updateOne(
-        { user_id_sql: userIdSql },
-        { 
-            $pull: { 
-                items: { 
-                    size_id_mongo: { $in: sizeIdsToRemove } 
+const removeItemsFromCart = async (userIdSql: string, orderItems: OrderItem[],checkout_source?:string): Promise<void> => {
+    if(checkout_source==="cart"){
+        const sizeIdsToRemove = orderItems.map(item => item.size_id_mongo);
+        await CartItemMongo.updateOne(
+            { user_id_sql: userIdSql },
+            { 
+                $pull: { 
+                    items: { 
+                        size_id_mongo: { $in: sizeIdsToRemove } 
+                    } 
                 } 
-            } 
-        }
-    );
+            }
+        );
+    }
 };
 
 export const createOrder = async (orderPayload: OderPayLoad, dbBranch: ConnectionPool, branch_id: string): Promise<string> => {
@@ -149,7 +151,7 @@ export const createOrder = async (orderPayload: OderPayLoad, dbBranch: Connectio
         await tranRequest.commit();
 
         try {
-            await removeItemsFromCart(orderPayload.order.user_id, orderPayload.orderItems);
+            await removeItemsFromCart(orderPayload.order.user_id, orderPayload.orderItems,orderPayload.order.checkout_source);
         } catch (error) {
             console.error(error);
         }
@@ -168,43 +170,76 @@ export const createOrder = async (orderPayload: OderPayLoad, dbBranch: Connectio
 }
 
 export const getOrdersByUserId = async (userId: string, dbBranch: ConnectionPool): Promise<GetOrder[]> => {
-    const query = `SELECT * FROM orders WHERE user_id = @user_id ORDER BY created_at DESC`;
+    const query = `
+        SELECT o.*, p.method as payment_method 
+        FROM orders o
+        LEFT JOIN payments p ON o.ID = p.order_id
+        WHERE o.user_id = @user_id 
+        ORDER BY o.created_at DESC
+    `;
     const result = await dbBranch.request()
         .input('user_id', userId)
         .query(query);
-    const orderSqlIds = result.recordset.map(order => order.ID);
+    
+    const ordersRecordset = result.recordset;
+    if (ordersRecordset.length === 0) return []; 
 
+    const orderSqlIds = ordersRecordset.map(order => order.ID);
+
+    const sqlItemsQuery = `
+        SELECT ID, order_id, product_id, size_id_mongo 
+        FROM order_items 
+        WHERE order_id IN (${orderSqlIds.map(id => `'${id}'`).join(',')})
+    `;
+    const sqlItemsResult = await dbBranch.request().query(sqlItemsQuery);
+    const sqlItems = sqlItemsResult.recordset; 
     const lowerCaseOrderSqlIds = orderSqlIds.map((id: string) => id.toString().toLowerCase());
     const mongoOrders = await OrderDetail.find({ order_id_sql: { $in: lowerCaseOrderSqlIds } }).lean();
+    const orderResuts: GetOrder[] = ordersRecordset.map(order => {
+        const mongoOrder = mongoOrders.find(m => m.order_id_sql === order.ID.toString().toLowerCase());
+        let mergedItems: IOrderItem[] = [];
+        
+        if (mongoOrder && mongoOrder.items) {
+            mergedItems = mongoOrder.items.map((mItem: any) => {
+                const matchedSqlItem = sqlItems.find(sItem => 
+                    sItem.order_id === order.ID && 
+                    sItem.product_id.toString().toLowerCase() === mItem.product_id_sql.toLowerCase() && 
+                    sItem.size_id_mongo === mItem.size_id_mongo 
+                );
 
-    const orders = result.recordset.map(order => {
-        const mongoOrder = mongoOrders.find(mongoOrder => mongoOrder.order_id_sql === order.ID.toString().toLowerCase());
+                return {
+                    ...mItem, 
+                    order_item_id: matchedSqlItem ? matchedSqlItem.ID : undefined 
+                };
+            });
+        }
+
         return {
-            ...order,
-            items: mongoOrder ? mongoOrder.items : []
+            id: order.ID,
+            user_id: order.user_id,
+            voucher_id: order.voucher_id,
+            total: order.total,
+            discount_value: order.discount_value || 0,
+            mongo_id: order.mongodb_id,
+            payment_method: order.payment_method || 'cod',
+            method_order: order.method_order,
+            address: {
+                name: order.shipping_name,
+                phone: order.shipping_phone,
+                province: order.shipping_province,
+                district: order.shipping_district,
+                ward: order.shipping_ward,
+                street_address: order.shipping_street,
+                full_address_mongo: mongoOrder?.shipping_address 
+            },
+            
+            status: order.status,
+            created_at: order.created_at,
+            items: mergedItems,
+            note: mongoOrder?.note
         };
     });
-    const orderResuts: GetOrder[] = orders.map(order => ({
-        id: order.ID,
-        user_id: order.user_id,
-        voucher_id: order.voucher_id,
-        total: order.total,
-        discount_value: order.discount_value,
-        mongo_id: order.mongodb_id,
-        payment_method: order.payment_method,
-        method_order: order.method_order,
-        address: {
-            name: order.shipping_name,
-            phone: order.shipping_phone,
-            province: order.shipping_province,
-            district: order.shipping_district,
-            ward: order.shipping_ward,
-            street_address: order.shipping_street
-        },
-        status: order.status,
-        created_at: order.created_at,
-        items: order.items
-    }));
+
     return orderResuts;
 }
 export const getOrderById = async (orderId: string, dbBranch: ConnectionPool): Promise<GetOrder | null> => {

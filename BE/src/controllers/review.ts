@@ -259,6 +259,17 @@ export const getReviewsByProductId = async (req: Request, res: Response, next: N
         next(err);
     }
 }
+export const getReviewsForGuest = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const product_id = req.params.product_id;
+        const branch_code = (req.query.branch as string) || 'CENTRAL'; 
+        const user_id = ""; 
+
+        const reviews = await reviewService.getReviewsByProductId(product_id, user_id, branch_code);
+
+        res.status(200).json({ success: true, data: reviews });
+    } catch (err) { next(err); }
+};
 
 export const getAllProductStats = async (req: Request, res: Response, next: NextFunction) => {
     try {
