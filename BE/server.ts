@@ -1,5 +1,4 @@
 import express, { Request, Response, NextFunction } from 'express';
-import cors from 'cors'
 import * as dotenv from 'dotenv';
 import { connectDatabases } from './src/config/database';
 import authRouter from './src/routers/user'
