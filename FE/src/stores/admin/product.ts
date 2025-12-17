@@ -66,7 +66,8 @@ export const useProductAdminStore = defineStore("product-admin", () => {
     attributes: any
   ) => {
     try {
-      loading.value = true;
+        loading.value = true;
+        success.value = false;
       await updateProductInfo(
         id,
         name,
@@ -74,8 +75,10 @@ export const useProductAdminStore = defineStore("product-admin", () => {
         brand_id,
         category_id,
         attributes
-      );
+        );
+        success.value = true;
     } catch (error) {
+        success.value = false;
       console.log(error);
     } finally {
       loading.value = false;
