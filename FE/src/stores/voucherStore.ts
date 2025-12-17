@@ -1,6 +1,6 @@
 import { defineStore } from "pinia";
 import { ref } from "vue";
-import { getUserVouchers, claimVoucherByCode } from "../services/voucher";
+import { getUserVouchers, claimVoucherByCode, getAllVoucher } from "../services/voucher";
 import type { Voucher } from "../interfaces/voucher"; // Đảm bảo import đúng Interface bạn đã tạo
 
 export const useVoucherStore = defineStore('voucher', () => {
@@ -15,10 +15,11 @@ export const useVoucherStore = defineStore('voucher', () => {
         loading.value = true;
         error.value = null;
         try {
-            const res = await getUserVouchers();
-            if (res.success) {
-                myVouchers.value = res.data;
-            }
+            const res = await getAllVoucher();
+            // console.log(res);
+            myVouchers.value = res.vouchers;
+            // if (res.success) {
+            // }
         } catch (err: any) {
             console.error("Error fetching vouchers:", err);
             error.value = err.response?.data?.message || "Không thể tải danh sách voucher";

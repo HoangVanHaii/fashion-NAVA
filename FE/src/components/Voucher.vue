@@ -90,6 +90,7 @@ const isEligible = (voucher: Voucher) => {
 };
 
 const handleSelect = (voucher: Voucher) => {
+    console.log(voucher);
     if(isEligible(voucher)) selectedVoucherId.value = voucher.id;
 };
 

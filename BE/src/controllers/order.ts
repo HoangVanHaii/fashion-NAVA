@@ -7,6 +7,7 @@ import * as productService from "../services/product";
 import *as paymentUtils from "../utils/vnpay";
 import { ConnectionPool } from "mssql";
 import { ProductDetailModel } from "../models/product";
+import { getBranchPool } from "../config/database";
 
 const makeOrderItem = async (orderItems: any, dbBranch: ConnectionPool, branch_id: string): Promise<any> => {
     const orderItemsData: OrderItem[] = [];
@@ -156,11 +157,12 @@ export const getOrderDetail = async (req: Request, res: Response, next: NextFunc
     try {
         const orderId = req.params.id;
         const dbBranch = req.dbBranch;
-        const branch_code = req.user?.branch_code;
-        if (!dbBranch || !dbBranch.connected) {
+        const branch_code = 'CT';
+        const pool = getBranchPool(branch_code);
+        if (!pool || !pool.connected) {
             throw new AppError(`${branch_code} is not connected`, 503);
         }
-        const orderDetail = await orderService.getOrderById(orderId, dbBranch); 
+        const orderDetail = await orderService.getOrderById(orderId, pool); 
         return res.status(200).json({
             success: true,
             data: orderDetail
