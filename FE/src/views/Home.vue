@@ -123,11 +123,11 @@ onMounted(async () => {
   if (userStore.isLogin) {
     await favourite.getFavouriteOfMeStore()
     }
-    loadingHome.value = false;
 
   setTime();
   countdown = setInterval(setTime, 1000);
   window.addEventListener('scroll', handleScroll);
+  loadingHome.value = false;
 
 });
 const productMale = ref<IProductMongoDetail[]>([]);
@@ -135,7 +135,7 @@ const productFemale = ref<IProductMongoDetail[]>([]);
 const hasFetchedData = ref(false);
 const handleScroll = async () => {
     const currentScroll = window.scrollY || document.documentElement.scrollTop;
-    if (currentScroll >= 2200 && !hasFetchedData.value) {
+    if (currentScroll >= 1500 && !hasFetchedData.value) {
         hasFetchedData.value = true;         
         try {
             const [femaleData, maleData] = await Promise.all([

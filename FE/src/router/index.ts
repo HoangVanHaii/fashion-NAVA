@@ -95,7 +95,7 @@ router.beforeEach(async (to, from, next) => {
   // Hãy gọi hàm lấy profile để cập nhật lại state user
   if (!authStore.user && localStorage.getItem('accessToken')) {
     try {
-      await authStore.getProfileStore();
+    //   await authStore.getProfileStore();
     } catch (e) {
       // Token hết hạn hoặc lỗi -> về login
       return next({ name: 'login' });
