@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import { ref, computed, onBeforeMount, onMounted, onBeforeUnmount } from "vue";
 import { useRouter, useRoute } from "vue-router"; // Added useRoute
+// import { useCategoryStore } from "../stores/categoryStore";
+// import type { ProductSummary } from "../interfaces/product";
+// import logo from "../assets/logo.jpg";
+// import { getImage } from "../utils/format";
 import type { IProductMongoDetail } from "../interfaces/product";
 import logo from "../assets/logoNav.png";
 // import Notification from "./Notification.vue";
@@ -10,6 +14,10 @@ import { useCartStore } from "@/stores/cartStore";
 import { useCategoryStore } from "@/stores/category";
 import { useAuthStore } from "@/stores/auth";
 import type { Category } from "@/interfaces/category";
+
+// const productStore = useProductStore();
+
+// const category = useCategoryStore();
 
 const productStore = useProductStore();
 const cart = useCartStore();
@@ -63,6 +71,36 @@ const isActive = (path: string, queryParam?: string, queryValue?: string) => {
 }
 
 onBeforeMount(async () => {
+
+    // if (localStorage.getItem('accessToken')) {
+    //     await cart.getCartCountStore(); 
+    // }
+    const token = localStorage.getItem('accessToken');
+    isLogin.value = !!token;
+
+    if (isLogin.value) {
+        await cart.getCartCountStore(); 
+    } else {
+        isLogOut.value = true;
+    }
+//     isLogin.value = localStorage.getItem("user_id") ? true : false;
+//     if (localStorage.getItem('accessToken')) {
+//         isLogOut.value = false;
+//         await u.fetchProfile();
+//         await cart.getCartCountStore();
+//     }
+//     else {
+//         isLogOut.value = true;
+//     }
+//   categoryMale.value = await category.getCategoryNameStore("Nam");
+//   categoryFemale.value = await category.getCategoryNameStore("Nữ");
+  
+//   isLogin.value = localStorage.getItem("user_id") ? true : false;
+  
+//   products.value = await productStore.getAllProductActiveStore();
+
+
+
     isLogin.value = localStorage.getItem("user_id") ? true : false;
     if (localStorage.getItem('accessToken')) {
         isLogOut.value = false;
@@ -91,6 +129,7 @@ const handleLoadData = async () => {
     // alert(1);
       products.value = await productStore.getAllProductStore() || [];
 }
+
 const toastText = ref("");
 const showNotification = ref<boolean>(false);
 
