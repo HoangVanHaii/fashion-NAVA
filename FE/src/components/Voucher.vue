@@ -14,7 +14,6 @@ const emit = defineEmits(["close", "apply"]);
 const cartStore = useCartStore();
 const voucherStore = useVoucherStore();
 
-const listVouchers = ref<Voucher[]>([]);
 const selectedVoucherId = ref<string | null>(null);
 const errorMsg = ref('');
 
@@ -37,8 +36,7 @@ const getImage = (url?: string) => {
 
 // Load Vouchers
 onMounted(async () => {
-    await voucherStore.fetchUserVouchersAction();
-    listVouchers.value = voucherStore.myVouchers;
+    await voucherStore.getAllVoucherStore();
 });
 
 // Xử lý Search / Claim
@@ -50,7 +48,7 @@ const handleSearchOrClaim = async () => {
     const found = voucherStore.myVouchers.filter(v => v.code.toLowerCase() === textSearch.value.toLowerCase());
     
     if (found.length > 0) {
-        listVouchers.value = found;
+        voucherStore.myVouchers = found;
     } else {
         // 2. Gọi API Claim
         isSearching.value = true;
@@ -58,12 +56,12 @@ const handleSearchOrClaim = async () => {
             const res = await voucherStore.claimVoucherAction(textSearch.value);
             if(res.success) {
                 alert(res.message);
-                listVouchers.value = voucherStore.myVouchers;
+                voucherStore.myVouchers = voucherStore.myVouchers;
                 textSearch.value = ""; 
             }
         } catch (err: any) {
             errorMsg.value = err.message;
-            listVouchers.value = [];
+            voucherStore.myVouchers = [];
         } finally {
             isSearching.value = false;
         }
@@ -71,12 +69,12 @@ const handleSearchOrClaim = async () => {
 };
 
 watch(() => voucherStore.myVouchers, (newVal) => {
-    if (!textSearch.value) listVouchers.value = newVal;
+    if (!textSearch.value) voucherStore.myVouchers = newVal;
 });
 
 watch(textSearch, (val) => {
     if (!val) {
-        listVouchers.value = voucherStore.myVouchers;
+        voucherStore.myVouchers = voucherStore.myVouchers;
         errorMsg.value = '';
     }
 });
@@ -140,12 +138,12 @@ const handleApply = () => {
       </div>
 
       <div class="flex-1 overflow-y-auto p-4 space-y-3 bg-white custom-scrollbar relative">
-        <div v-if="voucherStore.loading && listVouchers.length === 0" class="absolute inset-0 flex items-center justify-center bg-white/80 z-20">
+        <div v-if="voucherStore.loading && voucherStore.myVouchers.length === 0" class="absolute inset-0 flex items-center justify-center bg-white/80 z-20">
             <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-black"></div>
         </div>
 
         <div 
-            v-for="voucher in listVouchers" 
+            v-for="voucher in voucherStore.myVouchers" 
             :key="voucher.id"
             class="group relative border rounded-xl p-3 flex gap-3 transition-all duration-200 cursor-pointer select-none"
             :class="[
@@ -194,7 +192,7 @@ const handleApply = () => {
              <div v-if="!isEligible(voucher)" class="absolute inset-0 z-10" title="Chưa đủ điều kiện áp dụng"></div>
         </div>
 
-        <div v-if="listVouchers.length === 0 && !voucherStore.loading" class="text-center py-10 text-gray-400">
+        <div v-if="voucherStore.myVouchers && voucherStore.myVouchers.length === 0 && !voucherStore.loading" class="text-center py-10 text-gray-400">
             <i class="fa-solid fa-ticket text-4xl mb-2 opacity-30"></i>
             <p class="text-xs">Bạn chưa có voucher nào.</p>
         </div>

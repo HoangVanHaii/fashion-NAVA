@@ -1,5 +1,5 @@
 import { ConnectionPool, Transaction } from "mssql";
-import { GetOrder, IKpiResponse, IRevenueMonth, IRevenueYearResponse, OderPayLoad, Order, OrderItem, RevenueOrder } from "../interfaces/order";
+import { GetOrder, IKpiResponse, IOrderItem, IRevenueMonth, IRevenueYearResponse, OderPayLoad, Order, OrderItem, RevenueOrder } from "../interfaces/order";
 import { v4 as uuidv4 } from 'uuid';
 import { getProductSizesBySizeId } from "./product";
 import mongoose from "mongoose";
@@ -54,7 +54,7 @@ export const updateStockAfterOrder = async (
             FROM flash_sale_items WITH (UPDLOCK, ROWLOCK)
             WHERE size_id_mongo = @size_id
             AND branch_id = @branch_id;
-
+             
             -- Lấy tồn kho thường
             SELECT @RegCurrentStock = stock
             FROM branch_inventories WITH (UPDLOCK, ROWLOCK)
@@ -79,7 +79,8 @@ export const updateStockAfterOrder = async (
             IF @DeductFS > 0
             BEGIN
                 UPDATE flash_sale_items
-                SET stock = stock - @DeductFS
+                SET stock = stock - @DeductFS,
+                sold = sold + ${item.quantity} 
                 WHERE size_id_mongo = @size_id
                 AND branch_id = @branch_id;
             END;

@@ -11,12 +11,12 @@ export const useVoucherStore = defineStore('voucher', () => {
     const error = ref<string | null>(null);
 
     // Actions
-    const fetchUserVouchersAction = async () => {
+    async function fetchUserVouchersAction() {
         loading.value = true;
         error.value = null;
         try {
             const res = await getAllVoucher();
-            // console.log(res);
+            console.log(res);
             myVouchers.value = res.vouchers;
             // if (res.success) {
             // }
@@ -27,7 +27,14 @@ export const useVoucherStore = defineStore('voucher', () => {
             loading.value = false;
         }
     };
-
+    const getAllVoucherStore = async () => {
+        try {
+            const result = await getAllVoucher();
+            myVouchers.value = result.vouchers;
+        } catch (err) {
+            console.log(err);
+        }
+    }
     const claimVoucherAction = async (code: string) => {
         loading.value = true;
         error.value = null;
@@ -56,6 +63,7 @@ export const useVoucherStore = defineStore('voucher', () => {
         
         // Actions
         fetchUserVouchersAction,
-        claimVoucherAction
+        claimVoucherAction,
+        getAllVoucherStore
     };
 });
