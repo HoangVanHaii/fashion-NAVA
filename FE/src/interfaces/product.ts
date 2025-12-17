@@ -91,6 +91,7 @@ export interface IProductMongoDetail {
     attributes?: {
         [key: string]: string | number | boolean;
     };
+    video?: string;
     created_at?: Date;
     colors: IProductColorResponse[];
 }

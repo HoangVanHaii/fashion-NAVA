@@ -7,7 +7,16 @@ import { useProductAdminStore } from "../../stores/admin/product";
 import FormAdd from "../../components/admin/ProductFormAdd.vue";
 import FormEdit from "../../components/admin/ProductFormEdit.vue";
 import * as IProduct from "../../interfaces/product";
+import Loading from "@/components/Loading.vue";
+import ConfirmDialog from "@/components/ConfirmDialog.vue";
+const pendingAction = ref<'hide' | 'active' | ''>('');
 
+const isShow = ref(false);
+import Notification from "@/components/Notification.vue";
+const isSuccess = ref(false)
+const toastText = ref('')
+const message = ref('')
+const loadingPage = ref(false);
 // === Init ===
 const productStore = useProductAdminStore();
 const router = useRouter();
@@ -119,11 +128,13 @@ const handleScroll = () => {
 
 // === Lifecycle ===
 onMounted(async () => {
+    loadingPage.value = true;
   await productStore.getAllProductPayloadStore();
   await nextTick();
   if (scrollContainer.value) {
     scrollContainer.value.addEventListener("scroll", handleScroll);
-  }
+    }
+    loadingPage.value = false;
 });
 
 onUnmounted(() => {
@@ -182,15 +193,60 @@ const isExpanded = (id: string) => expandedProductIds.value.includes(id);
 const calculateSoldProduct = (p: IProduct.IProductMongoDetail) => {
   return p.colors.reduce((acc, color) => acc + getSoldOfColor(color), 0);
 };
-
+const productIdTmp = ref('')
 const handleHidden = async (item: IProduct.IProductMongoDetail) => {
-  await productStore.updateProductStatusStore(item.product_id_sql, "hidden");
-  item.status = "hidden";
+    productIdTmp.value = item.product_id_sql;
+    pendingAction.value = 'hide';
+    isShow.value = true;
+    message.value = 'Bạn có chắc muốn ẩn sản phẩm này không!'
 };
+const handleHiddenFinal = async () => {
+    loadingPage.value = true;
+    await productStore.updateProductStatusStore(productIdTmp.value, "hidden");
+    if (productStore.success) {
+        isSuccess.value = true;
+        toastText.value = 'Tắt sản phẩm thành công!!'
+    }
+    else {
+        isSuccess.value = false;
+        toastText.value = 'Tắt sản phẩm thất bại!!'
+    }
+    await productStore.getAllProductPayloadStore();
+    isShow.value = false;
+    loadingPage.value = false;
+}
 
 const handleActive = async (item: IProduct.IProductMongoDetail) => {
-  await productStore.updateProductStatusStore(item.product_id_sql, "active");
-  item.status = "active";
+    productIdTmp.value = item.product_id_sql;
+    pendingAction.value = 'active'; 
+    isShow.value = true;
+    message.value = 'Bạn có chắc muốn bật sản phẩm này không!'
+    
+};
+
+const handleActiveFinal = async () => {
+    loadingPage.value = true;
+    await productStore.updateProductStatusStore(productIdTmp.value, "active");
+    if (productStore.success) {
+        isSuccess.value = true;
+        toastText.value = 'Bật sản phẩm thành công!!'
+    }
+    else {
+        isSuccess.value = false;
+        toastText.value = 'Bật sản phẩm thất bại!!'
+    }
+    await productStore.getAllProductPayloadStore();
+    isShow.value = false;
+    loadingPage.value = false;
+};
+const handleChangeStatus = async () => {
+    isShow.value = false;
+    if (pendingAction.value === 'hide') {
+        await handleHiddenFinal();
+    } else if (pendingAction.value === 'active') {
+        await handleActiveFinal();
+    }
+    pendingAction.value = '';
 };
 
 const hanldeStock = (value: number) => {
@@ -208,14 +264,19 @@ const openEditModal = (item: IProduct.IProductMongoDetail) => {
 
 <template>
   <Loading :loading="productStore.loading" />
-
+  <ConfirmDialog v-if="isShow" 
+        :message="message"
+        @close="isShow = false"
+        @confirm="handleChangeStatus"
+      ></ConfirmDialog>
+      <Notification :isSuccess="isSuccess" :text="toastText"></Notification>
   <ConfirmUpdate
     v-if="showFormConfirm"
-    :message="messageAction"
-    @close="showFormConfirm = false"
-    @confirm="handleAction"
-    @type="handleType"
-    @stock="hanldeStock"
+        :message="messageAction"
+        @close="showFormConfirm = false"
+        @confirm="handleAction"
+        @type="handleType"
+        @stock="hanldeStock"
   />
 
   <FormEdit
@@ -279,7 +340,7 @@ const openEditModal = (item: IProduct.IProductMongoDetail) => {
             </div>
 
             <div class="flex gap-3 items-center">
-              <div class="relative" @click="toggle = false">
+              <!-- <div class="relative" @click="toggle = false">
                 <button
                   @click.stop="toggle = !toggle"
                   class="px-5 py-2.5 border border-black rounded-xl bg-white text-black font-medium hover:bg-black hover:text-white transition-all duration-300 flex items-center gap-2"
@@ -319,10 +380,10 @@ const openEditModal = (item: IProduct.IProductMongoDetail) => {
                     <span class="font-medium text-black">Bật/Tắt</span>
                   </button>
                 </div>
-              </div>
+              </div> -->
 
               <button
-                class="px-5 py-2.5 bg-white text-black rounded-xl border-green-600 hover:border-green-500 border-2 font-medium hover:bg-black hover:text-white transition-all duration-300 shadow-md hover:shadow-lg flex items-center gap-2"
+                class="px-5 py-2.5 bg-black text-white rounded-xl border-2 font-medium hover:bg-black-300 hover:text-white transition-all duration-300 shadow-md hover:shadow-lg flex items-center gap-2"
                 @click="showFormAdd = true"
               >
                 <i class="fa-solid fa-plus"></i>

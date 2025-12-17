@@ -1,5 +1,6 @@
 import api from './api';
 import type { Voucher, VoucherAdmin } from '../interfaces/voucher';
+import { useAuthStore } from '@/stores/auth';
 
 export const getUserVouchers = async () => {
     const res = await api.get('/voucher/user/'); 
@@ -22,7 +23,12 @@ export const getVoucherByCodeAPI = async (code:string) =>{
     return voucher;
 }
 export const getTop4Voucher = async (top: number, scope: string) => {
-    const result = await api.get(`/voucher/topVoucher?top=${top}&scope=${scope}`);
+    const authStore = useAuthStore();
+    const endpoint = authStore.isLogin
+        ? `/voucher/topVoucher?top=${top}&scope=${scope}`
+        : `/voucher/public/topVoucher?top=${top}&scope=${scope}`;
+
+    const result = await api.get(endpoint);
     return result.data;
 }
 export const getAllVoucher = async () => {

@@ -1,315 +1,405 @@
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from "vue";
-import type { Category } from "@/interfaces/category";
-import * as Brand from "../../interfaces/brand";
-import { useProductAdminStore } from "../../stores/admin/product";
-import { useBrandStore } from "@/stores/brand";
-import { useCategoryStore } from "@/stores/category";
-
-const brandStore = useBrandStore();
-const categoryStore = useCategoryStore();
-const category_id = ref<string>("");
-const brand_id = ref<string>("");
-const name = ref<string>("");
-const description = ref<string>("");
-const status = ref<string>("active");
-const listBrand = ref<Brand.IBrandResponse[]>([]);
-const listCategory = ref<Category[]>([]);
-
-const productAdmin = useProductAdminStore();
-
-const attributes = ref<{ key: string; value: string }[]>([
-  { key: "", value: "" },
-]);
-onMounted(async () => {
-  const [brandsPM, categoriesPM] = await Promise.all([
-    brandStore.getAllBrandStore(),
-    categoryStore.getActiveCategoryStore(),
-  ]);
-  listBrand.value = brandsPM;
-  listCategory.value = categoriesPM;
-});
-
-const colors = ref<any[]>([
-  {
-    color: "",
-    is_main: true,
-    sizes: [{ size: "", stock: 0, price: 0 }],
-  },
-]);
-
-const listImageMain = reactive<any[]>([]);
-const listImageColor = reactive<any[]>([]);
-
-interface ImageFiles {
-  mainImage: File | null;
-  mainImagePreview: string;
-  subImages: File[];
-  subImagePreviews: string[];
-}
-
-const colorImages = ref<Map<number, ImageFiles>>(
-  new Map([
-    [
-      0,
-      {
-        mainImage: null,
-        mainImagePreview: "",
-        subImages: [],
-        subImagePreviews: [],
-      },
-    ],
-  ])
-);
-
-const emit = defineEmits(["close"]);
-const showToast = (msg: string) => alert(msg);
-
-// const brands = ref([{ id: 1, name: 'Nike' }, { id: 2, name: 'Adidas' }, { id: 3, name: 'Puma' }]);
-// const categories = ref([{ id: 1, name: 'Áo' }, { id: 2, name: 'Quần' }]);
-
-const nameLength = computed(() => name.value.length);
-const descLength = computed(() => description.value.length || 0);
-
-const syncImagesToList = () => {
-  listImageMain.length = 0;
-  listImageColor.length = 0;
-
-  colors.value.forEach((color: any, index: number) => {
-    const imgFiles = colorImages.value.get(index);
-    if (!imgFiles) return;
-
-    if (imgFiles.mainImage) {
-      listImageMain.push({
-        [`image_main_${index}`]: imgFiles.mainImage,
-      });
+    import { ref, reactive, computed, onMounted } from "vue";
+    import type { Category } from "@/interfaces/category";
+    import * as Brand from "../../interfaces/brand";
+    import { useProductAdminStore } from "../../stores/admin/product";
+    import { useBrandStore } from "@/stores/brand";
+    import { useCategoryStore } from "@/stores/category";
+    import Notification from "../Notification.vue";
+    import Loading from "../Loading.vue";
+    
+    const brandStore = useBrandStore();
+    const categoryStore = useCategoryStore();
+    const productAdmin = useProductAdminStore();
+    
+    const category_id = ref<string>("");
+    const brand_id = ref<string>("");
+    const name = ref<string>("");
+    const description = ref<string>("");
+    const status = ref<string>("active");
+    const listBrand = ref<Brand.IBrandResponse[]>([]);
+    const listCategory = ref<Category[]>([]);
+    
+    const isSuccess = ref(false);
+    const toastText = ref("");
+    const loadingPage = ref(false);
+    
+    const attributes = ref<{ key: string; value: string }[]>([
+        { key: "", value: "" },
+    ]);
+    
+    onMounted(async () => {
+        loadingPage.value = true;
+        const [brandsPM, categoriesPM] = await Promise.all([
+            brandStore.getAllBrandStore(),
+            categoryStore.getActiveCategoryStore(),
+        ]);
+        listBrand.value = brandsPM;
+        listCategory.value = categoriesPM;
+        loadingPage.value = false;
+    });
+    
+    const colors = ref<any[]>([
+        {
+            color: "",
+            is_main: true,
+            sizes: [{ size: "", stock: 0, price: 0 }],
+        },
+    ]);
+    
+    const listImageMain = reactive<any[]>([]);
+    const listImageColor = reactive<any[]>([]);
+    
+    interface ImageFiles {
+        mainImage: File | null;
+        mainImagePreview: string;
+        subImages: File[];
+        subImagePreviews: string[];
     }
-
-    if (imgFiles.subImages.length > 0) {
-      imgFiles.subImages.forEach((file: File) => {
-        listImageColor.push({
-          [`color_images_${index}`]: file,
+    
+    const colorImages = ref<Map<number, ImageFiles>>(
+        new Map([
+            [
+                0,
+                {
+                    mainImage: null,
+                    mainImagePreview: "",
+                    subImages: [],
+                    subImagePreviews: [],
+                },
+            ],
+        ])
+    );
+    
+    const emit = defineEmits(["close"]);
+    
+    const nameLength = computed(() => name.value.length);
+    const descLength = computed(() => description.value.length || 0);
+    
+    const syncImagesToList = () => {
+        listImageMain.length = 0;
+        listImageColor.length = 0;
+    
+        colors.value.forEach((color: any, index: number) => {
+            const imgFiles = colorImages.value.get(index);
+            if (!imgFiles) return;
+    
+            if (imgFiles.mainImage) {
+                listImageMain.push({
+                    [`image_main_${index}`]: imgFiles.mainImage,
+                });
+            }
+    
+            if (imgFiles.subImages.length > 0) {
+                imgFiles.subImages.forEach((file: File) => {
+                    listImageColor.push({
+                        [`color_images_${index}`]: file,
+                    });
+                });
+            }
         });
-      });
-    }
-  });
+    };
+    
+    const addAttribute = () => {
+        const lastAttr = attributes.value[attributes.value.length - 1];
+        if (lastAttr && (!lastAttr.key.trim() || !lastAttr.value.trim())) {
+            isSuccess.value = false;
+            setTimeout(() => {
+                toastText.value = "Vui lòng điền dòng hiện tại trước!";
+            }, 0);
+            return;
+        }
+        attributes.value.push({ key: "", value: "" });
+    };
+    
+    const removeAttribute = (index: number) => {
+        attributes.value.splice(index, 1);
+    };
+    
+    const initImageFiles = (colorIndex: number) => {
+        if (!colorImages.value.has(colorIndex)) {
+            colorImages.value.set(colorIndex, {
+                mainImage: null,
+                mainImagePreview: "",
+                subImages: [],
+                subImagePreviews: [],
+            });
+        }
+    };
+    
+    const handleMainImageUpload = (colorIndex: number, event: Event) => {
+        const target = event.target as HTMLInputElement;
+        const file = target.files?.[0];
+        if (file) {
+            initImageFiles(colorIndex);
+            const imageData = colorImages.value.get(colorIndex)!;
+            imageData.mainImage = file;
+            const reader = new FileReader();
+            reader.onload = (e) =>
+                (imageData.mainImagePreview = e.target?.result as string);
+            reader.readAsDataURL(file);
+    
+            setTimeout(syncImagesToList, 100); // Sync ngay
+        }
+    };
+    
+    const handleSubImagesUpload = (colorIndex: number, event: Event) => {
+        const target = event.target as HTMLInputElement;
+        const files = target.files;
+        if (files) {
+            initImageFiles(colorIndex);
+            const imageData = colorImages.value.get(colorIndex)!;
+            Array.from(files).forEach((file) => {
+                if (imageData.subImages.length < 7) {
+                    imageData.subImages.push(file);
+                    const reader = new FileReader();
+                    reader.onload = (e) =>
+                        imageData.subImagePreviews.push(e.target?.result as string);
+                    reader.readAsDataURL(file);
+                }
+            });
+            setTimeout(syncImagesToList, 100); // Sync ngay
+        }
+    };
+    
+    const removeSubImage = (colorIndex: number, imageIndex: number) => {
+        const imageData = colorImages.value.get(colorIndex);
+        if (imageData) {
+            imageData.subImages.splice(imageIndex, 1);
+            imageData.subImagePreviews.splice(imageIndex, 1);
+            syncImagesToList();
+        }
+    };
+    
+    const addSize = (colorIndex: number) => {
+        colors.value[colorIndex].sizes.push({ size: "", stock: 0, price: 0 });
+    };
+    
+    const removeSize = (colorIndex: number, sizeIndex: number) => {
+        if (colors.value[colorIndex].sizes.length > 1) {
+            colors.value[colorIndex].sizes.splice(sizeIndex, 1);
+        }
+    };
+    
+    const addColor = () => {
+        const newIndex = colors.value.length;
+        colors.value.push({
+            color: "",
+            is_main: false,
+            sizes: [{ size: "", stock: 0, price: 0 }],
+        });
+        initImageFiles(newIndex);
+    };
+    
+    const removeColor = (index: number) => {
+        if (colors.value.length > 1) {
+            colors.value.splice(index, 1);
+    
+            const newMap = new Map<number, ImageFiles>();
+            colorImages.value.forEach((value, key) => {
+                if (key < index) newMap.set(key, value);
+                else if (key > index) newMap.set(key - 1, value);
+            });
+            colorImages.value = newMap;
+    
+            if (!colors.value.some((c) => c.is_main)) colors.value[0].is_main = true;
+    
+            syncImagesToList();
+        }
+    };
+    
+    const handleCancel = () => {
+        emit("close");
+    };
+    
+    const validateForm = (): boolean => {
+        toastText.value = "";
+        if (!name.value.trim()) {
+            isSuccess.value = false;
+            setTimeout(() => {
+                toastText.value = "Nhập tên sản phẩm";
+            }, 0);
+            return false;
+        }
+        if (name.value.length < 11) {
+            isSuccess.value = false;
+            setTimeout(() => {
+                toastText.value = "Tên sản phẩm quá ngắn";
+            }, 0);
+            return false;
+        }
+        if (!category_id.value) {
+            isSuccess.value = false;
+            setTimeout(() => {
+                toastText.value = "Chọn thể loại";
+            }, 0);
+            return false;
+        }
+        if (!brand_id.value) {
+            isSuccess.value = false;
+            setTimeout(() => {
+                toastText.value = "Chọn thương hiệu";
+            }, 0);
+            return false;
+        }
+    
+        if (listImageMain.length === 0) {
+            isSuccess.value = false;
+            toastText.value = "Vui lòng chọn ít nhất 1 ảnh đại diện!";
+            return false;
+        }
+    
+        for (const color of colors.value) {
+            for (const size of color.sizes) {
+                if (!size.size.trim()) {
+                    isSuccess.value = false;
+                    setTimeout(() => {
+                        toastText.value = "Nhập tên size";
+                    }, 0);
+                    return false;
+                }
+            }
+        }
+    
+        // for (const attr of attributes.value) {
+        //     toastText.value = "";
+        //     if (
+        //         attr.key.length < 2 ||
+        //         attr.key === undefined ||
+        //         attr.value.length < 2 ||
+        //         attr.value === undefined
+        //     ) {
+        //         isSuccess.value = false;
+        //         setTimeout(() => {
+        //             toastText.value = "Điền đủ thông tin thuộc tính!";
+        //         }, 0);
+        //         return false;
+        //     }
+        // }
+        if (!description.value || description.value.length < 10) {
+            isSuccess.value = false;
+            setTimeout(() => {
+                toastText.value = "Vui lòng nhập mô tả!";
+            }, 0);
+            return false;
+        }
+    
+        return true;
+    };
+    
+    const convertArrayToObject = (arr: any[]) => {
+        const result: any = {};
+        arr.forEach((item) => {
+            if (
+                item.key &&
+                item.value &&
+                item.key.length >= 2 &&
+                item.value.length >= 2
+            ) {
+                result[item.key] = item.value;
+            }
+        });
+        return result;
+    };
+    
+    const MapFormData = () => {
+        const formData = new FormData();
+        const attributesObject = convertArrayToObject(attributes.value);
+        formData.append("name", name.value);
+        formData.append("description", description.value);
+        formData.append("brand_id", brand_id.value);
+        formData.append("category_id", category_id.value);
+        formData.append("status", status.value);
+        formData.append("attributes", JSON.stringify(attributesObject));
+        formData.append("colors", JSON.stringify(colors.value));
+        if (videoFile.value) {
+            formData.append('video', videoFile.value);
+        }
+        listImageMain.forEach((item: any) => {
+            const key = Object.keys(item)[0];
+            if (!key) return;
+            const file = item[key];
+            formData.append(key, file);
+        });
+        
+        listImageColor.forEach((item: any) => {
+            const key = Object.keys(item)[0];
+            if (!key) return;
+            const file = item[key];
+            formData.append(key, file);
+        });
+        
+        return formData;
 };
+const videoFile = ref<File | null>(null);
+const videoPreview = ref<string | null>(null);
 
-const addAttribute = () => {
-  const lastAttr = attributes.value[attributes.value.length - 1];
-  if (lastAttr && (!lastAttr.key.trim() || !lastAttr.value.trim())) {
-    showToast("Vui lòng điền dòng hiện tại trước!");
-    return;
-  }
-  attributes.value.push({ key: "", value: "" });
-};
-
-const removeAttribute = (index: number) => {
-  attributes.value.splice(index, 1);
-};
-
-const initImageFiles = (colorIndex: number) => {
-  if (!colorImages.value.has(colorIndex)) {
-    colorImages.value.set(colorIndex, {
-      mainImage: null,
-      mainImagePreview: "",
-      subImages: [],
-      subImagePreviews: [],
-    });
-  }
-};
-
-const handleMainImageUpload = (colorIndex: number, event: Event) => {
+// --- Hàm xử lý khi chọn file ---
+const handleVideoUpload = (event: Event) => {
   const target = event.target as HTMLInputElement;
-  const file = target.files?.[0];
-  if (file) {
-    initImageFiles(colorIndex);
-    const imageData = colorImages.value.get(colorIndex)!;
-    imageData.mainImage = file;
-    const reader = new FileReader();
-    reader.onload = (e) =>
-      (imageData.mainImagePreview = e.target?.result as string);
-    reader.readAsDataURL(file);
+  if (target.files && target.files[0]) {
+    const file = target.files[0];
 
-    setTimeout(syncImagesToList, 100); // Sync ngay
-  }
-};
-
-const handleSubImagesUpload = (colorIndex: number, event: Event) => {
-  const target = event.target as HTMLInputElement;
-  const files = target.files;
-  if (files) {
-    initImageFiles(colorIndex);
-    const imageData = colorImages.value.get(colorIndex)!;
-    Array.from(files).forEach((file) => {
-      if (imageData.subImages.length < 7) {
-        imageData.subImages.push(file);
-        const reader = new FileReader();
-        reader.onload = (e) =>
-          imageData.subImagePreviews.push(e.target?.result as string);
-        reader.readAsDataURL(file);
-      }
-    });
-    setTimeout(syncImagesToList, 100); // Sync ngay
-  }
-};
-
-const removeSubImage = (colorIndex: number, imageIndex: number) => {
-  const imageData = colorImages.value.get(colorIndex);
-  if (imageData) {
-    imageData.subImages.splice(imageIndex, 1);
-    imageData.subImagePreviews.splice(imageIndex, 1);
-    syncImagesToList();
-  }
-};
-
-const addSize = (colorIndex: number) => {
-  colors.value[colorIndex].sizes.push({ size: "", stock: 0, price: 0 });
-};
-
-const removeSize = (colorIndex: number, sizeIndex: number) => {
-  if (colors.value[colorIndex].sizes.length > 1) {
-    colors.value[colorIndex].sizes.splice(sizeIndex, 1);
-  }
-};
-
-const addColor = () => {
-  const newIndex = colors.value.length;
-  colors.value.push({
-    color: "",
-    is_main: false,
-    sizes: [{ size: "", stock: 0, price: 0 }],
-  });
-  initImageFiles(newIndex);
-};
-
-const removeColor = (index: number) => {
-  if (colors.value.length > 1) {
-    colors.value.splice(index, 1);
-
-    const newMap = new Map<number, ImageFiles>();
-    colorImages.value.forEach((value, key) => {
-      if (key < index) newMap.set(key, value);
-      else if (key > index) newMap.set(key - 1, value);
-    });
-    colorImages.value = newMap;
-
-    if (!colors.value.some((c) => c.is_main)) colors.value[0].is_main = true;
-
-    syncImagesToList();
-  }
-};
-
-const handleCancel = () => {
-  emit("close");
-};
-
-const validateForm = (): boolean => {
-  if (!name.value.trim()) {
-    showToast("Nhập tên SP");
-    return false;
-  }
-  if (name.value.length > 200) {
-    showToast("Tên quá dài");
-    return false;
-  }
-  if (!category_id.value) {
-    showToast("Chọn thể loại");
-    return false;
-  }
-  if (!brand_id.value) {
-    showToast("Chọn thương hiệu");
-    return false;
-  }
-
-  if (listImageMain.length === 0) {
-    showToast("Vui lòng chọn ít nhất 1 ảnh đại diện!");
-    return false;
-  }
-
-  for (const color of colors.value) {
-    for (const size of color.sizes) {
-      if (!size.size.trim()) {
-        showToast("Nhập tên size");
-        return false;
-      }
+    // Validate kích thước (Ví dụ: giới hạn 50MB)
+    if (file.size > 50 * 1024 * 1024) {
+      alert("Video quá lớn! Vui lòng chọn video dưới 50MB.");
+      return;
     }
-  }
 
-  for (const attr of attributes.value) {
-    if (
-      attr.key.length < 2 ||
-      attr.key === undefined ||
-      attr.value.length < 2 ||
-      attr.value === undefined
-    ) {
-      showToast("Điền đủ thông tin thuộc tính");
-      return false;
+    // Validate định dạng
+    if (!file.type.startsWith('video/')) {
+      alert("Vui lòng chỉ chọn file video.");
+      return;
     }
-  }
-  if (!description.value || description.value.length < 1) {
-    showToast("Nhập mô tả");
-    return false;
-  }
 
-  return true;
-};
-const convertArrayToObject = (arr: any[]) => {
-  const result: any = {};
-  arr.forEach((item) => {
-    if (
-      item.key &&
-      item.value &&
-      item.key.length >= 2 &&
-      item.value.length >= 2
-    ) {
-      result[item.key] = item.value;
-    }
-  });
-  return result;
-};
-
-const MapFormData = () => {
-  const formData = new FormData();
-  const attributesObject = convertArrayToObject(attributes.value);
-  formData.append("name", name.value);
-  formData.append("description", description.value);
-  formData.append("brand_id", brand_id.value);
-  formData.append("category_id", category_id.value);
-  formData.append("status", status.value);
-  formData.append("attributes", JSON.stringify(attributesObject));
-  formData.append("colors", JSON.stringify(colors.value));
-  listImageMain.forEach((item: any) => {
-    const key = Object.keys(item)[0];
-    if (!key) return;
-    const file = item[key];
-    formData.append(key, file);
-  });
-  listImageColor.forEach((item: any) => {
-    const key = Object.keys(item)[0];
-    if (!key) return;
-    const file = item[key];
-    formData.append(key, file);
-  });
-  return formData;
-};
-
-const handleCreateProduct = async () => {
-  if (!validateForm()) return;
-
-  try {
-    const formData = MapFormData();
-    await productAdmin.addProductStore(formData);
-    if (productAdmin.success) {
-      emit("close");
-    }
-  } catch (error: any) {
-    console.error(error);
+    videoFile.value = file;
+    // Tạo URL tạm thời để xem trước
+    videoPreview.value = URL.createObjectURL(file);
   }
 };
-</script>
 
+// --- Hàm xóa video ---
+const removeVideo = () => {
+  // Reset lại input file để có thể chọn lại cùng 1 file nếu muốn
+  const input = document.getElementById('video-upload') as HTMLInputElement;
+  if (input) input.value = '';
+
+  // Xóa URL object để giải phóng bộ nhớ
+  if (videoPreview.value && videoPreview.value.startsWith('blob:')) {
+    URL.revokeObjectURL(videoPreview.value);
+  }
+
+  videoFile.value = null;
+  videoPreview.value = null;
+};
+    
+    const handleCreateProduct = async () => {
+        if (!validateForm()) return;
+    
+        try {
+            loadingPage.value = true;
+            const formData = MapFormData();
+            // for (const [key, value] of formData.entries()) {
+            //     console.log(key, value);
+            // }
+
+            await productAdmin.addProductStore(formData);
+            loadingPage.value = false;
+            isSuccess.value = true;
+            toastText.value = "Thêm sản phẩm thành công!";
+            emit("close");
+        } catch (error: any) {
+            isSuccess.value = false;
+            toastText.value = "Thêm sản phẩm thất bại!";
+            loadingPage.value = false;
+            console.error(error);
+            emit("close");
+        }
+    };
+    </script>
 <template>
+    <Loading :loading="loadingPage"></Loading>
+    <Notification :isSuccess="isSuccess" :text="toastText"></Notification>
   <div
     @click="handleCancel"
     class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in"
@@ -412,6 +502,76 @@ const handleCreateProduct = async () => {
         </div>
 
         <hr class="border-gray-100 my-8" />
+        <div class="mb-6">
+    <label class="block text-sm font-medium text-gray-700 mb-2">
+      Video giới thiệu (Tùy chọn)
+    </label>
+
+    <div
+      v-if="!videoPreview"
+      class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md hover:border-blue-500 transition-colors cursor-pointer relative"
+    >
+      <div class="space-y-1 text-center">
+        <svg
+          class="mx-auto h-12 w-12 text-gray-400"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+          />
+        </svg>
+        <div class="flex text-sm text-gray-600 justify-center">
+          <label
+            for="video-upload"
+            class="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none"
+          >
+            <span>Tải video lên</span>
+            <input
+              id="video-upload"
+              name="video-upload"
+              type="file"
+              class="sr-only"
+              accept="video/*"
+              @change="handleVideoUpload"
+            />
+          </label>
+        </div>
+        <p class="text-xs text-gray-500">MP4, WebM up to 50MB</p>
+      </div>
+    </div>
+
+    <div v-else class="relative mt-2 w-full max-w-md">
+      <video
+        :src="videoPreview"
+        controls
+        class="w-full h-48 object-contain rounded-lg border border-gray-200 bg-black/5"
+      ></video>
+      
+      <button
+        @click.prevent="removeVideo"
+        type="button"
+        class="absolute -top-3 -right-3 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600 focus:outline-none"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          class="h-5 w-5"
+          viewBox="0 0 20 20"
+          fill="currentColor"
+        >
+          <path
+            fill-rule="evenodd"
+            d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+            clip-rule="evenodd"
+          />
+        </svg>
+      </button>
+    </div>
+  </div>
 
         <h3
           class="text-lg font-bold text-gray-800 mb-6 flex items-center gap-2 border-l-4 border-purple-500 pl-3"
