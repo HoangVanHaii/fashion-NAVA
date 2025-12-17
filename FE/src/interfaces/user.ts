@@ -39,6 +39,7 @@ export interface UserAdmin {
     created_at: string;
     branch?: string; // Thêm trường chi nhánh
     preferences: UserPreferences;
+    branch_id?: string;
     
     city_code?: number | null;
     city_name?: string;

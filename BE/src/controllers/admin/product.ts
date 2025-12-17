@@ -36,7 +36,7 @@ export const createProduct = async (req: Request, res: Response, next: NextFunct
         const listBranchInventory: IProducts.IBranchInventorySQL[] = buildListInventory(idProductSql, colors, branchId);
         await productService.insertBranchInventory(transaction, listBranchInventory);
         uploadProducts = await productService.uploadImageProducts(colors);
-        if (videoFile) {
+        if (typeof videoFile !== 'undefined') {
             uploadedVideoUrl = await productService.uploadSingleVideo(videoFile);
         }
         const productMongo: IProducts.IProductMongo = buildProductMongo(idProductMongo, idProductSql, description, attributes, uploadProducts, uploadedVideoUrl);
@@ -315,15 +315,18 @@ const buildListInventory = (productId: string, colors: IProducts.IProductColorPa
 }
 
 const buildProductMongo = (idProductMongo: mongoose.Types.ObjectId, idProductSql: string, description: string,
-    attributes: any, uploadProducts: IProducts.IProductColorPayload[], videoUrl: string = ""): IProducts.IProductMongo => {
+    attributes: any, uploadProducts: IProducts.IProductColorPayload[], videoUrl: string): IProducts.IProductMongo => {
     try {
-        const productMongo: IProducts.IProductMongo = {
+        let productMongo: IProducts.IProductMongo = {
             _id: idProductMongo,
             product_id_sql: idProductSql,
             description: description,
             colors: uploadProducts,
-            video: videoUrl
+            // video: videoUrl
         }        
+        if (videoUrl.length > 7) {
+            productMongo.video = videoUrl;
+        }
         if (attributes) {
             try {
                 if (attributes && Object.keys(attributes).length > 0) {

@@ -12,7 +12,8 @@
       code: number;
       name: string;
     }
-    const branches = ref<string[]>(["DN", "HN", "HCM"]);
+const branches = ref<string[]>(["DN", "HN", "HCM"]);
+    
 
     
     // --- 2. STATE ---

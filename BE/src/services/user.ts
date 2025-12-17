@@ -312,8 +312,21 @@ export const getAllUser = async (pool: ConnectionPool, branchCode: string) => {
     }
 };
 
-const ALL_BRANCHES = ['HN', 'DN', 'HCM'];
-
+const ALL_BRANCHES = ['CT'];
+const listID: Record<string, string> = {
+    '23C87EA6-C9F0-4247-885C-23D618C468C9': 'HN',
+    '73F306BD-316A-462F-B646-6DF61FE5CAA0': 'DN',
+    '0178EF67-FF67-48B3-B4DE-6E9907EBED27': 'HCM',
+    '0048BA0A-1EFD-4E07-8C87-C45E3AAA314B': 'CT',
+  };
+  
+  // truyền id vào
+  const getCodeById = (id: string): string | undefined => {
+    return listID[id];
+  };
+  
+  // ví dụ
+  
 export const getAllUserForCentral = async () => { 
     try {
 
@@ -326,9 +339,9 @@ export const getAllUserForCentral = async () => {
             try {
                 const result = await pool.request().query(`SELECT * FROM users`);
                     return result.recordset.map((user: any) => ({
-                    ...user,
-                    branch: branchCode 
-                }));
+                        ...user,
+                        branch: getCodeById(user.branch_id) 
+                    }));
             } catch (err) {
                 console.error(`❌ Lỗi query tại chi nhánh ${branchCode}:`, err);
                 return [];

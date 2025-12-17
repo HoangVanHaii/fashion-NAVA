@@ -47,12 +47,15 @@ export const getAllUserForAdmin = async (req: Request, res: Response, next: Next
         }
 
         let users;
-        if (req.user?.branch_code === 'CT') {
-            users = await authService.getAllUserForCentral();
-        }
-        else {
-            users = await authService.getAllUser(req.dbBranch, req.user!.branch_code);
-        }
+        // if (req.user?.branch_code === 'CT') {
+        //     users = await authService.getAllUserForCentral();
+        // }
+        users = await authService.getAllUserForCentral();
+        console.log(users[0])
+
+        // else {
+        //     users = await authService.getAllUser(req.dbBranch, req.user!.branch_code);
+        // }
         return res.status(200).json({
             message: 'Get All User successfully',
             users

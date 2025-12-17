@@ -97,7 +97,6 @@ export const createOrder = async (req: Request, res: Response, next: NextFunctio
             order: {
                 user_id: userId, 
                 voucher_id: validVoucherId ? validVoucherId : undefined,
-                discount_value: discount_value,
                 total: total - discount_value,
                 discount_value: discount_value,
                 payment_method: methodPayment,
