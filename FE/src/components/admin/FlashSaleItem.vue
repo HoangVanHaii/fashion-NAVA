@@ -243,11 +243,12 @@ onMounted(async () => {
     
         try {
             loadingPage.value = true;
-            await useFlashSale.addFlashSaleItemStore(props.flashSale.id, itemsPayload, selectedBranch.value);
+            const res = await useFlashSale.addFlashSaleItemStore(props.flashSale.id, itemsPayload, selectedBranch.value);
             
             loadingPage.value = false;
             
             // Thành công: Set true
+            isNotifi.value = true;
             isNotifi.value = true;
             toastText.value = "Thêm sản phẩm vào Flash Sale thành công!";
             

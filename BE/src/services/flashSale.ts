@@ -227,6 +227,10 @@ export const getFlashSaleHotDeal = async (excludeIds: string, pool: ConnectionPo
             .input("branch_id", branch_id)    
             .query(query);
         const flash_sale = flashSaleResult.recordset[0];
+        if (flash_sale) {
+            flash_sale.id = flash_sale.ID;
+        }
+        // console.log(flash_sale);
 
         if (!flash_sale) {
             return {
