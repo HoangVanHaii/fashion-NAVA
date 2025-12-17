@@ -33,10 +33,13 @@ export const useProductAdminStore = defineStore("product-admin", () => {
   };
   const addProductStore = async (formData: FormData) => {
     try {
-      loading.value = true;
-      await addProduct(formData);
+        loading.value = true;
+        success.value = false;
+        await addProduct(formData);
+        success.value = true;
     } catch (error) {
-      console.log(error);
+        console.log(error);
+        success.value = false;
     } finally {
       loading.value = false;
     }

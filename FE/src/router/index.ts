@@ -105,7 +105,7 @@ router.beforeEach(async (to, from, next) => {
   // 2. Kiểm tra nếu route yêu cầu đăng nhập
   if (to.meta.requiresAuth) {
     // Nếu chưa đăng nhập -> đá về Login
-    if (!authStore.user) {
+    if (!localStorage.getItem('accessToken')) {
       return next({ name: 'login' });
     }
 
@@ -114,7 +114,7 @@ router.beforeEach(async (to, from, next) => {
     if (allowedRoles) {
       // Nếu role của user hiện tại KHÔNG nằm trong danh sách cho phép
       // Ví dụ: user.role là 'user', nhưng allowedRoles là ['employee', 'admin']
-      if (!allowedRoles.includes(authStore.user.role)) {
+      if ( authStore.user && !allowedRoles.includes(authStore.user.role )) {
         // Chặn lại và chuyển hướng
         return next({ name: 'Forbidden' });
       }

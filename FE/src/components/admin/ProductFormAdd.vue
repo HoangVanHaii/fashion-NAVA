@@ -384,16 +384,23 @@ const removeVideo = () => {
             // }
 
             await productAdmin.addProductStore(formData);
+            if (productAdmin.success) {
+                isSuccess.value = true;
+                toastText.value = "Thêm sản phẩm thành công!";
+                emit("close");
+            }
+            else {
+                isSuccess.value = false;
+                toastText.value = "Thêm sản phẩm thất bại!";
+                loadingPage.value = false;
+            }
             loadingPage.value = false;
-            isSuccess.value = true;
-            toastText.value = "Thêm sản phẩm thành công!";
-            emit("close");
         } catch (error: any) {
             isSuccess.value = false;
             toastText.value = "Thêm sản phẩm thất bại!";
             loadingPage.value = false;
             console.error(error);
-            emit("close");
+            // emit("close");
         }
     };
     </script>
