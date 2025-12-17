@@ -1,5 +1,6 @@
 <template>
-  <div class="bg-gray-50 min-h-screen pt-28 pb-20">
+    <Header></Header>
+    <div class="bg-gray-50 min-h-screen pt-10 pb-8">
     <Loading :loading="isLoading || isAddrLoading" />
     <Notification :isSuccess="isNotification" :text="toastText" />
 
@@ -122,11 +123,11 @@
     </div>
 
     <main class="max-w-[1200px] mx-auto px-6">
-      <div class="mb-6 text-sm text-gray-400">
+      <!-- <div class="mb-6 text-sm text-gray-400">
         <span class="cursor-pointer hover:text-black" @click="router.push('/cart')">Giỏ hàng</span>
         <span class="mx-2">/</span>
         <span class="text-black font-semibold">Thanh toán</span>
-      </div>
+      </div> -->
 
       <div class="grid lg:grid-cols-[1fr_380px] gap-8">
         <div class="space-y-6">
@@ -299,6 +300,7 @@
       </div>
     </main>
   </div>
+  <Footer></Footer>
 </template>
 
 <script setup lang="ts">
@@ -313,6 +315,8 @@ import { useAddressStore } from '../stores/address';
 import type { CreateOrderPayload } from '../interfaces/order';
 import type { Voucher } from '../interfaces/voucher';
 import type { Address } from '../interfaces/address';
+import Header from '@/components/Header.vue'
+import Footer from '@/components/Footer.vue'
 
 const router = useRouter();
 const cartStore = useCartStore();
