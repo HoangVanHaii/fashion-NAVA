@@ -104,7 +104,8 @@ export const flashSaleStore = defineStore("flashSale", () => {
         error.value = null;
         loading.value = true;
         try {
-            await addFlashSaleItem(id, items, branch_code)
+            const res = await addFlashSaleItem(id, items, branch_code)
+            return res
         } catch (err) {
             console.log("err",  err);
         } finally {
