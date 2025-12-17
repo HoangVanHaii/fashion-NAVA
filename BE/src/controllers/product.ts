@@ -161,7 +161,7 @@ export const getTopProductsNew = async (req: Request, res: Response, next: NextF
         }
         const topCount = parseInt(req.query.top as string) || 20;
 
-        const branch_id = await productService.getBranchIdByCode(req.dbBranch!, 'DN');
+        const branch_id = await productService.getBranchIdByCode(req.dbBranch!, req.user?.branch_code!);
         if (!branch_id) {
             throw new AppError("branch_id not found", 404);
         }
@@ -185,7 +185,7 @@ export const getTopProductsBestSeller = async (req: Request, res: Response, next
         if (!req.dbBranch! || !req.dbBranch!.connected) {
             throw new AppError("Central DB is not connected", 503);
         }
-        const branch_id = await productService.getBranchIdByCode(req.dbBranch, 'DN');
+        const branch_id = await productService.getBranchIdByCode(req.dbBranch, req.user?.branch_code!);
         if (!branch_id) {
             throw new AppError("branch_id not found", 404);
         }
