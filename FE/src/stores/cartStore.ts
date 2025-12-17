@@ -96,7 +96,6 @@ export const useCartStore = defineStore('cart', () => {
             if (cart.value.total_amount !== null) cart.value.total_amount += (itemPrice * quantityDiff);
         }
     };
-    const cartCount = ref<number>(0);
     const fetchCartAction = async () => {
         loading.value = true;
         error.value = null;
@@ -117,18 +116,10 @@ export const useCartStore = defineStore('cart', () => {
         success.value = false;
         try {
             const res = await addToCart(payload);
-<<<<<<< HEAD
             if (res.success) { 
                 await fetchCartAction(); 
                 await getCartCountStore();
                 return { success: true, message: "Product added!" }; }
-=======
-            success.value = true;
-            if (res.success) {
-                await fetchCartAction()
-                return { success: true, message: "Product added!" };
-            }
->>>>>>> 10758550931fc76141dbf5ebc9efb47f6b586527
             throw new Error("Failed to add.");
         } catch (err: any) {
             success.value = false;
@@ -204,11 +195,7 @@ export const useCartStore = defineStore('cart', () => {
     };
 
     return {
-<<<<<<< HEAD
-        cart, loading, error, totalQuantity, totalAmount, checkoutSession,cartCount,
-=======
         cart, loading, error, totalQuantity, totalAmount, checkoutSession, success, cartCount,
->>>>>>> 10758550931fc76141dbf5ebc9efb47f6b586527
         fetchCartAction, addToCartAction, updateQuantityAction, updateVariantAction, removeItemAction, clearCartAction,
         setCheckoutSession, clearCheckoutSession, getCartCountStore
     };
