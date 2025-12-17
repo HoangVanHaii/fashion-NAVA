@@ -47,7 +47,7 @@ const routes = [
   { path: '/profile/voucherOfme', name: 'voucher-of-me', component: MyVoucher },
   { path: '/profile/notificationOfme', name: 'notification-of-me', component: MyNotification },
   { path: '/product/:id', name: 'product-detail', component: ProductDetail },
-  { path: '/order-success', name: 'OrderSuccess', component: OrderSuccess },
+  { path: '/orderSuccess', name: 'OrderSuccess', component: OrderSuccess },
   { path: '/orderFailed', name: 'OrderFailed', component: OrderFailed },
   
   { path: '/Employee/order', name: 'order-employee', component: OrderEmployee, meta: { requiresAuth: true, allowedRoles: ['employee'] } },
