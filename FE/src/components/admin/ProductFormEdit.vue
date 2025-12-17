@@ -20,7 +20,9 @@
     const props = defineProps<{ product?: any }>();
     const emit = defineEmits(["close", "refresh"]);
     
-    const currentTab = ref<"general" | number>("general");
+    const currentTab = ref<"general" | "video" | number>("general");
+    const videoFile = ref<File | null>(null);
+    const videoPreview = ref<string | null>(null);
     const textToast = ref<string>("");
     const showNotification = ref<boolean>(false);
     
@@ -93,7 +95,9 @@
         productData.category_id = p.category_id || 0;
         productData.brand_id = p.brand_id || 0;
         productData.description = p.description || "";
-    
+        if (p.video) {
+            videoPreview.value = p.video;
+        }
         let rawAttrs = p.attributes;
         if (typeof rawAttrs === "string") {
             try {
@@ -155,23 +159,112 @@
         listBrand.value = brandsPM;
         listCategory.value = categoriesPM;
     });
+    const updateVideo = async () => {
     
-    const switchTab = (tab: "general" | number) => {
-        if (isModified.value) {
+    try {
+        loadingPage.value = true;
+        const formData = new FormData();
+        formData.append("product_id_sql", String(productData.product_id_sql));
+
+        if (videoFile.value) {
+            formData.append("video", videoFile.value);
+            // Có thể thêm flag action nếu backend cần
+            // formData.append("action", "upload"); 
+        } else if (!videoPreview.value) {
+             // Trường hợp muốn xóa video
+             // formData.append("action", "delete");
+             // Hoặc gửi một field rỗng để backend biết là xóa
+             formData.append("video", ""); 
+        } else {
+             loadingPage.value = false;
+             return;
+        }
+
+        // GỌI API STORE
+        await productAdmin.updateProductVideoStore(formData);
+        
+        loadingPage.value = false;
+        if (productAdmin.success) {
+             isSuccess.value = true;
+             toastText.value = 'Cập nhật Video thành công!';
+             // Reset file sau khi lưu
+             videoFile.value = null;
+        } else {
+             isSuccess.value = false;
+             toastText.value = 'Lỗi khi cập nhật video!';
+        }
+
+    } catch (e) {
+        console.error(e);
+        loadingPage.value = false;
+        isSuccess.value = false;
+        toastText.value = 'Lỗi hệ thống!';
+    }
+};
+const handleVideoUpload = (event: Event) => {
+    const target = event.target as HTMLInputElement;
+    if (target.files && target.files[0]) {
+        const file = target.files[0];
+        if (file.size > 50 * 1024 * 1024) {
+            isSuccess.value = false;
+            toastText.value = "Video quá lớn! Vui lòng chọn dưới 50MB.";
+            return;
+        }
+        if (!file.type.startsWith("video/")) {
+            isSuccess.value = false;
+            toastText.value = "Vui lòng chỉ chọn file Video.";
+            return;
+        }
+
+        videoFile.value = file;
+        // Tạo URL preview tạm thời
+        videoPreview.value = URL.createObjectURL(file);
+    }
+};
+    const removeVideo = () => {
+        // Revoke URL cũ để tránh leak memory
+        if (videoPreview.value && videoPreview.value.startsWith('blob:')) {
+            URL.revokeObjectURL(videoPreview.value);
+        }
+        videoFile.value = null;
+        videoPreview.value = null;
+        
+        // Reset input file
+        const input = document.getElementById('video-upload-input') as HTMLInputElement;
+        if (input) input.value = '';
+    };
+    // const switchTab = (tab: "general" | number) => {
+    //     if (isModified.value) {
+    //         isSuccess.value = false;
+    //         setTimeout(() => {
+    //             toastText.value = 'Bạn có thay đổi chưa lưu! Vui lòng lưu lại trước khi chuyển tab.'
+    //         }, 0);
+    //         return;
+    //     }
+    
+    //     currentTab.value = tab;
+    
+    //     nextTick(() => {
+    //         currentTabSnapshot.value = JSON.stringify(getCurrentTabData());
+    //     });
+    // };
+    const switchTab = (tab: "general" | "video" | number) => {
+    // Bỏ check isModified cho tab video khi chuyển tab khác (hoặc xử lý riêng nếu cần strict)
+        if (currentTab.value === 'general' && isModified.value && tab !== 'general') {
             isSuccess.value = false;
             setTimeout(() => {
-                toastText.value = 'Bạn có thay đổi chưa lưu! Vui lòng lưu lại trước khi chuyển tab.'
+                toastText.value = "Bạn có thay đổi chưa lưu! Vui lòng lưu lại trước khi chuyển tab.";
             }, 0);
             return;
         }
-    
+
         currentTab.value = tab;
-    
         nextTick(() => {
-            currentTabSnapshot.value = JSON.stringify(getCurrentTabData());
+            if (tab !== 'video') {
+                currentTabSnapshot.value = JSON.stringify(getCurrentTabData());
+            }
         });
     };
-    
     const addColor = () => {
         if (currentTab.value === "general" && isModified.value) {
             isSuccess.value = false;
@@ -549,6 +642,10 @@
             updateGeneralInfo();
             return;
         }
+        if (currentTab.value === "video") {
+            updateVideo();
+            return;
+        }
         if (typeof currentTab.value === "number" && activeColor.value) {
             const colorObj = activeColor.value;
             const colorIndex = currentTab.value;
@@ -641,6 +738,22 @@
                 v-if="currentTab === 'general' && isModified"
                 class="ml-auto w-2 h-2 bg-red-500 rounded-full animate-pulse"
               ></span>
+            </div>
+            <div
+                @click="switchTab('video')"
+                class="flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-all mb-6 border border-transparent"
+                :class="
+                    currentTab === 'video'
+                        ? 'bg-black text-white shadow-md'
+                        : 'text-gray-600 hover:bg-gray-200 hover:text-black'
+                "
+            >
+                <i class="fa-solid fa-video text-sm"></i>
+                <span class="font-bold text-sm">Video</span>
+                    <span
+                    v-if="currentTab === 'video' && videoFile"
+                    class="ml-auto w-2 h-2 bg-red-500 rounded-full animate-pulse"
+                ></span>
             </div>
 
             <div class="flex justify-between items-center mb-3 px-1">
@@ -812,7 +925,83 @@
               </div>
             </div>
           </div>
+          <div
+                        v-else-if="currentTab === 'video'"
+                        class="animate-fade-in max-w-3xl mx-auto"
+                    >
+                        <h3
+                            class="text-lg font-bold text-black mb-6 pb-2 border-b border-gray-100"
+                        >
+                            Quản lý Video sản phẩm
+                        </h3>
 
+                        <div
+                            class="bg-gray-50 p-6 rounded-xl border border-gray-200"
+                        >
+                            <label
+                                class="block text-sm font-bold text-gray-700 mb-4"
+                            >
+                                Video xem trước (Tối đa 50MB)
+                            </label>
+
+                            <div
+                                v-if="!videoPreview"
+                                class="flex flex-col items-center justify-center px-6 pt-10 pb-10 border-2 border-gray-300 border-dashed rounded-xl hover:border-black hover:bg-gray-100 transition-all cursor-pointer relative group"
+                            >
+                                <div
+                                    class="mb-3 p-4 bg-white rounded-full shadow-sm group-hover:scale-110 transition-transform"
+                                >
+                                    <i
+                                        class="fa-solid fa-cloud-arrow-up text-3xl text-gray-400"
+                                    ></i>
+                                </div>
+                                <div class="text-center">
+                                    <label
+                                        for="video-upload-input"
+                                        class="relative cursor-pointer font-bold text-black hover:underline focus-within:outline-none"
+                                    >
+                                        <span>Tải video lên</span>
+                                        <input
+                                            id="video-upload-input"
+                                            type="file"
+                                            class="sr-only"
+                                            accept="video/*"
+                                            @change="handleVideoUpload"
+                                        />
+                                    </label>
+                                    <p class="text-xs text-gray-500 mt-1">
+                                        Hỗ trợ MP4, WebM
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div v-else class="flex flex-col items-center">
+                                <div class="relative w-80 group">
+                                    <video
+                                        :src="videoPreview"
+                                        controls
+                                        class="w-full h-48 object-contain rounded-lg border border-gray-300 bg-black/5 shadow-sm"
+                                    ></video>
+
+                                    <button
+                                        @click.prevent="removeVideo"
+                                        type="button"
+                                        class="absolute -top-3 -right-3 bg-white text-gray-500 border border-gray-200 hover:text-red-600 hover:border-red-200 rounded-full w-8 h-8 flex items-center justify-center shadow-md transition-all z-10"
+                                        title="Xóa video"
+                                    >
+                                        <i
+                                            class="fa-solid fa-xmark text-sm"
+                                        ></i>
+                                    </button>
+                                </div>
+
+                                <p class="mt-4 text-xs text-gray-500 italic">
+                                    * Video sẽ hiển thị gọn trong khung
+                                    320x192px
+                                </p>
+                            </div>
+                        </div>
+                    </div>
           <div
             v-else-if="typeof currentTab === 'number' && activeColor"
             class="animate-fade-in max-w-4xl mx-auto"

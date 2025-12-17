@@ -9,8 +9,16 @@ const reviewStore = useReviewStore();
 
 const productId = route.params.product_id as string;
 const branchCode = computed(() => (route.query.branch as string) || '');
-
 const filterMode = ref<'latest' | 'discussed'>('latest');
+
+// --- State cho phần trả lời ---
+const replyingToId = ref<string | null>(null);
+const replyContent = ref('');
+const replyFiles = ref<File[]>([]); // Lưu danh sách file ảnh
+const replyLoading = ref(false);    // Loading khi gửi
+
+// Dùng Object để lưu trữ nhiều ref input file theo ID của review
+const fileInputRefs = ref<Record<string, HTMLInputElement>>({});
 
 onMounted(async () => {
     if (productId) {
@@ -20,9 +28,7 @@ onMounted(async () => {
 
 const reviewData = computed(() => reviewStore.currentProductReviews);
 const reviews = computed(() => {
-    if (filterMode.value === 'discussed') {
-        return reviewStore.topDiscussedReviews || [];
-    }
+    if (filterMode.value === 'discussed') return reviewStore.topDiscussedReviews || [];
     return reviewData.value?.reviews || [];
 });
 
@@ -44,32 +50,79 @@ const goBack = () => router.back();
 const changeFilter = async (mode: 'latest' | 'discussed') => {
     if (mode === filterMode.value) return; 
     filterMode.value = mode; 
-    
-    if (mode === 'discussed') {
-        await reviewStore.getTopDiscussedByProductStore(productId);
-    } else {
-        await reviewStore.getReviewsByProductIdStore(productId, branchCode.value);
-    }
+    if (mode === 'discussed') await reviewStore.getTopDiscussedByProductStore(productId);
+    else await reviewStore.getReviewsByProductIdStore(productId, branchCode.value);
 };
 
-const replyingToId = ref<string | null>(null);
-const replyContent = ref('');
+// --- LOGIC MỚI CHO REPLY ---
 
 const openReplyBox = (reviewId: string) => {
     if (replyingToId.value === reviewId) {
-        replyingToId.value = null; 
+        replyingToId.value = null;
     } else {
         replyingToId.value = reviewId;
-        replyContent.value = ''; 
+        replyContent.value = '';
+        replyFiles.value = []; // Reset ảnh khi mở box mới
     }
 };
 
-const submitReply = async (reviewId: string) => {
-    if (!replyContent.value.trim()) return alert("Vui lòng nhập nội dung!");
-    if (confirm("Bạn có chắc muốn gửi câu trả lời này?")) {
-        alert(`[TEST] Đã gửi trả lời cho review ${reviewId}:\n"${replyContent.value}"`);
-        replyingToId.value = null; 
+// Xử lý chọn file
+const handleFileChange = (event: Event) => {
+    const input = event.target as HTMLInputElement;
+    if (input.files) {
+        // Cộng dồn file mới vào danh sách cũ
+        replyFiles.value = [...replyFiles.value, ...Array.from(input.files)];
     }
+    // Reset value input để chọn lại được file cũ nếu muốn
+    if (input) input.value = ''; 
+};
+
+// Xóa file khỏi danh sách chờ gửi
+const removeFile = (index: number) => {
+    replyFiles.value.splice(index, 1);
+};
+
+// Trigger click vào input file ẩn theo ID
+const triggerFileInput = (reviewId: string) => {
+    const inputEl = fileInputRefs.value[reviewId];
+    if (inputEl) {
+        inputEl.click();
+    }
+};
+
+// Tạo URL preview ảnh
+const getPreviewUrl = (file: File) => {
+    return URL.createObjectURL(file);
+};
+
+const submitReply = async (reviewId: string) => {
+    if (!replyContent.value.trim() && replyFiles.value.length === 0) {
+        return alert("Vui lòng nhập nội dung hoặc chọn hình ảnh!");
+    }
+
+    replyLoading.value = true;
+
+    // Giả lập thông tin người trả lời (Admin/Cửa hàng)
+    const adminUser = {
+        id: 'admin_id', 
+        name: 'Cửa hàng',
+        avatar: 'https://placehold.co/50x50?text=S' 
+    };
+
+    const success = await reviewStore.replyReviewStore(
+        reviewId, 
+        replyContent.value, 
+        adminUser, 
+        replyFiles.value // Truyền file vào store
+    );
+
+    if (success) {
+        replyingToId.value = null;
+        replyContent.value = '';
+        replyFiles.value = [];
+    }
+    
+    replyLoading.value = false;
 };
 
 const handleDeleteReply = async (parentMongoId: string, childId: string) => {
@@ -77,7 +130,6 @@ const handleDeleteReply = async (parentMongoId: string, childId: string) => {
         await reviewStore.deleteChildReviewStore(parentMongoId, childId);
     }
 };
-
 </script>
 
 <template>
@@ -195,16 +247,22 @@ const handleDeleteReply = async (parentMongoId: string, childId: string) => {
                         <div 
                             v-for="reply in review.child_reviews" 
                             :key="reply._id" 
-                            class="bg-indigo-50/60 p-4 rounded-lg border-l-4 border-indigo-500 ml-4 relative group"
+                            class="bg-gray-50 p-4 rounded-lg border-l-4 border-indigo-500 ml-4 relative group"
                         >
-                            <div class="absolute -top-2 left-4 w-4 h-4 bg-indigo-50 border-t border-l border-indigo-100 transform rotate-45"></div>
+                            <div class="absolute -top-2 left-4 w-4 h-4 bg-gray-50 border-t border-l border-gray-200 transform rotate-45"></div>
 
                             <div class="flex justify-between items-start mb-2">
                                 <div class="flex items-center gap-2">
-                                    <div class="w-6 h-6 rounded-full bg-indigo-600 flex items-center justify-center text-white text-xs shadow-sm">
-                                        <i class="fa-solid fa-store"></i>
-                                    </div>
-                                    <span class="font-bold text-sm text-indigo-700">Cửa hàng phản hồi</span>
+                                    <img 
+                                        :src="reply.user?.avatar || 'https://placehold.co/50x50?text=S'" 
+                                        class="w-6 h-6 rounded-full object-cover border border-gray-200"
+                                        alt="Avatar"
+                                    />
+                                    
+                                    <span class="font-bold text-sm text-indigo-700">
+                                        {{ reply.user?.name || 'Cửa hàng' }}
+                                    </span>
+                                    
                                     <span class="text-xs text-gray-400">• {{ formatDate(reply.createdAt) }}</span>
                                 </div>
                                 
@@ -226,7 +284,7 @@ const handleDeleteReply = async (parentMongoId: string, childId: string) => {
                                     v-for="(childImg, cIdx) in reply.images" 
                                     :key="cIdx" 
                                     :src="childImg.secure_url || childImg" 
-                                    class="w-16 h-16 object-cover rounded border border-indigo-100"
+                                    class="w-16 h-16 object-cover rounded border border-gray-200"
                                 />
                             </div>
                         </div>
@@ -234,9 +292,9 @@ const handleDeleteReply = async (parentMongoId: string, childId: string) => {
 
                     <div class="border-t border-gray-100 pt-4 mt-2">
                         
-                        <div class="flex justify-end gap-3" v-if="replyingToId !== (review.review_id_sql || review._id)">
+                        <div class="flex justify-end gap-3" v-if="replyingToId !== review._id">
                             <button 
-                                @click="openReplyBox(review.review_id_sql || review._id)"
+                                @click="openReplyBox(review._id)"
                                 class="text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 px-4 py-1.5 rounded shadow-sm transition-colors flex items-center"
                             >
                                 <i class="fa-solid fa-reply mr-2"></i> Trả lời
@@ -254,23 +312,58 @@ const handleDeleteReply = async (parentMongoId: string, childId: string) => {
                             <textarea 
                                 v-model="replyContent"
                                 rows="3"
-                                class="w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-3 border outline-none"
+                                class="w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-3 border outline-none bg-white"
                                 placeholder="Nhập nội dung trả lời khách hàng..."
                             ></textarea>
+
+                            <div v-if="replyFiles.length > 0" class="flex gap-2 mt-3 flex-wrap">
+                                <div v-for="(file, idx) in replyFiles" :key="idx" class="relative group w-16 h-16">
+                                    <img :src="getPreviewUrl(file)" class="w-full h-full object-cover rounded border border-gray-300" />
+                                    <button 
+                                        @click.stop="removeFile(idx)"
+                                        class="absolute -top-1 -right-1 z-10 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity shadow-sm cursor-pointer hover:bg-red-600"
+                                    >
+                                        <i class="fa-solid fa-times"></i>
+                                    </button>
+                                </div>
+                            </div>
                             
-                            <div class="mt-3 flex justify-end gap-2">
-                                <button 
-                                    @click="replyingToId = null" 
-                                    class="px-3 py-1.5 text-sm font-medium text-gray-600 hover:text-gray-800 bg-white border border-gray-300 rounded shadow-sm hover:bg-gray-50"
-                                >
-                                    Hủy bỏ
-                                </button>
-                                <button 
-                                    @click="submitReply(review.review_id_sql || review._id)" 
-                                    class="px-4 py-1.5 text-sm font-medium bg-indigo-600 text-white rounded shadow-sm hover:bg-indigo-700 focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                                >
-                                    <i class="fa-regular fa-paper-plane mr-1"></i> Gửi phản hồi
-                                </button>
+                            <div class="mt-3 flex justify-between items-center">
+                                <div>
+                                    <input 
+                                        type="file" 
+                                        :ref="(el) => { if(el) fileInputRefs[review._id] = el as HTMLInputElement }" 
+                                        class="hidden" 
+                                        multiple 
+                                        accept="image/*" 
+                                        @change="handleFileChange"
+                                    />
+                                    <button 
+                                        @click="triggerFileInput(review._id)"
+                                        class="text-gray-500 hover:text-indigo-600 p-2 rounded-full hover:bg-indigo-50 transition-colors"
+                                        title="Đính kèm hình ảnh"
+                                    >
+                                        <i class="fa-regular fa-image text-xl"></i>
+                                    </button>
+                                </div>
+
+                                <div class="flex gap-2">
+                                    <button 
+                                        @click="replyingToId = null" 
+                                        class="px-3 py-1.5 text-sm font-medium text-gray-600 hover:text-gray-800 bg-white border border-gray-300 rounded shadow-sm hover:bg-gray-50"
+                                    >
+                                        Hủy bỏ
+                                    </button>
+                                    <button 
+                                        @click="submitReply(review._id)" 
+                                        :disabled="replyLoading"
+                                        class="px-4 py-1.5 text-sm font-medium bg-indigo-600 text-white rounded shadow-sm hover:bg-indigo-700 focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                                    >
+                                        <i v-if="replyLoading" class="fa-solid fa-spinner fa-spin"></i>
+                                        <i v-else class="fa-regular fa-paper-plane"></i> 
+                                        Gửi phản hồi
+                                    </button>
+                                </div>
                             </div>
                         </div>
 

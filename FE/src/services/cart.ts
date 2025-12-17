@@ -36,3 +36,8 @@ export const clearCart = async () => {
     const res = await api.delete(`${CART_BASE_URL}/clearCart`);
     return res.data;
 };
+
+export const getCartCount = async () => {
+    const res = await api.get(`${CART_BASE_URL}/count`);
+    return res.data;
+};

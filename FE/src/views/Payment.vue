@@ -1,6 +1,6 @@
 <template>
   <div class="bg-gray-50 min-h-screen pt-28 pb-20">
-    <Loading :loading="isLoading" />
+    <Loading :loading="isLoading || isAddrLoading" />
     <Notification :isSuccess="isNotification" :text="toastText" />
 
     <VoucherModal 
@@ -10,12 +10,116 @@
         @apply="handleApplyVoucher" 
     />
 
-    <AddressSelectorModal 
-        v-if="showAddressModal"
-        :selectedId="selectedAddress?.id"
-        @close="showAddressModal = false"
-        @select="handleSelectAddress"
-    />
+    <div v-if="showAddressModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" @click.self="showAddressModal = false">
+        <div class="bg-white rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl flex flex-col max-h-[85vh] animate-scale-in">
+            <div class="p-5 border-b border-gray-100 flex justify-between items-center bg-white sticky top-0 z-10">
+                <div class="flex items-center gap-3">
+                    <button v-if="addrMode === 'create'" @click="switchAddrList" class="text-gray-500 hover:text-black transition-colors">
+                        <i class="fa-solid fa-arrow-left"></i>
+                    </button>
+                    <h3 class="font-bold text-lg text-gray-900">
+                        {{ addrMode === 'list' ? 'Chọn địa chỉ nhận hàng' : 'Thêm địa chỉ mới' }}
+                    </h3>
+                </div>
+                <button @click="showAddressModal = false" class="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center transition-colors">
+                    <i class="fa-solid fa-xmark text-gray-500"></i>
+                </button>
+            </div>
+
+            <div v-if="addrMode === 'list'" class="p-5 overflow-y-auto custom-scrollbar flex-1 space-y-3">
+                <div v-if="addressStore.listAddress.length === 0" class="text-center py-8 text-gray-500">
+                    <div class="mb-3"><i class="fa-solid fa-map-location-dot text-3xl text-gray-300"></i></div>
+                    <p>Bạn chưa có địa chỉ nào.</p>
+                </div>
+
+                <div 
+                    v-for="addr in addressStore.listAddress" 
+                    :key="addr.id"
+                    @click="handleSelectAddress(addr)"
+                    class="border rounded-xl p-4 cursor-pointer transition-all hover:border-black group relative"
+                    :class="addr.id === selectedAddress?.id ? 'border-black bg-blue-50/30 ring-1 ring-black' : 'border-gray-200'"
+                >
+                    <div class="flex justify-between items-start mb-1">
+                        <div class="flex items-center gap-2">
+                            <span class="font-bold text-gray-900">{{ addr.name }}</span>
+                            <span class="text-gray-300">|</span>
+                            <span class="text-gray-600 font-medium">{{ addr.phone }}</span>
+                        </div>
+                        <div v-if="addr.id === selectedAddress?.id">
+                            <i class="fa-solid fa-circle-check text-black text-lg"></i>
+                        </div>
+                    </div>
+                    <p class="text-sm text-gray-600 leading-relaxed">{{ formatFullAddress(addr) }}</p>
+                    <span v-if="addr.is_default" class="mt-2 inline-block px-2 py-0.5 border border-red-200 text-red-600 text-[10px] font-bold rounded bg-red-50 uppercase">Mặc định</span>
+                </div>
+            </div>
+
+            <div v-else class="p-6 overflow-y-auto custom-scrollbar flex-1">
+                <form @submit.prevent="handleSubmitAddress" class="space-y-4">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="space-y-1">
+                            <label class="text-xs font-bold text-gray-500 uppercase">Họ tên</label>
+                            <input v-model="formAddr.name" type="text" class="input-style" placeholder="Nguyễn Văn A" required />
+                        </div>
+                        <div class="space-y-1">
+                            <label class="text-xs font-bold text-gray-500 uppercase">SĐT</label>
+                            <input v-model="formAddr.phone" type="tel" class="input-style" placeholder="0909..." required />
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-3 gap-3">
+                        <div class="space-y-1">
+                            <label class="text-[10px] font-bold text-gray-500 uppercase">Tỉnh/TP</label>
+                            <select v-model="selProvince" @change="handleProvinceChange" class="input-style" required>
+                                <option value="" disabled>Chọn</option>
+                                <option v-for="p in provinceList" :key="p.code" :value="p.code">{{ p.name }}</option>
+                            </select>
+                        </div>
+                        <div class="space-y-1">
+                            <label class="text-[10px] font-bold text-gray-500 uppercase">Quận/Huyện</label>
+                            <select v-model="selDistrict" @change="handleDistrictChange" :disabled="!selProvince" class="input-style disabled:bg-gray-100" required>
+                                <option value="" disabled>Chọn</option>
+                                <option v-for="d in districtList" :key="d.code" :value="d.code">{{ d.name }}</option>
+                            </select>
+                        </div>
+                        <div class="space-y-1">
+                            <label class="text-[10px] font-bold text-gray-500 uppercase">Phường/Xã</label>
+                            <select v-model="selWard" @change="handleWardChange" :disabled="!selDistrict" class="input-style disabled:bg-gray-100" required>
+                                <option value="" disabled>Chọn</option>
+                                <option v-for="w in wardList" :key="w.code" :value="w.code">{{ w.name }}</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="space-y-1">
+                        <label class="text-xs font-bold text-gray-500 uppercase">Địa chỉ cụ thể</label>
+                        <textarea v-model="formAddr.street_address" rows="2" class="input-style resize-none" placeholder="Số nhà, tên đường..." required></textarea>
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                        <input type="checkbox" v-model="formAddr.is_default" id="default" class="w-4 h-4 rounded border-gray-300 text-black focus:ring-black">
+                        <label for="default" class="text-sm font-medium text-gray-700">Đặt làm địa chỉ mặc định</label>
+                    </div>
+                </form>
+            </div>
+
+            <div class="p-5 border-t border-gray-100 bg-gray-50 sticky bottom-0 z-10">
+                <button v-if="addrMode === 'list'" @click="switchAddrCreate" class="w-full py-3 border border-dashed border-gray-400 rounded-xl flex items-center justify-center gap-2 text-gray-600 font-bold hover:border-black hover:text-black hover:bg-white transition-all">
+                    <i class="fa-solid fa-plus"></i> Thêm địa chỉ mới
+                </button>
+
+                <div v-else class="flex gap-3">
+                    <button @click="switchAddrList" class="flex-1 py-3 border border-gray-300 rounded-xl text-gray-600 font-bold hover:bg-white transition-all">
+                        Trở lại
+                    </button>
+                    <button @click="handleSubmitAddress" :disabled="isAddrLoading" class="flex-[2] py-3 bg-black text-white rounded-xl font-bold hover:bg-gray-800 transition-all flex justify-center items-center gap-2">
+                        <i v-if="isAddrLoading" class="fa-solid fa-spinner fa-spin"></i>
+                        {{ isAddrLoading ? 'Đang lưu...' : 'Hoàn thành' }}
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <main class="max-w-[1200px] mx-auto px-6">
       <div class="mb-6 text-sm text-gray-400">
@@ -34,28 +138,40 @@
                 <h3 class="font-bold text-gray-900 flex items-center gap-2 uppercase text-sm tracking-wide">
                     <i class="fa-solid fa-location-dot text-red-500 text-lg"></i> Địa chỉ nhận hàng
                 </h3>
-                <button @click="showAddressModal = true" class="text-xs text-blue-600 font-bold hover:underline bg-blue-50 px-3 py-1.5 rounded-full transition-colors hover:bg-blue-100">
+                <button @click="openAddressModal" class="text-xs text-blue-600 font-bold hover:underline bg-blue-50 px-3 py-1.5 rounded-full transition-colors hover:bg-blue-100">
                     {{ selectedAddress ? 'Thay đổi' : 'Thêm địa chỉ' }}
                 </button>
              </div>
 
-             <div class="pl-7">
-                 <template v-if="selectedAddress">
-                    <p class="font-bold text-gray-900 text-base mb-1">
-                        {{ selectedAddress.name }} 
-                        <span class="font-normal text-gray-400 mx-2">|</span> 
-                        <span class="text-gray-600">{{ selectedAddress.phone }}</span>
-                    </p>
-                    <p class="text-sm text-gray-500 leading-relaxed">
-                        {{ formatFullAddress(selectedAddress) }}
-                    </p>
-                 </template>
-                 <template v-else>
-                    <div @click="showAddressModal = true" class="cursor-pointer flex items-center gap-2 text-red-500 italic text-sm hover:underline">
-                        <i class="fa-solid fa-circle-exclamation"></i>
-                        Vui lòng chọn địa chỉ giao hàng (*)
-                    </div>
-                 </template>
+             <div class="flex flex-col md:flex-row justify-between items-end gap-4 pl-7">
+                 
+                 <div class="w-full md:flex-1">
+                     <template v-if="selectedAddress">
+                        <p class="font-bold text-gray-900 text-base mb-1">
+                            {{ selectedAddress.name }} 
+                            <span class="font-normal text-gray-400 mx-2">|</span> 
+                            <span class="text-gray-600">{{ selectedAddress.phone }}</span>
+                        </p>
+                        <p class="text-sm text-gray-500 leading-relaxed max-w-lg">
+                            {{ formatFullAddress(selectedAddress) }}
+                        </p>
+                     </template>
+                     <template v-else>
+                        <div @click="openAddressModal" class="cursor-pointer flex items-center gap-2 text-red-500 italic text-sm hover:underline">
+                            <i class="fa-solid fa-circle-exclamation"></i>
+                            Vui lòng chọn địa chỉ giao hàng (*)
+                        </div>
+                     </template>
+                 </div>
+
+                 <div class="hidden md:block w-[180px] h-[50px] relative opacity-90 select-none pointer-events-none mb-1">
+                      <div class="shipper-animation w-full h-full relative">
+                          <i class="fa-solid fa-truck-fast truck text-2xl text-red-500 absolute top-1/2 -translate-y-1/2 z-10"></i>
+                          <i class="fa-solid fa-house-chimney house text-2xl text-red-500 absolute right-0 top-1/2 -translate-y-1/2 z-10"></i>
+                          <div class="absolute bottom-1 left-0 w-full h-[2px] bg-red-100 rounded-full"></div>
+                      </div>
+                 </div>
+
              </div>
           </div>
 
@@ -186,15 +302,14 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, computed } from 'vue';
+import { onMounted, ref, computed, reactive } from 'vue';
 import { useRouter } from 'vue-router';
 import Loading from '../components/Loading.vue';
 import Notification from '../components/Notification.vue';
 import VoucherModal from '../components/Voucher.vue';
-import AddressSelectorModal from '../components/AddressSelectorModal.vue'; // Import Modal
 import { useCartStore } from '../stores/cartStore';
 import { useOrderStore } from '../stores/orderStore';
-import { useAddressStore } from '../stores/address'; // Import Address Store
+import { useAddressStore } from '../stores/address';
 import type { CreateOrderPayload } from '../interfaces/order';
 import type { Voucher } from '../interfaces/voucher';
 import type { Address } from '../interfaces/address';
@@ -202,18 +317,29 @@ import type { Address } from '../interfaces/address';
 const router = useRouter();
 const cartStore = useCartStore();
 const orderStore = useOrderStore();
-const addressStore = useAddressStore(); // Init store
+const addressStore = useAddressStore();
 
 const isLoading = ref(false);
 const isNotification = ref(false);
 const toastText = ref('');
 const showVoucherModal = ref(false);
-const showAddressModal = ref(false); // State Modal Địa chỉ
 
-// Data
+// --- MODAL ADDRESS STATE ---
+const showAddressModal = ref(false);
+const addrMode = ref<'list' | 'create'>('list');
+const isAddrLoading = ref(false);
+const formAddr = reactive<Address>({ name: "", phone: "", province: '', district: '', ward: '', street_address: '', is_default: false });
+const provinceList = ref<any[]>([]);
+const districtList = ref<any[]>([]);
+const wardList = ref<any[]>([]);
+const selProvince = ref<number | string>("");
+const selDistrict = ref<number | string>("");
+const selWard = ref<number | string>("");
+
+// --- MAIN DATA ---
 const checkoutItems = computed(() => cartStore.checkoutSession?.items || []);
 const appliedVoucher = ref<Voucher | null>(cartStore.checkoutSession?.voucher || null);
-const selectedAddress = ref<Address | null>(null); // Địa chỉ được chọn
+const selectedAddress = ref<Address | null>(null);
 
 const paymentMethods = [
     { id: 'cod', label: 'Thanh toán khi nhận hàng (COD)', icon: 'fa-solid fa-money-bill-wave' },
@@ -223,7 +349,6 @@ const selectedPayment = ref<'cod' | 'vnpay'>('cod');
 const note = ref('');
 const shippingFee = ref(30000);
 
-// Computed
 const totalMerchandise = computed(() => checkoutItems.value.reduce((sum: number, item: any) => sum + (item.total_price || 0), 0));
 const calculatedDiscount = computed(() => {
     if (!appliedVoucher.value) return 0;
@@ -240,71 +365,102 @@ const calculatedDiscount = computed(() => {
 });
 const finalTotal = computed(() => Math.max(0, totalMerchandise.value + shippingFee.value - calculatedDiscount.value));
 
-// Lifecycle
+// --- LIFECYCLE ---
 onMounted(async () => {
     if (!cartStore.checkoutSession) {
         router.push('/cart');
         return;
     }
-    // Lấy địa chỉ mặc định
     await addressStore.getAddressesByUserStore();
-    
     if (addressStore.addressDefault && addressStore.addressDefault.id) {
         selectedAddress.value = addressStore.addressDefault;
     } else if (addressStore.listAddress.length > 0) {
         selectedAddress.value = addressStore.listAddress[0] || null;
     }
+    fetchProvinces(); // Pre-fetch for modal
 });
 
-// Handlers
+// --- HELPER FUNCTIONS ---
+const formatPrice = (price: number) => price.toLocaleString('vi-VN') + 'đ';
+const formatFullAddress = (addr: Address) => [addr.street_address, addr.ward, addr.district, addr.province].filter(Boolean).join(', ');
+const getImage = (path?: string) => path || 'https://placehold.co/100?text=NoImg';
+const showToast = (msg: string, success: boolean) => { toastText.value = ''; isNotification.value = success; setTimeout(() => toastText.value = msg, 0); };
+
+// --- VOUCHER ---
 const handleApplyVoucher = (voucher: Voucher) => {
     appliedVoucher.value = voucher;
     showToast(`Đã áp dụng mã ${voucher.code}`, true);
 };
 
-// [MỚI] Hàm chọn địa chỉ từ Modal
+// --- ADDRESS MODAL LOGIC ---
+const openAddressModal = () => { showAddressModal.value = true; addrMode.value = 'list'; };
+const switchAddrCreate = () => {
+    Object.assign(formAddr, { name: "", phone: "", province: '', district: '', ward: '', street_address: '', is_default: false });
+    selProvince.value = ""; selDistrict.value = ""; selWard.value = "";
+    addrMode.value = 'create';
+};
+const switchAddrList = () => { addrMode.value = 'list'; };
+
+const fetchProvinces = async () => { try { const res = await fetch('https://provinces.open-api.vn/api/?depth=1'); provinceList.value = await res.json(); } catch(e){} };
+const fetchDistricts = async (code: number|string) => { try { const res = await fetch(`https://provinces.open-api.vn/api/p/${code}?depth=2`); const d = await res.json(); districtList.value = d.districts; } catch(e){} };
+const fetchWards = async (code: number|string) => { try { const res = await fetch(`https://provinces.open-api.vn/api/d/${code}?depth=2`); const d = await res.json(); wardList.value = d.wards; } catch(e){} };
+
+const handleProvinceChange = () => {
+    const p = provinceList.value.find(item => item.code == selProvince.value);
+    formAddr.province = p ? p.name : '';
+    selDistrict.value = ""; selWard.value = ""; districtList.value = []; wardList.value = [];
+    if (selProvince.value) fetchDistricts(selProvince.value);
+};
+const handleDistrictChange = () => {
+    const d = districtList.value.find(item => item.code == selDistrict.value);
+    formAddr.district = d ? d.name : '';
+    selWard.value = ""; wardList.value = [];
+    if (selDistrict.value) fetchWards(selDistrict.value);
+};
+const handleWardChange = () => {
+    const w = wardList.value.find(item => item.code == selWard.value);
+    formAddr.ward = w ? w.name : '';
+};
+
+// Submit Add Address
+const handleSubmitAddress = async () => {
+    if (!formAddr.name || !formAddr.phone || !formAddr.street_address || !formAddr.province) {
+        alert("Vui lòng điền đầy đủ thông tin!"); return;
+    }
+    try {
+        isAddrLoading.value = true;
+        await addressStore.addAddressStore({ ...formAddr });
+        await addressStore.getAddressesByUserStore();
+        if (addressStore.listAddress.length > 0) {
+             const newAddr = addressStore.listAddress.find(a => a.is_default) || addressStore.listAddress[addressStore.listAddress.length - 1];
+             if(newAddr) handleSelectAddress(newAddr);
+        }
+        addrMode.value = 'list';
+    } catch (e) { alert("Lỗi thêm địa chỉ"); } 
+    finally { isAddrLoading.value = false; }
+};
+
 const handleSelectAddress = (addr: Address) => {
     selectedAddress.value = addr;
+    showAddressModal.value = false;
 };
 
-const formatPrice = (price: number) => price.toLocaleString('vi-VN') + 'đ';
-const formatFullAddress = (addr: Address) => {
-    return [addr.street_address, addr.ward, addr.district, addr.province].filter(Boolean).join(', ');
-};
-const getImage = (path?: string) => path || 'https://placehold.co/100?text=NoImg';
-const showToast = (msg: string, success: boolean) => { toastText.value = ''; isNotification.value = success; setTimeout(() => toastText.value = msg, 0); };
-
-// [QUAN TRỌNG] Handle Order với địa chỉ thật
+// --- ORDER ---
 const handleOrder = async () => {
-    // 1. Validate Địa chỉ
-    if (!selectedAddress.value) {
-        showToast("Vui lòng chọn địa chỉ nhận hàng!", false);
-        return;
-    }
-
+    if (!selectedAddress.value) { showToast("Vui lòng chọn địa chỉ nhận hàng!", false); return; }
     isLoading.value = true;
 
-    // 2. Map Items
     const itemsPayload = checkoutItems.value.map((item: any) => {
         const sizeId = item.variant?.size?.size_id_mongo || item.size_id_mongo;
-        if (!sizeId) {
-            console.error("❌ LỖI: Không tìm thấy size_id_mongo cho sản phẩm:", item.name);
-            return null;
-        }
+        if (!sizeId) { console.error("❌ Lỗi Size ID:", item.name); return null; }
         return { size_id: sizeId, quantity: item.quantity };
     }).filter((i: any) => i !== null) as { size_id: string; quantity: number }[];
 
-    if (itemsPayload.length === 0) {
-        isLoading.value = false;
-        showToast("Lỗi dữ liệu: Không lấy được ID sản phẩm", false);
-        return;
-    }
+    if (itemsPayload.length === 0) { isLoading.value = false; showToast("Lỗi dữ liệu sản phẩm", false); return; }
 
-    // 3. Payload
     const payload: CreateOrderPayload = {
         orderItems: itemsPayload,
         voucherCode: appliedVoucher.value?.code,
-        // Dùng địa chỉ đã chọn
         address: {
             name: selectedAddress.value.name,
             phone: selectedAddress.value.phone,
@@ -319,9 +475,7 @@ const handleOrder = async () => {
         checkout_source: cartStore.checkoutSession?.checkout_source
     };
 
-    // 4. API Call
     const result = await orderStore.createOrderAction(payload);
-
     if (result.success) {
         cartStore.clearCheckoutSession();
         if (selectedPayment.value === 'vnpay' && result.data.paymentUrl) {
@@ -335,3 +489,54 @@ const handleOrder = async () => {
     isLoading.value = false;
 };
 </script>
+
+<style scoped>
+.custom-scrollbar::-webkit-scrollbar { width: 4px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 10px; }
+
+.input-style {
+    width: 100%; padding: 10px 12px;
+    background-color: white; border: 1px solid #e5e7eb;
+    border-radius: 8px; font-size: 14px; outline: none;
+    transition: all 0.2s;
+}
+.input-style:focus {
+    border-color: black;
+    outline: 1px solid black; 
+}
+
+@keyframes scaleIn {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+}
+.animate-scale-in { animation: scaleIn 0.2s ease-out; }
+
+@keyframes truckRun {
+    0% { 
+        left: 0; 
+        opacity: 0; 
+        transform: translateY(-50%) translateX(-20px); 
+    }
+    10% { 
+        opacity: 1; 
+    }
+
+    90% { 
+        left: calc(100% - 40px);
+        opacity: 1; 
+        transform: translateY(-50%) translateX(0); 
+    }
+
+    100% { 
+        left: calc(100% - 40px); 
+        opacity: 0; 
+        transform: translateY(-50%) translateX(20px); 
+    }
+}
+
+.truck {
+    animation: truckRun 3s linear infinite; 
+    transform-origin: center; 
+}
+</style>

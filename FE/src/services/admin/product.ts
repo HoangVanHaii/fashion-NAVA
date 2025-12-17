@@ -56,6 +56,10 @@ export const updateProductColor = async (formData: FormData) => {
   const response = await api.put(`/admin/product/color-size`, formData);
   return response.data;
 };
+export const updateProductVideo = async (formData: FormData) => {
+    const response = await api.put(`/admin/product/video`, formData);
+    return response.data;
+  };
 export const deleteBranchInnventory = async (
   branch_inventory: IProduct.deleteInventory
 ) => {

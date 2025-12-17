@@ -182,6 +182,50 @@ export const uploadImageSingleColor = async (color: IProduct.IProductColorPayloa
     }
 }
 
+
+export const uploadSingleVideo = async (file: Express.Multer.File): Promise<string> => {
+    try {
+        if (!file) return "";
+
+        // Convert buffer sang base64
+        const b64 = Buffer.from(file.buffer).toString("base64");
+        const dataURI = "data:" + file.mimetype + ";base64," + b64;
+
+        const result = await cloudinary.uploader.upload(dataURI, {
+            folder: "Products/Videos", // Gom video vào folder riêng cho gọn
+            resource_type: "video",     // <--- BẮT BUỘC
+            timeout: 60000              // Tăng timeout vì video nặng hơn ảnh
+        });
+
+        return result.secure_url;
+    } catch (err) {
+        console.error("Cloudinary Upload Video Error:", err);
+        throw new AppError("Failed to upload video", 500, false);
+    }
+}
+
+// 2. Hàm Xóa Video (Dùng để Rollback khi lỗi)
+export const deleteVideo = async (videoUrl: string) => {
+    try {
+        if (!videoUrl) return;
+
+        // Lấy public_id từ URL. Ví dụ: .../Products/Videos/video123.mp4
+        // Regex này lấy phần sau version (v123..) đến trước dấu chấm đuôi file
+        const publicIdMatch = videoUrl.match(/\/v\d+\/(.+)\.[a-z]+$/);
+        const publicId = publicIdMatch ? publicIdMatch[1] : null;
+
+        if (publicId) {
+            await cloudinary.uploader.destroy(publicId, {
+                resource_type: 'video' // <--- BẮT BUỘC KHI XÓA
+            });
+        }
+    } catch (err) {
+        console.error(`Failed to rollback video: ${videoUrl}`, err);
+        // Không throw error ở đây để tránh crash luồng rollback chính
+    }
+}
+
+
 export const uploadImageProducts = async (colors: IProduct.IProductColorPayload[]) => {
     try {
         const result = await Promise.all(colors.map(color => uploadImageSingleColor(color)));
@@ -445,6 +489,47 @@ export const updateProductColorSize = async (pool: ConnectionPool, branch_id: st
         if (err instanceof AppError) throw err;
         console.error("Failed update product", err);
         throw new AppError("Failed update product", 500, false);
+    }
+}
+
+export const updateProductVideo = async (product_id_sql: string, video: Express.Multer.File | string) => {
+    try {
+        const ProductDoc = await ProductDetailModel.findOne({
+            product_id_sql: product_id_sql.toLowerCase(),
+        });
+        
+        if (!ProductDoc) {
+            throw new AppError("Product not found", 404, false);
+        }
+        if (ProductDoc.video) {
+            const publicId = ProductDoc.video
+                .split("/")
+                .slice(-2)
+                .join("/")
+                .replace(".mp4", "");
+      
+            await cloudinary.uploader.destroy(publicId, {
+                resource_type: "video",
+            })
+        }
+        if (typeof video === "string") {
+            await ProductDetailModel.updateOne(
+                { product_id_sql: product_id_sql.toLowerCase() },
+                { $unset: { video: "" } }
+              );
+              
+        }
+        else {
+            const url = await uploadSingleVideo(video);
+            ProductDoc.video = url;
+            await ProductDoc.save();
+        }
+        return ProductDoc;
+        
+    } catch (err) {
+        if (err instanceof AppError) throw err;
+        console.error("Failed update product video", err);
+        throw new AppError("Failed update product video", 500, false);
     }
 }
 
@@ -1136,6 +1221,7 @@ export const mergeSqlMongoProducts = (sqlRows: any[], mongoMap: Map<string,
                     category_id: row.category_id,
                     status: row.status,
                     attributes: mongoDoc?.attributes ?? {},
+                    video: mongoDoc?.video,
                     colors: mongoDoc?.colors ?? [],
                 };
                 productMap.set(row.mongodb_id, product);

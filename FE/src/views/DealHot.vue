@@ -35,7 +35,7 @@ const loading = ref(false);
         localStorage.removeItem("excludeIds");
         const ids = excludeIds ? excludeIds.split(",") : [];
     
-        excludeIds = ""//////x///
+        // excludeIds = ""//////x///
         const data1 = await useFlashSale.getFlashSaleHotDeal1NotIN(excludeIds);
         flashSale1.value = data1?.flash_sale;
         hotDeal1.value = data1?.products;
@@ -49,7 +49,7 @@ const loading = ref(false);
                 localStorage.setItem("excludeIds", ids.join(","));
             }
         }
-        excludeIds = ''/////////////
+        // excludeIds = ''/////////////
         const data2 = await useFlashSale.getFlashSaleHotDeal2NotIN(excludeIds);
         flashSale2.value = data2?.flash_sale;
         hotDeal2.value = data2?.products;

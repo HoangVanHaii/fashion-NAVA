@@ -97,3 +97,18 @@ export const clearCart = async (req: Request, res: Response, next: NextFunction)
         next(err);
      }
  }
+
+ export const countCartItems = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const user_id = req.user!.id;
+        const totalQuantity = await cartService.countCartItems(user_id);
+        
+        return res.status(200).json({
+            success: true,
+            message: "Cart count fetched successfully",
+            data: totalQuantity
+        });
+    } catch (err: any) {
+        next(err);
+    }
+}

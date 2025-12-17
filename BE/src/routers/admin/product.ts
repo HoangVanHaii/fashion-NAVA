@@ -54,6 +54,14 @@ router.put(
 );
 
 router.put(
+    "/video",
+    authMiddleware,
+    isAdmin,
+    upload.any(),
+    validateRequest,
+    productController.updateProductVideo
+);
+router.put(
     "/color-size",
     authMiddleware,
     isAdmin,

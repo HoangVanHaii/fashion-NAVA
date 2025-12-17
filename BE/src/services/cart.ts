@@ -415,3 +415,21 @@ export const clearCart = async (user_id: string) => {
         throw new AppError("Error clearing cart", 500, false);
     }
 };
+
+export const countCartItems = async (user_id: string): Promise<number> => {
+    try {
+        const cartMongo = await CartItemMongo.findOne(
+            { user_id_sql: user_id }, 
+            { items: 1 } 
+        ).lean();
+
+        if (!cartMongo || !cartMongo.items) {
+            return 0;
+        }
+
+        return cartMongo.items.length;
+    } catch (error) {
+        console.error("COUNT CART ERROR:", error);
+        throw new AppError("Error counting cart items", 500, false);
+    }
+};

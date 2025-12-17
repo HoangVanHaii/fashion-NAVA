@@ -12,6 +12,7 @@ import {
   deleteProductColor,
   updateStatusAll,
   updateStockAll,
+  updateProductVideo,
 } from "../../services/admin/product";
 export const useProductAdminStore = defineStore("product-admin", () => {
   const loading = ref<boolean>(true);
@@ -124,6 +125,19 @@ export const useProductAdminStore = defineStore("product-admin", () => {
       loading.value = false;
     }
   };
+  const updateProductVideoStore = async (formData: FormData) => {
+    try {
+      success.value = false;
+      loading.value = true;
+      await updateProductVideo(formData);
+      success.value = true;
+    } catch (error) {
+      success.value = false;
+      console.log(error);
+    } finally {
+      loading.value = false;
+    }
+  };
   const updateStatusAllStore = async (status: string) => {
     try {
       success.value = false;
@@ -176,6 +190,7 @@ export const useProductAdminStore = defineStore("product-admin", () => {
     updateProductInfoStore,
     deleteBranchInnventoryStore,
     updateProductColorStore,
+    updateProductVideoStore,
     updateProductStatusStore,
     listProduct,
     loading,

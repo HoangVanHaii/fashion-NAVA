@@ -95,7 +95,7 @@ export const getVoucherById = async (req: Request, res: Response, next: NextFunc
 
 export const getPublicTopVouchers = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const branch_code = 'HN';
+        const branch_code = 'DN';
         const top = req.query.top ? parseInt(req.query.top as string, 10) : 4;
         const vouchers = await voucherService.getTopVouchers(top, branch_code);
         

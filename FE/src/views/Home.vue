@@ -108,9 +108,9 @@ onMounted(async () => {
     flashSaleProducts.value = flashSaleData?.products;
   localStorage.setItem(
     "excludeIdHome",
+    
     flashSaleHomes.value?.id ? flashSaleHomes.value.id.toString() : ""
     );
-    console.log(flashSaleHomes.value);
   const promises = [
     useProduct.getProductBestSellerStore(20),
     useProduct.getProductLatestStore(20),

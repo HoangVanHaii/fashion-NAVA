@@ -6,7 +6,8 @@ import {
     updateCartItemQuantity, 
     removeCartItem, 
     clearCart, 
-    updateCartItemVariant 
+    updateCartItemVariant,
+    getCartCount
 } from "../services/cart";
 import type { ICartFull, ICartItem } from "../interfaces/cart";
 import type { Voucher } from "../interfaces/voucher";
@@ -27,16 +28,13 @@ interface CheckoutSession {
 }
 
 export const useCartStore = defineStore('cart', () => {
-    
+    const cartCount = ref<number>(0);
     const cart = ref<ICartFull | null>(null);
     const loading = ref(false); 
     const error = ref<string | null>(null);
     let snapshotCart: ICartFull | null = null; 
     const success = ref(false);
 
-    // --- STATE MỚI: CHECKOUT SESSION (ĐÃ FIX LỖI TYPE) ---
-    
-    // Hàm helper để lấy dữ liệu từ storage
     const getStoredSession = (): CheckoutSession | null => {
         if (typeof window !== 'undefined') {
             const stored = sessionStorage.getItem('checkout_session');
@@ -48,11 +46,8 @@ export const useCartStore = defineStore('cart', () => {
         }
         return null;
     };
-
-    // Khởi tạo state bằng giá trị từ hàm helper
     const checkoutSession = ref<CheckoutSession | null>(getStoredSession());
 
-    // Action: Lưu Session
     const setCheckoutSession = (data: CheckoutSession) => {
         checkoutSession.value = data;
         if (typeof window !== 'undefined') {
@@ -60,15 +55,12 @@ export const useCartStore = defineStore('cart', () => {
         }
     };
 
-    // Action: Xóa Session
     const clearCheckoutSession = () => {
         checkoutSession.value = null;
         if (typeof window !== 'undefined') {
             sessionStorage.removeItem('checkout_session');
         }
     }
-
-    // --- CÁC PHẦN CÒN LẠI GIỮ NGUYÊN ---
 
     const totalQuantity = computed(() => cart.value?.total_quantity || 0);
     const totalAmount = computed(() => cart.value?.total_amount || 0);
@@ -104,7 +96,6 @@ export const useCartStore = defineStore('cart', () => {
             if (cart.value.total_amount !== null) cart.value.total_amount += (itemPrice * quantityDiff);
         }
     };
-    const cartCount = ref<number>(0);
     const fetchCartAction = async () => {
         loading.value = true;
         error.value = null;
@@ -125,11 +116,10 @@ export const useCartStore = defineStore('cart', () => {
         success.value = false;
         try {
             const res = await addToCart(payload);
-            success.value = true;
-            if (res.success) {
-                await fetchCartAction()
-                return { success: true, message: "Product added!" };
-            }
+            if (res.success) { 
+                await fetchCartAction(); 
+                await getCartCountStore();
+                return { success: true, message: "Product added!" }; }
             throw new Error("Failed to add.");
         } catch (err: any) {
             success.value = false;
@@ -193,9 +183,20 @@ export const useCartStore = defineStore('cart', () => {
         } finally { loading.value = false; }
     };
 
+    const getCartCountStore = async () => {
+        try {
+            const res = await getCartCount();
+            if (res.success) {
+                cartCount.value = res.data;
+            }
+        } catch (err) {
+            console.error("Failed to get cart count", err);
+        }
+    };
+
     return {
         cart, loading, error, totalQuantity, totalAmount, checkoutSession, success, cartCount,
         fetchCartAction, addToCartAction, updateQuantityAction, updateVariantAction, removeItemAction, clearCartAction,
-        setCheckoutSession, clearCheckoutSession
+        setCheckoutSession, clearCheckoutSession, getCartCountStore
     };
 });

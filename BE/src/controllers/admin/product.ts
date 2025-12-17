@@ -12,12 +12,13 @@ export const createProduct = async (req: Request, res: Response, next: NextFunct
     const idProductMongo = new mongoose.Types.ObjectId();
     const idProductSql = UUID();
     let uploadProducts: IProducts.IProductColorPayload[] = [];
-
+    let uploadedVideoUrl: string = "";
     try {
         if (!req.dbBranch! || !req.dbBranch!.connected) {
             throw new AppError("Central DB is not connected", 503);
         }
-        const { category_id, brand_id, name, description, colors, attributes } = req.body;
+        const { category_id, brand_id, name, description, colors, attributes, video } = req.body;
+        const videoFile = video as Express.Multer.File | undefined;
         const productSql: IProducts.IProductSQL = {
             id: idProductSql,
             category_id: category_id,
@@ -35,8 +36,10 @@ export const createProduct = async (req: Request, res: Response, next: NextFunct
         const listBranchInventory: IProducts.IBranchInventorySQL[] = buildListInventory(idProductSql, colors, branchId);
         await productService.insertBranchInventory(transaction, listBranchInventory);
         uploadProducts = await productService.uploadImageProducts(colors);
-
-        const productMongo: IProducts.IProductMongo = buildProductMongo(idProductMongo, idProductSql, description, attributes, uploadProducts);
+        if (videoFile) {
+            uploadedVideoUrl = await productService.uploadSingleVideo(videoFile);
+        }
+        const productMongo: IProducts.IProductMongo = buildProductMongo(idProductMongo, idProductSql, description, attributes, uploadProducts, uploadedVideoUrl);
         await productService.insertProductMongo(productMongo);
 
         await transaction.commit();
@@ -47,6 +50,9 @@ export const createProduct = async (req: Request, res: Response, next: NextFunct
     } catch (err) {
         await productService.deleteProductMongo(idProductMongo.toString());
         await productService.deleteImagesFromColors(uploadProducts);
+        if (uploadedVideoUrl) {
+            await productService.deleteVideo(uploadedVideoUrl);
+        }
         await transaction.rollback();
         next(err);
     }
@@ -157,7 +163,6 @@ export const updateProductColor = async (req: Request, res: Response, next: Next
         if (!req.dbBranch! || !req.dbBranch!.connected) {
             throw new AppError("Central DB is not connected", 503);
         }
-        console.log(2222);
         const branchId = await productService.getBranchIdByCode(req.dbBranch!, req.user?.branch_code || "");
         if (!branchId) {
             throw new AppError("branch_id not found", 404);
@@ -175,6 +180,33 @@ export const updateProductColor = async (req: Request, res: Response, next: Next
         next(err);
     }
 };
+
+export const updateProductVideo = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        if (!req.dbBranch! || !req.dbBranch!.connected) {
+            throw new AppError("Central DB is not connected", 503);
+        }
+        const productId = req.body.product_id_sql;
+        const files = req.files as Express.Multer.File[];
+        const videoFile = files.find(f => f.fieldname === 'video');
+        if (!productId) {
+            throw new AppError("productId is required", 400);
+        }
+        // if (!videoFile) {
+        //     throw new AppError("video is required", 400);
+        // }
+        const updatedProduct = await productService.updateProductVideo(productId, videoFile || "")
+        res.status(200).json({
+            success: true,
+            message: "Updated product video successfully",
+            data: updatedProduct
+        });
+  
+    } catch (err) {
+        next(err);
+    }
+};
+
 
 export const deleteProductColor = async (req: Request, res: Response, next: NextFunction) => {
 
@@ -283,13 +315,14 @@ const buildListInventory = (productId: string, colors: IProducts.IProductColorPa
 }
 
 const buildProductMongo = (idProductMongo: mongoose.Types.ObjectId, idProductSql: string, description: string,
-    attributes: any, uploadProducts: IProducts.IProductColorPayload[]): IProducts.IProductMongo => {
+    attributes: any, uploadProducts: IProducts.IProductColorPayload[], videoUrl: string = ""): IProducts.IProductMongo => {
     try {
         const productMongo: IProducts.IProductMongo = {
             _id: idProductMongo,
             product_id_sql: idProductSql,
             description: description,
             colors: uploadProducts,
+            video: videoUrl
         }        
         if (attributes) {
             try {
