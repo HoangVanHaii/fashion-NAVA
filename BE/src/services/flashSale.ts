@@ -257,6 +257,7 @@ export const getFlashSaleHome = async (pool: ConnectionPool, branch_id: string, 
             ORDER BY fs.start_date DESC
         `);
         const flash_sale = flashSaleResult.recordset[0];
+        flash_sale.id = flash_sale.ID;
         const products = await getProductsActive(flash_sale.ID, pool, branch_id, role);
         return { flash_sale, products };
     } catch (err) {

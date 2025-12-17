@@ -71,13 +71,13 @@ export const connectDatabases = async (): Promise<void> => {
         console.warn('⚠️ SQL DaNang DB (DN) connection FAILED (App still running):', (err as Error).message);
     }
     //hcm
-    // try {
-    //     await dbPools.nam.connect();
-    //     console.log('✅ SQL HCM DB (HCM) connected.');
-    //     dbPools.status.nam = true;
-    // } catch (err) {
-    //     console.warn('⚠️ SQL HCM DB (HCM) connection FAILED (App still running):', (err as Error).message);
-    // }
+    try {
+        await dbPools.nam.connect();
+        console.log('✅ SQL HCM DB (HCM) connected.');
+        dbPools.status.nam = true;
+    } catch (err) {
+        console.warn('⚠️ SQL HCM DB (HCM) connection FAILED (App still running):', (err as Error).message);
+    }
 };
 
 export const getBranchPool = (branch_code: string): ConnectionPool | null => {
