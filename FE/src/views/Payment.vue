@@ -481,7 +481,7 @@ const handleOrder = async () => {
         if (selectedPayment.value === 'vnpay' && result.data.paymentUrl) {
             window.location.href = result.data.paymentUrl;
         } else {
-            router.push('/order-success');
+            router.push('/orderSuccess');
         }
     } else {
         showToast(result.message || "Đặt hàng thất bại", false);
