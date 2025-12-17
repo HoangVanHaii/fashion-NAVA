@@ -96,7 +96,21 @@ export const getAllVouchers = async (branch_code:string): Promise<Voucher[]> => 
 	try {
 		const pool: ConnectionPool | null = getBranchPool(branch_code);
         if (!pool) throw new AppError("Database connection failed", 500);
-		const query = `SELECT * FROM vouchers ORDER BY start_date DESC`;
+        const query = `        SELECT
+                                    ID as id,
+                                    code,
+                                    description,
+                                    discount_type,
+                                    discount_value,
+                                    min_order_value,
+                                    max_discount,
+                                    quantity,
+                                    used,
+                                    start_date,
+                                    end_date,
+                                    created_by
+                                FROM vouchers;`;
+        
 		const result = await pool.request().query(query);
 		return result.recordset as Voucher[];
 	} catch (error) {
