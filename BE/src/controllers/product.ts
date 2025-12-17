@@ -21,7 +21,7 @@ export const getAllProducts = async (req: Request, res: Response, next: NextFunc
             throw new AppError("branch_id not found", 404);
         }
         let products = await productService.getAllProducts(req.dbBranch!, branch_id, req.user?.role || "customer");
-        if (req.user?.role !== 'admin' ) {
+        if (req.user?.role === 'customer') {
             products = products.filter(productHasPrice);
         }
         return res.status(200).json({
@@ -48,7 +48,7 @@ export const getProductBySize = async (req: Request, res: Response, next: NextFu
             throw new AppError("branch_id not found", 404);
         }
         const product = await productService.getProductBySize(req.dbBranch!, branch_id, req.user?.role || "customer", size_id);
-        
+
         return res.status(200).json({
             success: true,
             message: "Get size product successfully",
@@ -70,7 +70,7 @@ export const getAllProductsByGender = async (req: Request, res: Response, next: 
             throw new AppError("branch_id not found", 404);
         }
         let products = await productService.getAllProductsByGender(req.dbBranch!, branch_id, gender);
-        if (req.user?.role !== 'admin' ) {
+        if (req.user?.role === 'customer') {
             products = products.filter(productHasPrice);
         }
         return res.status(200).json({
@@ -78,7 +78,7 @@ export const getAllProductsByGender = async (req: Request, res: Response, next: 
             message: "Get all products By gender successfully",
             products
         });
-        
+
     } catch (err) {
         next(err);
     }
@@ -94,7 +94,7 @@ export const getAllProductsByCategoryId = async (req: Request, res: Response, ne
             throw new AppError("branch_id not found", 404);
         }
         let products = await productService.getAllProductsByCategory(req.dbBranch!, branch_id, req.user?.role || "customer", category_id);
-        if (req.user?.role !== 'admin' ) {
+        if (req.user?.role === 'customer') {
             products = products.filter(productHasPrice);
         }
 
@@ -120,7 +120,7 @@ export const getAllProductsByBrandId = async (req: Request, res: Response, next:
             throw new AppError("branch_id not found", 404);
         }
         let products = await productService.getAllProductsByBrand(req.dbBranch!, branch_id, req.user?.role || "customer", brand_id);
-        if (req.user?.role !== 'admin' ) {
+        if (req.user?.role === 'customer') {
             products = products.filter(productHasPrice);
         }
         return res.status(200).json({
@@ -166,7 +166,7 @@ export const getTopProductsNew = async (req: Request, res: Response, next: NextF
             throw new AppError("branch_id not found", 404);
         }
         let products = await productService.getTopProductsNews(req.dbBranch, branch_id, topCount);
-        if (req.user?.role !== 'admin' ) {
+        if (req.user?.role === 'customer') {
             products = products.filter(productHasPrice);
         }
         return res.status(200).json({
@@ -174,7 +174,7 @@ export const getTopProductsNew = async (req: Request, res: Response, next: NextF
             message: "Get all products New for guest successfully",
             products
         });
-        
+
     } catch (err) {
         next(err);
     }
@@ -190,16 +190,16 @@ export const getTopProductsBestSeller = async (req: Request, res: Response, next
             throw new AppError("branch_id not found", 404);
         }
         let products = await productService.getTopProductsBestseller(req.dbBranch, branch_id, topCount);
-        if (req.user?.role !== 'admin' ) {
+        if (req.user?.role === 'customer') {
             products = products.filter(productHasPrice);
         }
-        
+
         return res.status(200).json({
             success: true,
             message: "Get all products best seller for guest successfully",
             products
         });
-        
+
     } catch (err) {
         next(err);
     }
@@ -228,7 +228,7 @@ export const getAllProductsByGenderForGuest = async (req: Request, res: Response
             message: "Get all products By gender successfully",
             products
         });
-        
+
     } catch (err) {
         next(err);
     }
