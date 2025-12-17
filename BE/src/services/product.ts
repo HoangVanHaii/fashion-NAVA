@@ -785,7 +785,14 @@ export const getTopProductsNews = async (pool: ConnectionPool, branch_id: string
     try {
         
         const query = `
-                        SELECT TOP ${top}
+                       WITH TopProducts AS (
+                            SELECT TOP ${top}
+                                *
+                            FROM products
+                            WHERE status = 'active'
+                            ORDER BY created_at DESC
+                        )
+                        SELECT
                             p.id,
                             p.mongodb_id,
                             p.name,
@@ -801,7 +808,7 @@ export const getTopProductsNews = async (pool: ConnectionPool, branch_id: string
                             fsi.stock AS sale_stock,
                             fsi.sold AS sale_sold
                         FROM 
-                            products p
+                            TopProducts p
                         LEFT JOIN 
                             branch_inventories bi 
                             ON p.id = bi.product_id AND bi.branch_id = @branch_id
@@ -818,9 +825,10 @@ export const getTopProductsNews = async (pool: ConnectionPool, branch_id: string
                             AND fs.status = 'active'
                             AND fs.start_date <= GETDATE()
                             AND fs.end_date >= GETDATE()
-                        WHERE p.status = 'active'
                         ORDER BY
-                            p.created_at DESC;`
+                            p.created_at DESC;
+
+                            `
         
         const req = pool.request()
             .input("branch_id", branch_id)
@@ -834,7 +842,6 @@ export const getTopProductsNews = async (pool: ConnectionPool, branch_id: string
             .filter(Boolean);
         
         const mongoProducts = await getMongoProductsByIds(mongoIds);
-
         const inventoryMap = buildInventoryMap(productSql);
 
         const productResult = mergeSqlMongoProducts(productSql, mongoProducts, inventoryMap);

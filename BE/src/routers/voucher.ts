@@ -12,7 +12,7 @@ router.get('/public/getVoucherByCode/:code', voucherController.getPublicVoucherB
 router.get('/public/getVoucherCodeById/:id', voucherController.getPublicVoucherById);
 
 //auth
-router.get('/topVoucher',authMiddleware, voucherController.getTopVouchers);
+router.get('/topVoucher', voucherController.getTopVouchers);
 router.get('/',authMiddleware, voucherController.getAllVouchers);
 router.get('/getVoucherByCode/:code',authMiddleware, voucherController.getVoucherByCode);
 router.get('/getVoucherById/:id',authMiddleware, voucherController.getVoucherById);

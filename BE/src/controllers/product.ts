@@ -321,6 +321,7 @@ export const getTopProductsNewForGuests = async (req: Request, res: Response, ne
         }
         let products = await productService.getTopProductsNews(pool, branch_id, topCount);
         products = products.filter(productHasPrice);
+        // console.log(products);  
 
         return res.status(200).json({
             success: true,
@@ -373,7 +374,7 @@ export const getProductDetailForGuests = async (req: Request, res: Response, nex
         return res.status(200).json({
             success: true,
             message: `Get product detail for guest successfully`,
-            product
+            data: product
         })
 
     } catch (err) {

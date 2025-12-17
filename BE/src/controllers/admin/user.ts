@@ -51,7 +51,7 @@ export const getAllUserForAdmin = async (req: Request, res: Response, next: Next
         //     users = await authService.getAllUserForCentral();
         // }
         users = await authService.getAllUserForCentral();
-        console.log(users[0])
+        // console.log(users[0])
 
         // else {
         //     users = await authService.getAllUser(req.dbBranch, req.user!.branch_code);

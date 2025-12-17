@@ -106,6 +106,7 @@
         const id = route.params.id as string;
         productId.value = await product.getProductByIdStore(id);
         await reviewStore.getReviewsByProductIdStore(id);
+        console.log("aaaaa", productId.value)
     
         if (productId.value?.colors) {
             colorChose.value = productId.value.colors.find((cl) => cl.is_main == true) || productId.value.colors[0];
@@ -116,7 +117,7 @@
             sizeChose.value = colorChose.value.sizes[0]; 
             url_main.value = colorChose.value.image_main;
         }
-    
+        // console.log("aaaa", productId.value);
         let result = await product.searchByCategoryIdStore(productId.value?.category_id || "");
         listpProducts.value = result;
         listpProducts.value = result.filter((p) => p._id !== productId.value?._id);
@@ -132,9 +133,9 @@
     
     onMounted(async () => {
         await loadData();
-        favourite.getFavouriteOfMeStore();
-        if (localStorage.getItem("accessToken")) {
-            await auth.getProfileStore(); 
+        if (auth.isLogin) {
+            await favourite.getFavouriteOfMeStore();
+            await auth.getProfileStore();
         }
     });
     
@@ -360,6 +361,8 @@
             inputEl.click();
         }
     }
+    
+
     
     const handleUpdateChild = async (parentId: string, childId: string) => {
         if (!editContent.value.trim() && editFiles.value.length === 0) return;
@@ -601,13 +604,27 @@
              <div class="p-8 lg:p-12">
                 <div v-if="!showReview" class="grid grid-cols-1 lg:grid-cols-3 gap-12 animate-fade-in">
                     <div class="lg:col-span-2 space-y-6 text-gray-700 leading-loose">
-                        <div class="bg-gray-50 p-8 rounded-2xl border border-gray-100">
-                            <h4 class="font-bold text-black text-lg mb-6 flex items-center gap-2"><i class="fa-solid fa-circle-info text-gray-400"></i> Thông số kỹ thuật</h4>
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-y-4 gap-x-8 text-sm">
-                                <div class="flex justify-between border-b border-gray-200 pb-2"><span class="text-gray-500">Thương hiệu</span> <span class="font-bold text-black">NAVA</span></div>
-                                <div class="flex justify-between border-b border-gray-200 pb-2"><span class="text-gray-500">Danh mục</span> <span class="font-bold text-black">{{ category?.category_name }}</span></div>
-                                <div class="flex justify-between border-b border-gray-200 pb-2"><span class="text-gray-500">Chất liệu</span> <span class="font-bold text-black">Cotton cao cấp</span></div>
-                                <div class="flex justify-between border-b border-gray-200 pb-2"><span class="text-gray-500">Xuất xứ</span> <span class="font-bold text-black">Việt Nam</span></div>
+                        <div class="bg-gray-50 p-8 rounded-2xl border border-gray-100" v-if="productId?.attributes && Object.keys(productId.attributes).length > 0">
+                            <div class="max-w-5xl mx-auto w-full">
+                                <h4 class="font-bold text-black text-lg mb-6 flex items-center gap-2">
+                                    <i class="fa-solid fa-circle-info text-gray-400"></i>
+                                    Thông số kỹ thuật
+                                </h4>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-y-4 gap-x-12 w-full">
+                                    <div
+                                        v-for="([key, value]) in Object.entries(productId?.attributes || {})"
+                                        :key="key"
+                                        class="flex items-center justify-between border-b border-gray-200 pb-2 w-full"
+                                    >
+                                        <span class="text-gray-600">
+                                            {{ key }}
+                                        </span>
+                                        <span class="font-bold text-black text-right">
+                                            {{ value }}
+                                        </span>
+                                    </div>
+                                </div>
+                                
                             </div>
                         </div>
                         <div class="prose max-w-none text-gray-600">

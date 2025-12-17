@@ -60,7 +60,7 @@ const textTmp = `Tối giản nhưng không đơn điệu – Dòng sản phẩm
 const textAoda = `Sở hữu chất liệu cao cấp cùng kỹ thuật chế tác tinh tế, bộ sưu tập đồ da nam Giovanni Outlet thể hiện sự trau chuốt trong từng chi tiết, mang đến trải nghiệm khác biệt.`;
 
 const displayedProducts = computed(() => {
-  if (!flashSaleProducts.value.length) return [];
+  if ( !flashSaleProducts.value || !flashSaleProducts.value.length) return [];
   return showAll.value
     ? flashSaleProducts.value
     : flashSaleProducts.value.slice(0, 5);
@@ -567,7 +567,7 @@ const getSoldPercentage = (product: any): number => {
                         : 'bg-gray-900 text-white hover:bg-black'
                     "
                   >
-                    {{ copiedList[idx] ? "Đã áp dụng" : "Áp dụng ngay" }}
+                    {{ copiedList[idx] ? "Đã sao chếp" : "Sao chép ngay" }}
                   </button>
                 </div>
               </div>
@@ -737,8 +737,9 @@ const getSoldPercentage = (product: any): number => {
               </h4>
               <div
                 class="text-gray-900 font-bold mt-1 px-1"
+                
               >
-                {{ formatPrice(getMinProductPrice(prod)!) }}
+                {{ formatPrice(getMinProductPrice(prod || 0) || 0) }}
               </div>
             </div>
           </div>

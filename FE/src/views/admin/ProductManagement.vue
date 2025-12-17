@@ -63,12 +63,12 @@ const totalStockList = computed(() => {
   );
 });
 
-const minPriceList = computed(() => {
+const maxPriceList = computed(() => {
   return filteredProductList.value.map((p) => {
     const prices = p.colors.flatMap((color) =>
       color.sizes.map((s) => s.price || 0)
     );
-    return prices.length > 0 ? Math.min(...prices) : 0;
+    return prices.length > 0 ? Math.max(...prices) : 0;
   });
 });
 
@@ -101,6 +101,18 @@ const checkButton = ref<boolean>(true);
 const showFormAdd = ref<Boolean>(false);
 const showEditForm = ref(false);
 const selectedProduct = ref<IProduct.IProductMongoDetail | null>(null);
+
+const fetchData = async () => {
+    
+    await productStore.getAllProductPayloadStore();
+    showFormAdd.value = false
+}
+
+const handleGet = async () => {
+    showEditForm.value = false;
+    await productStore.getAllProductPayloadStore();
+
+}
 
 // === Scroll Logic ===
 const isTabVisible = ref(true);
@@ -281,21 +293,21 @@ const openEditModal = (item: IProduct.IProductMongoDetail) => {
 
   <FormEdit
     v-if="showEditForm"
-    @close="showEditForm = false"
+    @close="handleGet"
     :product="selectedProduct"
   />
 
-  <FormAdd v-if="showFormAdd" @close="showFormAdd = false" />
+  <FormAdd v-if="showFormAdd" @close="fetchData" />
 
   <Notification :text="texNotification" :isSuccess="showNotification" />
 
-  <div class="flex justify-between h-[100vh] bg-[#f5f5f5]">
+  <div class="flex h-screen h-[100vh] bg-[#f5f5f5]">
     <Navbar />
 
     <div
       ref="scrollContainer"
       v-if="productStore.listProduct"
-      class="w-[82%] max-md:w-full bg-white rounded-l-2xl shadow-[0_0_40px_rgba(0,0,0,0.05)] overflow-y-auto scrollbar-thin overscroll-y-contain"
+      class="flex-1 max-md:w-full bg-white rounded-l-2xl shadow-[0_0_40px_rgba(0,0,0,0.05)] overflow-y-auto scrollbar-thin overscroll-y-contain"
     >
       <div
         class="sticky top-0 bg-white z-20 shadow-sm transition-all duration-300 border-0"
@@ -430,7 +442,9 @@ const openEditModal = (item: IProduct.IProductMongoDetail) => {
           <div
             v-for="(productItem, index) in filteredProductList"
             :key="productItem._id || index"
-            class="bg-white border border-[#e5e5e5] rounded-2xl hover:shadow-[0_4px_20px_rgba(0,0,0,0.08)] hover:border-[#dcdcdc] transition-all duration-300 max-md:min-w-[800px]"
+            class="bg-white border border-[#e5e5e5] rounded-2xl hover:shadow-[0_4px_20px_rgba(0,0,0,0.08)] transition-all duration-300 max-md:min-w-[800px]"
+            :class="{ 'border-red-500': (maxPriceList[index] === 0 || !maxPriceList[index]) }"
+
           >
             <div class="grid grid-cols-12 gap-4 p-2 items-center">
               <div class="col-span-5 flex items-center gap-4">
@@ -463,10 +477,12 @@ const openEditModal = (item: IProduct.IProductMongoDetail) => {
                 </span>
               </div>
 
-              <div class="col-span-2 text-center">
-                <div class="text-sm font-semibold text-black">
-                  {{ formatPrice(minPriceList[index] ?? 0) }}
-                </div>
+              <div class="col-span-2 text-center"                
+              >
+                <div class="text-sm font-semibold text-black"
+                    >
+                        {{ formatPrice(maxPriceList[index] ?? 0) }}
+                    </div>
               </div>
 
               <div class="col-span-1 text-center">
