@@ -65,7 +65,7 @@ const insertUserSql = async (request: Request, userId: string, name: string, ema
 
     await request.query(`
         INSERT INTO users (ID, name, email, password, phone, date_of_birth, gender, avatar, is_verified, status, role, mongodb_id, branch_id)
-        VALUES (@id, @name, @email, @password, @phone, @date_of_birth, @gender, 'default-avatar.png', @is_verified, 'active', @role, @mongodb_id, @branch_id)
+        VALUES (@id, @name, @email, @password, @phone, @date_of_birth, @gender, 'https://res.cloudinary.com/duxdpc100/image/upload/v1765982522/Users/pbs9v2lwgcvrbjjb3oyw.jpg', @is_verified, 'active', @role, @mongodb_id, @branch_id)
     `);
 };
 const saveOtpCode = async (request: Request, email: string, otp: string) => {
