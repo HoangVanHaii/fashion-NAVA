@@ -134,7 +134,7 @@ export const useCartStore = defineStore('cart', () => {
         try {
             findAndUpdateItem(cartItem_mongo_id, newQuantity);
             const res = await updateCartItemQuantity(cartItem_mongo_id, newQuantity);
-            if (res.success) { await fetchCartAction(); return { success: true, message: "Updated!" }; }
+            if (res.success) { await fetchCartAction(); return { success: true, message: "" }; }
             throw new Error("Failed.");
         } catch (err: any) { 
             restoreSnapshot(); 
