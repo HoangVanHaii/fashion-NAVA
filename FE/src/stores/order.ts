@@ -1,6 +1,6 @@
 import { ref, computed } from "vue";
 import { defineStore } from "pinia";
-import { getOrderOfBranch, getOrderOfTypeBranch, changeStatus, createOrderByEmployee, getStatistical, getDailyOrderComparison, getProductBySize, getOrderById, getTopOrderOfBranch, getDailyOrderComparisonForAdmin, getTotalOrderComparisonForAdmin, getTotalOrderCancelledForAdmin, getTotalOrderMonthForAdmin } from "@/services/employee/order";
+import { getOrderOfBranch, getOrderOfTypeBranch, changeStatus, createOrderByEmployee, getStatistical, getDailyOrderComparison, getProductBySize, getOrderById, getTopOrderOfBranch, getDailyOrderComparisonForAdmin, getTotalOrderComparisonForAdmin, getTotalOrderCancelledForAdmin, getTotalOrderMonthForAdmin, getOrderByIdForAdmin } from "@/services/employee/order";
 import { type RevenueOrder, type GetOrder, type StatisticalOrder } from "@/interfaces/order";
 import type { IProductMongoDetail } from "@/interfaces/product";
 import { getOrderOfMe } from "@/services/order";
@@ -239,6 +239,17 @@ export const useOrderEmployeeStore = defineStore("orderEmployee", () => {
             loading.value = false;
         }
     } 
+    const getOrderByIdForAdminStore = async (order_id: string) => {
+        loading.value = true;
+        try {
+            const result = await getOrderByIdForAdmin(order_id);
+            orderDetail.value = result.data;
+        } catch (err: any) {
+            console.log(err);
+        } finally {
+            loading.value = false;
+        }
+    } 
 
     const getOrderOfMeStore = async () => {
         loading.value = true;
@@ -276,6 +287,7 @@ export const useOrderEmployeeStore = defineStore("orderEmployee", () => {
         getOrderByIdStore,
         getOrderOfMeStore,
         getTopOrderOfBranchStore,
+        getOrderByIdForAdminStore,
 
 
         getDailyOrderComparisonForAdminStore,

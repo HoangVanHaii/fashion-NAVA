@@ -43,7 +43,7 @@ const mapStatusPayment: { [key: string]: string } = {
 const loadOrderDetail = async () => {
     if (!props.orderId) return;
     loading.value = true;
-    await orderStore.getOrderByIdStore(props.orderId);
+    await orderStore.getOrderByIdForAdminStore(props.orderId);
     loading.value = false;
 };
 

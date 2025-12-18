@@ -22,6 +22,11 @@ router.get(
     authMiddleware,
     orderController.getOrderDetail
 );
+router.get(
+    '/admin/:id',
+    authMiddleware,
+    orderController.getOrderDetail
+);
 router.put(
     '/:id/cancel',
     authMiddleware,

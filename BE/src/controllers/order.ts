@@ -173,6 +173,24 @@ export const getOrderDetail = async (req: Request, res: Response, next: NextFunc
         next(err);
     }
 };
+export const getOrderDetailforAdmin = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const orderId = req.params.id;
+        const pool = getBranchPool('CT');
+        const branch_code = req.user?.branch_code;
+        if (!pool || !pool.connected) {
+            throw new AppError(`${branch_code} is not connected`, 503);
+        }
+        console.log(pool);
+        const orderDetail = await orderService.getOrderById(orderId, pool);
+        return res.status(200).json({
+            success: true,
+            data: orderDetail
+        });
+    } catch (err) {
+        next(err);
+    }
+};
 export const cancelOrder = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const orderId = req.params.id;

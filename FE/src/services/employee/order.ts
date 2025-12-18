@@ -17,6 +17,10 @@ export const getOrderById = async (order_id: string) => {
     const response = await api.get(`/order/${order_id}`);
     return response.data;
 };
+export const getOrderByIdForAdmin = async (order_id: string) => {
+    const response = await api.get(`/order/admin/${order_id}`);
+    return response.data;
+};
 export const getProductBySize = async (size_id: string) => {
     const response = await api.get(`/product/getBySize/${size_id}`);
     return response.data;
