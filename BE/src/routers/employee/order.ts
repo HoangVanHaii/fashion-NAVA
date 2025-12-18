@@ -54,7 +54,7 @@ router.get(
     orderController.getTotalCancelledOrderForAdmin
 );
 router.get(
-    '/daily-comparison/type',
+    '/daily-comparison/:type',
     authMiddleware,
     adminOrEmployee,
     orderController.getDailyOrderComparison

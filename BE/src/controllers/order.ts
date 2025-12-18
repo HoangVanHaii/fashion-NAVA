@@ -156,12 +156,14 @@ export const getOrderOfMe = async (req: Request, res: Response, next: NextFuncti
 export const getOrderDetail = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const orderId = req.params.id;
-        const dbBranch = req.dbBranch;
-        const branch_code = 'CT';
-        const pool = getBranchPool(branch_code);
+        const pool = req.dbBranch;
+        // const o
+        // const pool = getBranchPool(branch_code);
+        const branch_code = req.user?.branch_code;
         if (!pool || !pool.connected) {
             throw new AppError(`${branch_code} is not connected`, 503);
         }
+        console.log(pool);
         const orderDetail = await orderService.getOrderById(orderId, pool); 
         return res.status(200).json({
             success: true,

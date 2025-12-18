@@ -351,7 +351,7 @@ const paymentMethods = [
 ];
 const selectedPayment = ref<'cod' | 'vnpay'>('cod');
 const note = ref('');
-const shippingFee = ref(30000);
+const shippingFee = ref(0);
 
 const totalMerchandise = computed(() => checkoutItems.value.reduce((sum: number, item: any) => sum + (item.total_price || 0), 0));
 const calculatedDiscount = computed(() => {
