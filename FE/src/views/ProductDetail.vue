@@ -200,7 +200,7 @@
         const token = localStorage.getItem("accessToken");
         if (!token) {
             showToast("Vui lòng đăng nhập để mua ngay!", false);
-            setTimeout(() => { router.push('/login'); }, 1500); 
+            setTimeout(() => { router.push('/auth/login'); }, 1500); 
             return;
         }
     

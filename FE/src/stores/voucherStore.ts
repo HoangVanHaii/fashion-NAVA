@@ -31,6 +31,7 @@ export const useVoucherStore = defineStore('voucher', () => {
         try {
             const result = await getAllVoucher();
             myVouchers.value = result.vouchers;
+            return result.vouchers;
         } catch (err) {
             console.log(err);
         }

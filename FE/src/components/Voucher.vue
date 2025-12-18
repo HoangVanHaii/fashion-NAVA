@@ -33,10 +33,10 @@ const getImage = (url?: string) => {
     if (url && url.length > 0) return url;
     return 'https://res.cloudinary.com/dnjp4j9xb/image/upload/v1765647982/voucher_vkp9t6.webp'; 
 }
-
+const listVoucher = ref<Voucher[]>([]);
 // Load Vouchers
 onMounted(async () => {
-    await voucherStore.getAllVoucherStore();
+    listVoucher.value = await voucherStore.getAllVoucherStore();
 });
 
 // Xử lý Search / Claim
@@ -45,41 +45,41 @@ const handleSearchOrClaim = async () => {
     errorMsg.value = '';
     
     // 1. Tìm local
-    const found = voucherStore.myVouchers.filter(v => v.code.toLowerCase() === textSearch.value.toLowerCase());
+    const found = listVoucher.value.filter(v => v.code.toLowerCase() === textSearch.value.toLowerCase());
     
     if (found.length > 0) {
-        voucherStore.myVouchers = found;
+        listVoucher.value = found;
     } else {
         // 2. Gọi API Claim
         isSearching.value = true;
         try {
             const res = await voucherStore.claimVoucherAction(textSearch.value);
             if(res.success) {
-                alert(res.message);
-                voucherStore.myVouchers = voucherStore.myVouchers;
+                // alert(res.message);
+                // listVoucher.value = listVoucher.value;
                 textSearch.value = ""; 
             }
         } catch (err: any) {
             errorMsg.value = err.message;
-            voucherStore.myVouchers = [];
+            listVoucher.value = [];
         } finally {
             isSearching.value = false;
         }
     }
 };
 
-watch(() => voucherStore.myVouchers, (newVal) => {
-    if (!textSearch.value) voucherStore.myVouchers = newVal;
-});
+// watch(() => listVoucher, (newVal) => {
+//     if (!textSearch.value) listVoucher = newVal;
+// });
 
-watch(textSearch, (val) => {
-    if (!val) {
-        voucherStore.myVouchers = voucherStore.myVouchers;
-        errorMsg.value = '';
-    }
-});
+// watch(textSearch, (val) => {
+//     if (!val) {
+//         listVoucher = listVoucher;
+//         errorMsg.value = '';
+//     }
+// });
 
-// Logic Check
+// // Logic Check
 const isEligible = (voucher: Voucher) => {
     const now = new Date();
     const endDate = new Date(voucher.end_date);
@@ -93,7 +93,7 @@ const handleSelect = (voucher: Voucher) => {
 };
 
 const handleApply = () => {
-    const voucher = voucherStore.myVouchers.find(v => v.id === selectedVoucherId.value);
+    const voucher = listVoucher.value.find(v => v.id === selectedVoucherId.value);
     if (voucher) {
         emit("apply", voucher);
         emit("close");
@@ -138,12 +138,12 @@ const handleApply = () => {
       </div>
 
       <div class="flex-1 overflow-y-auto p-4 space-y-3 bg-white custom-scrollbar relative">
-        <div v-if="voucherStore.loading && voucherStore.myVouchers.length === 0" class="absolute inset-0 flex items-center justify-center bg-white/80 z-20">
+        <div v-if="voucherStore.loading && listVoucher.length === 0" class="absolute inset-0 flex items-center justify-center bg-white/80 z-20">
             <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-black"></div>
         </div>
 
         <div 
-            v-for="voucher in voucherStore.myVouchers" 
+            v-for="voucher in listVoucher" 
             :key="voucher.id"
             class="group relative border rounded-xl p-3 flex gap-3 transition-all duration-200 cursor-pointer select-none"
             :class="[
@@ -192,7 +192,7 @@ const handleApply = () => {
              <div v-if="!isEligible(voucher)" class="absolute inset-0 z-10" title="Chưa đủ điều kiện áp dụng"></div>
         </div>
 
-        <div v-if="voucherStore.myVouchers && voucherStore.myVouchers.length === 0 && !voucherStore.loading" class="text-center py-10 text-gray-400">
+        <div v-if="listVoucher && listVoucher.length === 0 && !voucherStore.loading" class="text-center py-10 text-gray-400">
             <i class="fa-solid fa-ticket text-4xl mb-2 opacity-30"></i>
             <p class="text-xs">Bạn chưa có voucher nào.</p>
         </div>
