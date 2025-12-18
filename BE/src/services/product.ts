@@ -862,7 +862,7 @@ export const getTopProductsBestseller = async (pool: ConnectionPool, branch_id: 
                                 SUM(oi.quantity) AS total_quantity_sold
                             FROM order_items oi 
                             JOIN orders o ON oi.order_id = o.ID
-                            WHERE o.status = 'completed' 
+                            WHERE o.status != 'cancelled' 
                             GROUP BY oi.product_id
                             ORDER BY total_quantity_sold DESC
                         )
@@ -911,18 +911,16 @@ export const getTopProductsBestseller = async (pool: ConnectionPool, branch_id: 
             
         const sqlResult = await req.query(query)
         
+        
         const productSql = sqlResult.recordset;
-
         const mongoIds = productSql
             .map(p => p.mongodb_id)
             .filter(Boolean);
-        
         const mongoProducts = await getMongoProductsByIds(mongoIds);
 
         const inventoryMap = buildInventoryMap(productSql);
 
         const productResult = mergeSqlMongoProducts(productSql, mongoProducts, inventoryMap);
-        
         return productResult;
 
     } catch (err) {
