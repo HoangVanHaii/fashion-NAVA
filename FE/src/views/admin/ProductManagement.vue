@@ -30,17 +30,29 @@ const rawList = computed(
 );
 
 const filteredProductList = computed(() => {
+  let list = [];
+
   switch (currentTab.value) {
     case "Đang hoạt động":
-      return rawList.value.filter((p) => p.status === "active");
+      list = rawList.value.filter(p => p.status === "active");
+      break;
     case "Chưa hiển thị":
-      return rawList.value.filter((p) => p.status === "hidden");
+      list = rawList.value.filter(p => p.status === "hidden");
+      break;
     case "Bị cấm":
-      return rawList.value.filter((p) => p.status === "banned");
+      list = rawList.value.filter(p => p.status === "banned");
+      break;
     default:
-      return rawList.value;
+      list = rawList.value;
   }
+
+  return [...list].sort((a, b) => {
+    const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
+    const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
+    return dateB - dateA; // mới nhất lên trước
+  });
 });
+
 
 // === Tính toán Stats cho Tabs ===
 const countActive = computed(

@@ -140,7 +140,7 @@ const displayedProducts = computed(() => {
                     <div class="px-6 pb-6 md:px-10 md:pb-8 flex flex-col md:flex-row items-end gap-6 -mt-16 relative z-10">
                         <!-- Avatar -->
                         <div class="w-32 h-32 rounded-full border-4 border-white bg-white shadow-lg overflow-hidden flex-shrink-0">
-                            <img :src="getImage(brand?.logo || '/uploads/users/default-avatar.png')" class="w-full h-full object-cover" />
+                            <img :src="'https://picsum.photos/200/200?random=' + brand?.id" class="w-full h-full object-cover" />
                         </div>
                         
                         <!-- Info -->

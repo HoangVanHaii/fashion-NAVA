@@ -578,7 +578,7 @@
     
           <div class="bg-white rounded-2xl p-6 mb-16 shadow-sm border border-gray-100 flex flex-col md:flex-row items-center justify-between gap-6 hover:shadow-md transition-shadow duration-300">
             <div class="flex items-center gap-6">
-                <div class="w-20 h-20 rounded-full border-4 border-gray-50 overflow-hidden shadow-inner"><img :src="brand?.logo" class="w-full h-full object-cover" /></div>
+                <div class="w-20 h-20 rounded-full border-4 border-gray-50 overflow-hidden shadow-inner"><img :src="'https://picsum.photos/200/200?random'" class="w-full h-full object-cover" /></div>
                 <div>
                     <div class="flex items-center gap-2 mb-1"><h3 class="font-bold text-lg text-black">{{ brand?.name }}</h3><span class="bg-blue-100 text-blue-600 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">Official</span></div>
                     <p class="text-sm text-gray-500 mb-3 max-w-md line-clamp-1">{{ brand?.description }}</p>
