@@ -605,7 +605,7 @@ const getSoldPercentage = (product: any): number => {
                 class="relative aspect-[3/4] bg-gray-200 rounded-xl overflow-hidden mb-4 shadow-sm hover:shadow-lg transition-all duration-500"
               >
                 <img
-                  :src="'https://res.cloudinary.com/duxdpc100/image/upload/v1765551585/Products/rup0yvdukdnx1zswcnva.png'"
+                  :src="getMainProductImage(prod)"
                   class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                 />
                 <div
