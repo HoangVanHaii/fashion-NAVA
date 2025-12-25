@@ -3,7 +3,7 @@ import * as IProduct from "../interfaces/product";
 import { AppError } from "../utils/appError";
 import { ProductDetailModel } from "../models/product";
 import cloudinary from "../config/cloudinary";
-import mongoose, { Types } from 'mongoose'; // Cần import để tạo ID cho size mới
+import mongoose, { Types } from 'mongoose'; 
 import { Db } from "mongodb";
 import sql from 'mssql'
 import { getBranchPool } from "../config/database";
@@ -111,7 +111,7 @@ export const AddColorProduct = async (pool: ConnectionPool, branch_id: string, p
         if (!product) {
             throw new AppError("Product not found", 404);
         }
-        newColor = await uploadImageSingleColor(color);
+        newColor = await uploadImageSingleColor(color, product_id_sql);
         product.colors.push(newColor);
         await product.save();
 
@@ -157,43 +157,17 @@ export const insertBranchInventory = async (transaction: Transaction, branchInve
     }
 }
 
-export const uploadImageSingleColor = async (color: IProduct.IProductColorPayload) => {
-    try {
-        if (color.image_main && typeof color.image_main !== "string") {
-            const mainUpload = await uploadToCloudinary(color.image_main);
-            color.image_main = mainUpload.secure_url;
-        }
-        if (color.color_images && color.color_images.length > 0) {
-            const promises: Promise<string>[] = [];
-            
-            for (const img of color.color_images) {
-                if (typeof img !== "string") {
-                    promises.push(uploadToCloudinary(img).then(res => res.secure_url));
-                } else {
-                    promises.push(Promise.resolve(img));
-                }
-            }
-            color.color_images = await Promise.all(promises);
-        }
-
-        return color;
-    } catch (err) {
-        throw new AppError("Failed to upload image for single color", 500, false);
-    }
-}
-
 
 export const uploadSingleVideo = async (file: Express.Multer.File): Promise<string> => {
     try {
         if (!file) return "";
-
         const b64 = Buffer.from(file.buffer).toString("base64");
         const dataURI = "data:" + file.mimetype + ";base64," + b64;
 
         const result = await cloudinary.uploader.upload(dataURI, {
             folder: "Products/Videos",
             resource_type: "video",
-            timeout: 60000
+            timeout: 60000 
         });
 
         return result.secure_url;
@@ -219,23 +193,52 @@ export const deleteVideo = async (videoUrl: string) => {
         console.error(`Failed to rollback video: ${videoUrl}`, err);
     }
 }
-
-
-export const uploadImageProducts = async (colors: IProduct.IProductColorPayload[]) => {
+export const uploadImageProducts = async (colors: IProduct.IProductColorPayload[], productSku: string) => {
     try {
-        const result = await Promise.all(colors.map(color => uploadImageSingleColor(color)));
+        const result = await Promise.all(colors.map(color => uploadImageSingleColor(color, productSku))); 
         return result;
     } catch (err) {
         throw new AppError("Failed to UploadImageProducts", 500, false);
     }
 }
-
-const uploadToCloudinary = (file: any) => {
+const uploadToCloudinary = (file: any, sku: string) => {
     return cloudinary.uploader.upload(
         `data:${file.mimetype};base64,${file.buffer.toString("base64")}`,
-        {folder: "Products"}
+        {
+            folder: `Products/${sku}`, 
+            metadata: { 
+                sku: sku 
+            },
+            tags: [sku]
+        }
     )
 }
+export const uploadImageSingleColor = async (color: IProduct.IProductColorPayload, sku: string) => {
+    try {
+        if (color.image_main && typeof color.image_main !== "string") {
+            const mainUpload = await uploadToCloudinary(color.image_main, sku);
+            color.image_main = mainUpload.secure_url;
+        }
+        
+        if (color.color_images && color.color_images.length > 0) {
+            const promises: Promise<string>[] = [];
+            
+            for (const img of color.color_images) {
+                if (typeof img !== "string") {
+                    promises.push(uploadToCloudinary(img, sku).then(res => res.secure_url));
+                } else {
+                    promises.push(Promise.resolve(img));
+                }
+            }
+            color.color_images = await Promise.all(promises);
+        }
+
+        return color;
+    } catch (err) {
+        throw new AppError("Failed to upload image for single color", 500, false);
+    }
+}
+
 
 export const insertProductMongo = async (productMongo: IProduct.IProductMongo) => {
     try {
@@ -478,7 +481,7 @@ export const updateProductColorSize = async (pool: ConnectionPool, branch_id: st
         });
         
         await updateBranchInnventory(pool, branch_id, inventorySql)
-        await updateColorMongo(color);
+        await updateColorMongo(color, color.product_id_sql.toString());
         
     } catch (err) {
         if (err instanceof AppError) throw err;
@@ -645,7 +648,7 @@ export const updateProductStatusALL = async (pool: ConnectionPool, status: strin
         throw new AppError("Failed to update all status product", 500, false)
     }
 }
-export const updateColorMongo = async (color: IProduct.IUpdateProductColor) => {
+export const updateColorMongo = async (color: IProduct.IUpdateProductColor, product_id_sql: string) => {
     try {
         const setFields: any = {};
 
@@ -656,7 +659,7 @@ export const updateColorMongo = async (color: IProduct.IUpdateProductColor) => {
         // 2. Xử lý Ảnh Chính
         if (color.image_main !== undefined) {
             if (typeof color.image_main !== "string") {
-                const img = await uploadToCloudinary(color.image_main);
+                const img = await uploadToCloudinary(color.image_main, product_id_sql);
                 setFields["colors.$[c].image_main"] = img.secure_url;
             } else {
                 setFields["colors.$[c].image_main"] = color.image_main;
@@ -668,7 +671,7 @@ export const updateColorMongo = async (color: IProduct.IUpdateProductColor) => {
             const urls = await Promise.all(
                 color.color_images.map(async (img) => {
                     if (typeof img !== "string") {
-                        const uploaded = await uploadToCloudinary(img);
+                        const uploaded = await uploadToCloudinary(img, product_id_sql);
                         return uploaded.secure_url;
                     }
                     return img;

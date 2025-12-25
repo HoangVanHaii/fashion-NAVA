@@ -35,7 +35,7 @@ export const createProduct = async (req: Request, res: Response, next: NextFunct
         }
         const listBranchInventory: IProducts.IBranchInventorySQL[] = buildListInventory(idProductSql, colors, branchId);
         await productService.insertBranchInventory(transaction, listBranchInventory);
-        uploadProducts = await productService.uploadImageProducts(colors);
+        uploadProducts = await productService.uploadImageProducts(colors, idProductSql);
         if (typeof videoFile !== 'undefined') {
             uploadedVideoUrl = await productService.uploadSingleVideo(videoFile);
         }
@@ -61,7 +61,6 @@ export const getTopProductsBestSellerForAdmin = async (req: Request, res: Respon
     try {
         const topCount = parseInt(req.query.top as string) || 20;
 
-        // Admin có thể chọn branch từ query, nếu không có thì mặc định lấy của chính Admin (hoặc CT)
         const target_branch_code = (req.query.branch as string) || req.user?.branch_code;
 
         if (!target_branch_code) {
