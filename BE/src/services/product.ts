@@ -187,14 +187,13 @@ export const uploadSingleVideo = async (file: Express.Multer.File): Promise<stri
     try {
         if (!file) return "";
 
-        // Convert buffer sang base64
         const b64 = Buffer.from(file.buffer).toString("base64");
         const dataURI = "data:" + file.mimetype + ";base64," + b64;
 
         const result = await cloudinary.uploader.upload(dataURI, {
-            folder: "Products/Videos", // Gom video vào folder riêng cho gọn
-            resource_type: "video",     // <--- BẮT BUỘC
-            timeout: 60000              // Tăng timeout vì video nặng hơn ảnh
+            folder: "Products/Videos",
+            resource_type: "video",
+            timeout: 60000
         });
 
         return result.secure_url;
@@ -204,24 +203,20 @@ export const uploadSingleVideo = async (file: Express.Multer.File): Promise<stri
     }
 }
 
-// 2. Hàm Xóa Video (Dùng để Rollback khi lỗi)
 export const deleteVideo = async (videoUrl: string) => {
     try {
         if (!videoUrl) return;
 
-        // Lấy public_id từ URL. Ví dụ: .../Products/Videos/video123.mp4
-        // Regex này lấy phần sau version (v123..) đến trước dấu chấm đuôi file
         const publicIdMatch = videoUrl.match(/\/v\d+\/(.+)\.[a-z]+$/);
         const publicId = publicIdMatch ? publicIdMatch[1] : null;
 
         if (publicId) {
             await cloudinary.uploader.destroy(publicId, {
-                resource_type: 'video' // <--- BẮT BUỘC KHI XÓA
+                resource_type: 'video' 
             });
         }
     } catch (err) {
         console.error(`Failed to rollback video: ${videoUrl}`, err);
-        // Không throw error ở đây để tránh crash luồng rollback chính
     }
 }
 

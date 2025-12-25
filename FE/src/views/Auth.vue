@@ -15,19 +15,16 @@ const router = useRouter();
 
 const showVerify = ref(false);
 
-// Form Fields
 const name = ref<string>('');
 const email = ref<string>('');
 const phone = ref<string>('');
 const password = ref<string>('');
 const dateOfBirth = ref<string>('');
 
-// Address Fields (Values to submit)
 const province = ref<string>('');
 const district = ref<string>('');
 const ward = ref<string>('');
 
-// Address Data & Selection States
 interface LocationItem {
     code: number;
     name: string;
@@ -43,25 +40,21 @@ const selectedProvinceCode = ref<number | string>('');
 const selectedDistrictCode = ref<number | string>('');
 const selectedWardCode = ref<number | string>('');
 
-// UI States
 const isShaking = ref(false);
 const showNotification = ref<boolean>(false);
 const toastText = ref('');
 const showPassword = ref(false);
 const showForgot = ref<boolean>(false);
 
-// Refs for focus
 const nameInput = ref<HTMLInputElement | null>(null);
 const emailInput = ref<HTMLInputElement | null>(null);
 const phoneInput = ref<HTMLInputElement | null>(null);
 const passwordInput = ref<HTMLInputElement | null>(null);
 const dobInput = ref<HTMLInputElement | null>(null);
-const provinceInput = ref<HTMLSelectElement | null>(null); // Changed to Select
+const provinceInput = ref<HTMLSelectElement | null>(null);
 
-// Computed check to see if we are in register mode
 const isRegisterMode = computed(() => route.name === 'register-sendOTP' || route.path === '/auth/register');
 
-// Fetch Provinces on Mount
 onMounted(async () => {
     showForgot.value = false;
     if (isRegisterMode.value) {
@@ -69,7 +62,6 @@ onMounted(async () => {
     }
 })
 
-// Address Logic
 const fetchProvinces = async () => {
     try {
         const response = await fetch('https://provinces.open-api.vn/api/?depth=1');
@@ -100,7 +92,6 @@ const fetchWards = async (districtCode: number | string) => {
 };
 
 const handleProvinceChange = () => {
-    // Reset lower levels
     selectedDistrictCode.value = '';
     selectedWardCode.value = '';
     districtList.value = [];
@@ -108,30 +99,24 @@ const handleProvinceChange = () => {
     district.value = '';
     ward.value = '';
 
-    // Update name
     const p = provinceList.value.find(item => item.code == selectedProvinceCode.value);
     if (p) province.value = p.name;
 
-    // Fetch districts
     if (selectedProvinceCode.value) fetchDistricts(selectedProvinceCode.value);
 };
 
 const handleDistrictChange = () => {
-    // Reset lower levels
     selectedWardCode.value = '';
     wardList.value = [];
     ward.value = '';
 
-    // Update name
     const d = districtList.value.find(item => item.code == selectedDistrictCode.value);
     if (d) district.value = d.name;
 
-    // Fetch wards
     if (selectedDistrictCode.value) fetchWards(selectedDistrictCode.value);
 };
 
 const handleWardChange = () => {
-    // Update name
     const w = wardList.value.find(item => item.code == selectedWardCode.value);
     if (w) ward.value = w.name;
 };
@@ -146,7 +131,6 @@ const openRegister = () => {
     district.value = '';
     ward.value = '';
     
-    // Reset select states
     selectedProvinceCode.value = '';
     selectedDistrictCode.value = '';
     selectedWardCode.value = '';
@@ -176,14 +160,12 @@ const triggerShake = () => {
 
 const handleRegister = async () => {
     
-    // Validation
     alert(province.value);
     if (!name.value) { auth.error = "Tên không được bỏ trống"; triggerShake(); nameInput.value?.focus(); return; }
     if (!dateOfBirth.value) { auth.error = "Ngày sinh không được bỏ trống"; triggerShake(); dobInput.value?.focus(); return; }
     if (!phone.value) { auth.error = "Số điện thoại không được bỏ trống"; triggerShake(); phoneInput.value?.focus(); return; }
     if (!email.value) { auth.error = "Email không được bỏ trống"; triggerShake(); emailInput.value?.focus(); return; }
     
-    // Address Validation
     if (!province.value) { auth.error = "Vui lòng chọn Tỉnh/Thành phố"; triggerShake(); provinceInput.value?.focus(); return; }
     if (!district.value) { auth.error = "Vui lòng chọn Quận/Huyện"; triggerShake(); return; }
     if (!ward.value) { auth.error = "Vui lòng chọn Phường/Xã"; triggerShake(); return; }
@@ -191,8 +173,6 @@ const handleRegister = async () => {
     if (!password.value) { auth.error = "Mật khẩu không được bỏ trống"; triggerShake(); passwordInput.value?.focus(); return; }
     
     showNotification.value = false;
-    // alert(121);
-    // console.log('vue')
     await auth.registerSendOtpStore(name.value, email.value, phone.value, password.value, dateOfBirth.value, province.value, district.value, ward.value, `${ward.value}, ${district.value}, ${province.value}`)
     
     if (auth.error) {

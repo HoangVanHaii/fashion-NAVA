@@ -88,6 +88,7 @@ const selectBranch = async (branch: typeof branches[0]) => {
 
 // Hàm tải toàn bộ dữ liệu (Centralized Data Fetching)
 const fetchAllData = async () => {
+  loading.value = true;
     const branchCode = selectedBranch.value.code;
     
     // 1. Tải số liệu thống kê (KPIs) - 4 API
@@ -99,17 +100,16 @@ const fetchAllData = async () => {
         useOrder.getTopOrderOfBranchStore(10, branchCode),    // API 6
         useOrder.getTotalOrderMonthForAdminStore(selectedYear.value.toString(), branchCode), // API 7
     ]);
-
     productBestSeller.value = bestSeller;
     listOrders.value = topOrders;
     listRevenueData.value = {
         year: revenueData.year || new Date().getFullYear(),
         monthlyRevenue: revenueData.monthlyRevenue || [],
     };
+  loading.value = false;
 };
 
 onMounted(async () => {
-  loading.value = true;
   
   // 1. Set chi nhánh theo User trước
   if (auth.user?.branch) {
@@ -122,7 +122,6 @@ onMounted(async () => {
   // 2. Sau đó mới fetch dữ liệu
   await fetchAllData();
   
-  loading.value = false;
 });
 
 // Cấu hình dữ liệu cho Chart.js
