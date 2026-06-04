@@ -2,7 +2,7 @@ import type { IProductMongoDetail } from "@/interfaces/product";
 import api from "./api";
 import { useAuthStore } from "@/stores/auth";
 
-export const getProductById = async (id: string) => {
+export const getProductById = async (id: number) => {
     const authStore = useAuthStore();
 
     const endpoint = authStore.isLogin
@@ -13,7 +13,7 @@ export const getProductById = async (id: string) => {
     return response.data;
 }
 
-export const searchByCategoryId = async (cat_id: string) => {
+export const searchByCategoryId = async (cat_id: number) => {
     const authStore = useAuthStore();
 
     const endpoint = authStore.isLogin
@@ -32,7 +32,7 @@ export const searchByCategoryGender = async (gender: string) => {
     const response = await api.get(endpoint);
   return response.data;
 };
-export const getCategoryNameById = async (id: string) => {
+export const getCategoryNameById = async (id: number) => {
     const authStore = useAuthStore();
 
     const endpoint = authStore.isLogin
@@ -42,7 +42,7 @@ export const getCategoryNameById = async (id: string) => {
     const response = await api.get(endpoint);
     return response.data;
 }
-export const getRatingOfbrand = async (id: string) => {
+export const getRatingOfbrand = async (id: number) => {
     const authStore = useAuthStore();
 
     const endpoint = authStore.isLogin
@@ -52,7 +52,7 @@ export const getRatingOfbrand = async (id: string) => {
     const response = await api.get(endpoint);
     return response.data;
 }
-export const getBrandNameById = async (id: string) => {
+export const getBrandNameById = async (id: number) => {
     const authStore = useAuthStore();
 
     const endpoint = authStore.isLogin
@@ -62,7 +62,7 @@ export const getBrandNameById = async (id: string) => {
     const response = await api.get(endpoint);
     return response.data;
 }
-export const getProductByBrandId = async (id: string) => {
+export const getProductByBrandId = async (id: number) => {
     const authStore = useAuthStore();
 
     const endpoint = authStore.isLogin
@@ -114,11 +114,10 @@ export const getProductBestSeller = async (top: number) => {
   const response = await api.get(endpoint);
   return response.data;
 };
-export const getProductBestSellerForAdmin = async (top: number, branch_code: string) => {
+export const getProductBestSellerForAdmin = async (top: number) => {
     const response = await api.get(`admin/product/best-seller`, {
         params: {
-            top: top,
-            branch: branch_code // Truyền branch code (HN, DN, HCM, CT)
+            top: top
         }
     });
     return response.data;

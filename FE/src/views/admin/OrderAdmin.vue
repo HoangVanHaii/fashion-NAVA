@@ -28,7 +28,7 @@ const selectBranch = (branch: typeof branches[0]) => {
 // --- Tabs & State ---
 const currentTab = ref<'online' | 'offline'>('online');
 const showOrderDetail = ref(false);
-const selectedOrderId = ref<string | null>(null);
+const selectedOrderId = ref<number | null>(null);
 
 // Search State
 const toggle = ref(false);
@@ -77,8 +77,7 @@ const getStatusColor = (status: string) => {
 
 // --- Methods ---
 const fetchData = async () => {
-    // Gọi hàm store với tham số branch_code
-    await order.getOrderOfTypeBranchStore(currentTab.value, selectedBranch.value.code);
+    await order.getOrderOfTypeBranchStore(currentTab.value);
 };
 
 onMounted(async () => {
@@ -97,7 +96,7 @@ const handleChangeTab = (tab: string) => {
     }
 };
 
-const goToDetail = (id: string) => {
+const goToDetail = (id: number) => {
     selectedOrderId.value = id;
     showOrderDetail.value = true;
 };

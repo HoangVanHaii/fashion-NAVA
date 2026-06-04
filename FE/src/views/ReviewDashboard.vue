@@ -25,12 +25,11 @@ watch(activeTab, (newTab) => {
 });
 
 const fetchStats = async () => {
-    reviewStore.currentBranch = selectedBranch.value || 'DN';
-    if (selectedBranch.value === 'CENTRAL' && isAdmin.value) {
-        await reviewStore.getCentralProductStatsStore();
-    } else {
-        await reviewStore.getAllProductStatsStore(selectedBranch.value || 'DN');
-    }
+    // if (selectedBranch.value === 'CENTRAL' && isAdmin.value) {
+    //     await reviewStore.getCentralProductStatsStore();
+    // } else {
+        await reviewStore.getAllProductStatsStore();
+    // }
 };
 
 const filteredProducts = computed(() => {
@@ -47,7 +46,7 @@ const filteredProducts = computed(() => {
     );
 });
 
-const goToDetail = (productId: string) => {
+const goToDetail = (productId: number) => {
     router.push({
         name: 'ProductReviewDetail',
         params: { product_id: productId },

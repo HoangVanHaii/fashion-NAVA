@@ -7,7 +7,7 @@ const route = useRoute();
 const router = useRouter();
 const reviewStore = useReviewStore();
 
-const productId = route.params.product_id as string;
+const productId = Number(route.params.product_id as string);
 const branchCode = computed(() => (route.query.branch as string) || '');
 const filterMode = ref<'latest' | 'discussed'>('latest');
 
@@ -22,7 +22,7 @@ const fileInputRefs = ref<Record<string, HTMLInputElement>>({});
 
 onMounted(async () => {
     if (productId) {
-        await reviewStore.getReviewsByProductIdStore(productId, branchCode.value);
+        await reviewStore.getReviewsByProductIdStore(productId);
     }
 });
 
@@ -51,7 +51,7 @@ const changeFilter = async (mode: 'latest' | 'discussed') => {
     if (mode === filterMode.value) return; 
     filterMode.value = mode; 
     if (mode === 'discussed') await reviewStore.getTopDiscussedByProductStore(productId);
-    else await reviewStore.getReviewsByProductIdStore(productId, branchCode.value);
+    else await reviewStore.getReviewsByProductIdStore(productId);
 };
 
 // --- LOGIC MỚI CHO REPLY ---

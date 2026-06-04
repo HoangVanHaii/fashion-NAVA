@@ -3,7 +3,7 @@
     
     // --- 1. SỬ DỤNG INTERFACE MỚI CỦA BẠN ---
     export interface FlashSale {
-        id?: string;
+        id?: number;
         title: string;
         start_date: Date;
         end_date: Date;
@@ -23,7 +23,7 @@
     const props = defineProps<{
         modelValue: boolean; 
         isEdit: boolean; 
-        initialSale: FlashSale | null; // Dữ liệu truyền vào từ cha
+        initialSale: any;
     }>();
     
     const emit = defineEmits(['update:modelValue', 'save']);

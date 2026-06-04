@@ -21,7 +21,7 @@ const productGender = ref<IProductMongoDetail[]>([]);
 const listCategory = ref<any[]>([]);
 const selectedSort = ref("name-asc");
 const showSortDropdown = ref(false);
-const selectedCategories = ref<string[]>([]);
+const selectedCategories = ref<number[]>([]);
 const showFormAdd = ref(false);
 const loadingPage = ref(false);
 const favourite = useFavouriteStore();
@@ -49,8 +49,8 @@ if (userStore.isLogin) {
 loadingPage.value = false;
 });
 
-const handleCategoryChange = (category_id: string) => {
-    if (selectedCategories.value.includes(category_id)) {
+const handleCategoryChange = (category_id: number) => {
+    if (selectedCategories.value.filter((c) => c === category_id).length > 0) {
     selectedCategories.value = selectedCategories.value.filter((c) => c !== category_id);
     } else {
     selectedCategories.value.push(category_id);
@@ -96,8 +96,8 @@ const handleSortChange = (value: string) => {
     showSortDropdown.value = false;
 };
 
-const isCategorySelected = (category_id: string) => {
-    return selectedCategories.value.includes(category_id);
+const isCategorySelected = (category_id: number) => {
+    return selectedCategories.value.filter((c) => c === category_id).length > 0;
 };
 
 const clearAllFilters = () => {

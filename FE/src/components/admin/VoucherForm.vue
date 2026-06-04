@@ -3,7 +3,7 @@
     
     // --- INTERFACE DỮ LIỆU ---
     export interface Voucher {
-        ID?: string;
+        ID?: number;
         code: string;
         description?: string;
         discount_type: 'PERCENT' | 'FIXED';
@@ -23,7 +23,7 @@
     const props = defineProps<{
         modelValue: boolean; 
         isEdit: boolean; 
-        initialVoucher: Voucher | null; 
+        initialVoucher: any; 
     }>();
     
     const emit = defineEmits(['update:modelValue', 'save']);

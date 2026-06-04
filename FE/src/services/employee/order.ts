@@ -12,11 +12,11 @@ export const getOrderOfTypeBranch = async (method_order: string) => {
     });
     return response.data;
 };
-export const getOrderById = async (order_id: string) => {
+export const getOrderById = async (order_id: number) => {
     const response = await api.get(`/order/${order_id}`);
     return response.data;
 };
-export const getOrderByIdForAdmin = async (order_id: string) => {
+export const getOrderByIdForAdmin = async (order_id: number) => {
     const response = await api.get(`/order/admin/${order_id}`);
     return response.data;
 };
@@ -52,7 +52,7 @@ export const getTopOrder = async (top: number) => {
     const response = await api.get(`/employee/order/topOrder/${top}`);
     return response.data;
 };
-export const changeStatus = async (order_id: string, status: string) => {
+export const changeStatus = async (order_id: number, status: string) => {
     const response = await api.put(`/employee/order/changeStatus`, {
         order_id,
         status

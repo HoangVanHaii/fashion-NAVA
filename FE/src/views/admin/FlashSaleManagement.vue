@@ -65,11 +65,18 @@ onMounted(async () => {
     // --- MODAL: INFO FLASH SALE ---
     const isFormModalOpen = ref(false);
     const isEditingSale = ref(false);
-    const saleToEdit = ref<FlashSale | null>(null);
+    const saleToEdit = ref<FlashSale>();
     
     const openCreateModal = () => {
       isEditingSale.value = false;
-      saleToEdit.value = null;
+      saleToEdit.value = {
+        title: '',
+        start_date: new Date(),
+        end_date: new Date(),
+        status: 'pending',
+        created_by: 'admin',
+        is_participate: false
+       };
       isFormModalOpen.value = true;
     };
     
@@ -121,11 +128,11 @@ const handleSaveSale = async (payload: FlashSale) => {
         // Logic reload nếu cần
         console.log("Đã cập nhật sản phẩm");
     };
-    const id = ref("")
+    const id = ref(0)
 // --- TOGGLE STATUS ---
     
 const handleToggleStatus = async (sale: FlashSale) => {
-    id.value = sale.id || "";
+    id.value = sale.id || 0;
       const isRunning = sale.status === 'active';
       const actionText = isRunning ? "Tắt (Kết thúc)" : "Bật (Kích hoạt)";
       const newStatus = isRunning ? 'ended' : 'active';

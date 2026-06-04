@@ -1,22 +1,22 @@
 export interface FavouritePayload {
-    user_id: string;
-    product_id: string;
+    user_id: number;
+    product_id: number;
     created_at?: Date;
 }
 
 export interface FavouriteResponse {
-    favourite_id: string;
-    user_id: string;
+    favourite_id: number;
+    user_id: number;
 }
 
 export interface FavouriteDetail {
-    favourite_id: string;
+    favourite_id: number;
     product_id_mongo: string;
-    product_id_sql: string;
+    product_id_sql: number;
     name: string;
     description: string;
-    brand_id?: string 
-    category_id?: string;
+    brand_id?: number; 
+    category_id?: number;
     status?: string;
     attributes?: {
         [key: string]: string | number | boolean;

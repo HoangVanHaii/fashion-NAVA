@@ -107,7 +107,7 @@ const branches = ref<string[]>(["DN", "HN", "HCM"]);
     const isViewing = ref(false);
     
     const defaultUserForm: UserAdmin = {
-      id: "",
+      id: 0,
       name: "",
       email: "",
       phone: "",
@@ -185,7 +185,7 @@ const branches = ref<string[]>(["DN", "HN", "HCM"]);
         isViewing.value = false;
         formUser.value = {
           ...defaultUserForm,
-          id: crypto.randomUUID(),
+          id: Date.now(),
           created_at: new Date().toISOString(),
         };
         districts.value = [];
@@ -230,7 +230,7 @@ const branches = ref<string[]>(["DN", "HN", "HCM"]);
       closeModal();
     };
     
-    const handleDelete = (id: string) => {
+    const handleDelete = (id: number) => {
       if (confirm("Bạn có chắc chắn muốn xóa?")) {
         users.value = users.value.filter((u) => u.id !== id);
       }

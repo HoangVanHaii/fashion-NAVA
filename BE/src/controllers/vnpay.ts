@@ -4,12 +4,13 @@ import { Request, Response, NextFunction } from 'express';
 import * as paymentService from '../services/payment';
 
 export const checkPayment = async (req: Request, res: Response, next: NextFunction) => {
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
     try {
         const vnpParams = req.query as unknown as ReturnQueryFromVNPay;
 
         const verify: VerifyReturnUrl = vnpay.verifyReturnUrl(vnpParams);
         if (!verify.isVerified) {
-            return res.redirect('http://localhost:5173/orderFailed');
+            return res.redirect(`${frontendUrl}/orderFailed`);
         }
 
         const orderId = verify.vnp_TxnRef;
@@ -17,14 +18,14 @@ export const checkPayment = async (req: Request, res: Response, next: NextFuncti
 
         if (responseCode === '00') {
             await paymentService.updatePaymentStatus(orderId, "success");
-            return res.redirect('http://localhost:5173/orderSuccess');
+            return res.redirect(`${frontendUrl}/orderSuccess`);
         } else {
             await paymentService.updatePaymentStatus(orderId, "failed");
-            return res.redirect('http://localhost:5173/orderFailed');
+            return res.redirect(`${frontendUrl}/orderFailed`);
         }
     } catch (error) {
         console.error("Error checking payment:", error);
-        return res.redirect('http://localhost:5173/orderFailed');
+        return res.redirect(`${frontendUrl}/orderFailed`);
     }
 };
 

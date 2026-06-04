@@ -36,7 +36,7 @@ export const useReviewStore = defineStore('review', () => {
     const average_rating = ref<number>(0);
 
     // --- SỬA HÀM NÀY ---
-    const getReviewsByProductIdStore = async (product_id: string, branch_code?: string) => {
+    const getReviewsByProductIdStore = async (product_id: number) => {
         loading.value = true;
         error.value = null;
         try {
@@ -46,7 +46,7 @@ export const useReviewStore = defineStore('review', () => {
             if (token) {
                 try {
                     // 1. Cố gắng gọi API User trước
-                    res = await getReviewsByProductId(product_id, branch_code);
+                    res = await getReviewsByProductId(product_id);
                 } catch (authError: any) {
                     // 2. Nếu lỗi 401 (Hết hạn) hoặc 403 (Token rác) -> Chuyển sang gọi Guest
                     if (authError.response && (authError.response.status === 401 || authError.response.status === 403)) {
@@ -57,7 +57,7 @@ export const useReviewStore = defineStore('review', () => {
                         // userStore.logout(); // Nếu có store user
 
                         // Gọi API Guest cứu cánh
-                        res = await getReviewsByProductIdGuest(product_id, branch_code);
+                        res = await getReviewsByProductIdGuest(product_id);
                     } else {
                         // Nếu lỗi khác (500 Server, 404 Not found...) thì ném lỗi ra ngoài như thường
                         throw authError;
@@ -65,7 +65,7 @@ export const useReviewStore = defineStore('review', () => {
                 }
             } else {
                 // Không có token thì gọi Guest luôn
-                res = await getReviewsByProductIdGuest(product_id, branch_code);
+                res = await getReviewsByProductIdGuest(product_id);
             }
 
             // Cập nhật State (Đoạn này giữ nguyên)
@@ -90,7 +90,7 @@ export const useReviewStore = defineStore('review', () => {
         }
     };
 
-    const getTopDiscussedByProductStore = async (product_id: string) => {
+    const getTopDiscussedByProductStore = async (product_id: number) => {
         loading.value = true;
         error.value = null;
         topDiscussedReviews.value = [];
@@ -124,7 +124,7 @@ export const useReviewStore = defineStore('review', () => {
         }
     };
 
-    const getReviewsByOrderItemIdOfMeStore = async (order_item_id: string) => {
+    const getReviewsByOrderItemIdOfMeStore = async (order_item_id: number) => {
         loading.value = true;
         try {
             const res = await getReviewsByOrderItemIdOfMe(order_item_id);
@@ -137,11 +137,11 @@ export const useReviewStore = defineStore('review', () => {
         }
     };
 
-    const getAllProductStatsStore = async (branch_code: string) => {
+    const getAllProductStatsStore = async () => {
         loading.value = true;
         error.value = null;
         try {
-            const res = await getAllProductStats(branch_code);
+            const res = await getAllProductStats();
             branchStats.value = res.data; 
         } catch (err: any) {
             console.error("Failed to fetch branch stats:", err);

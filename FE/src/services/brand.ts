@@ -4,7 +4,7 @@ export const getAllBrand = async () => {
     const response = await api.get(`/brand/all`);
     return response.data;
 };
-export const getBrandDetail = async (brand_id: string) => {
+export const getBrandDetail = async (brand_id: number) => {
     const response = await api.get(`/brand/detail/${brand_id}`);
     return response.data;
 };
@@ -13,7 +13,7 @@ export const getAllBrandPublic = async () => {
     const response = await api.get(`/brand/public`);
     return response.data;
 };
-export const getBrandDetailPublic = async (brand_id: string) => {
+export const getBrandDetailPublic = async (brand_id: number) => {
     const response = await api.get(`/brand/public/detail/${brand_id}`);
     return response.data;
 };

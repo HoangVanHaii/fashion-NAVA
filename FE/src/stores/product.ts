@@ -23,7 +23,7 @@ import type { BrandRatingResult, IBrandResponse } from "@/interfaces/brand";
 export const useProductStore = defineStore('product', () => {
     const loading = ref<boolean>(true);
 
-    const getProductByIdStore = async (id: string) => {
+    const getProductByIdStore = async (id: number) => {
         try {
             loading.value = true;
 
@@ -51,7 +51,7 @@ export const useProductStore = defineStore('product', () => {
       loading.value = false;
     }
   }
-    const searchByCategoryIdStore = async (catId: string) => {
+    const searchByCategoryIdStore = async (catId: number) => {
         loading.value = true;
         try {
             const res = await searchByCategoryId(catId);
@@ -64,7 +64,7 @@ export const useProductStore = defineStore('product', () => {
             loading.value = false;
         }
     }
-    const getCategoryNameStore = async (catId: string) => {
+    const getCategoryNameStore = async (catId: number) => {
         // loading.value = true;
         try {
             const res = await getCategoryNameById(catId);
@@ -76,7 +76,7 @@ export const useProductStore = defineStore('product', () => {
             loading.value = false;
         }
     }
-    const getBrandByIdStore = async (brand_id: string) => {
+    const getBrandByIdStore = async (brand_id: number) => {
         // loading.value = true;
         try {
             const res = await getBrandNameById(brand_id);
@@ -88,7 +88,7 @@ export const useProductStore = defineStore('product', () => {
             loading.value = false;
         }
     }
-    const getProductByBrandIdStore = async (brand_id: string) => {
+    const getProductByBrandIdStore = async (brand_id: number) => {
         // loading.value = true;
         try {
             const res = await getProductByBrandId(brand_id);
@@ -100,7 +100,7 @@ export const useProductStore = defineStore('product', () => {
             loading.value = false;
         }
     }
-    const getRatingOfbrandStore = async (brand_id: string) => {
+    const getRatingOfbrandStore = async (brand_id: number) => {
         // loading.value = true;
         try {
             const res = await getRatingOfbrand(brand_id);
@@ -123,10 +123,10 @@ export const useProductStore = defineStore('product', () => {
       return [];
     }
     };
-  const getProductBestSellerForAdminStore = async (top: number, branch_code: string) => {
+  const getProductBestSellerForAdminStore = async (top: number) => {
     loading.value = true;
     try {
-      const result = await getProductBestSellerForAdmin(top || 20, branch_code);
+      const result = await getProductBestSellerForAdmin(top || 20);
       return result.data as IProductMongoDetail[];
     } catch (err) {
       console.error(err);

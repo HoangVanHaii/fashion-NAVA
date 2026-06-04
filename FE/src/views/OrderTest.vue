@@ -9,8 +9,8 @@ const showModal = ref(false);
 // 2. Tạo DỮ LIỆU GIẢ (Mock Data) chuẩn Interface
 // Lưu ý: ID phải là dạng UUID String để không bị lỗi Backend validation
 const dummyOrderItem = ref<OrderItem>({
-    id: "3fa85f64-5717-4562-b3fc-2c963f66afa6", // Phải là UUID chuẩn (String)
-    order_id: "order_uuid_123_test",
+    id: 1, // Phải là UUID chuẩn (String)
+    order_id:1,
     product_name: "Áo Thun Hải Đăng",
     color: "Trắng",
     size: "XL",
@@ -21,7 +21,7 @@ const dummyOrderItem = ref<OrderItem>({
     quantity: 1,
     price: 350000,
     size_id_mongo: "mongo_size_id_1",
-    product_id_sql: "sql_product_id_1"
+    product_id_sql:1
 });
 
 // Hàm mở modal

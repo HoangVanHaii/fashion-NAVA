@@ -66,7 +66,7 @@ export const useAddressStore = defineStore('address', () => {
         }
     }
 
-    const deleteAddressStore = async (addressId: string) => {
+    const deleteAddressStore = async (addressId: number) => {
         loadingAddress.value = true;
         try {
             await deleteAddress(addressId)

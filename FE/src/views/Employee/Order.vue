@@ -17,13 +17,13 @@ const currentTab = ref<'online' | 'offline'>('online');
 
 // State for Order Detail Modal
 const showOrderDetail = ref(false);
-const selectedOrderId = ref<string | null>(null);
+const selectedOrderId = ref<number | null>(null);
 
 const toggle = ref(false)
 const selectedType = ref('product_name')
 // const listNameUser = ref<string[]>([]);
 const showFormConfirm = ref<boolean>(false);
-const orderAction = ref<string | null>(null)
+const orderAction = ref<number | null>(null)
 const messageAction = ref<string>("Xác nhận hành động này");
 const statusAction = ref<string>('pending');
 const showNotification = ref<boolean>(false);
@@ -89,7 +89,7 @@ const selectItem = (item : any) => {
 // };
 
 // Hàm mở Modal chi tiết đơn hàng
-const goToDetail = (id: string) => {
+const goToDetail = (id: number) => {
     // alert(1);
     selectedOrderId.value = id;
     showOrderDetail.value = true;
@@ -123,7 +123,7 @@ const handleAction = async () => {
     await order.getOrderOfBranchStore(currentTab.value);
 }
 
-const groupData = (order_id: string, status: string) => {
+const groupData = (order_id: number, status: string) => {
     orderAction.value = order_id;
     statusAction.value = status;
     if (status == 'pending') {
@@ -139,7 +139,7 @@ const groupData = (order_id: string, status: string) => {
     showFormConfirm.value = true;
 }
 
-const goToCancel = (order_id: string, status: string) => {
+const goToCancel = (order_id: number, status: string) => {
     showFormConfirm.value = true;
     orderAction.value = order_id;
     statusAction.value = status;

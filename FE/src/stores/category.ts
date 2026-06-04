@@ -37,7 +37,7 @@ export const useCategoryStore = defineStore('category', () => {
         }
     }
 
-    const getCategoryDetailStore = async (category_id: string) => {
+    const getCategoryDetailStore = async (category_id: number) => {
         loading.value = true;
         try {
             const token = localStorage.getItem('accessToken');

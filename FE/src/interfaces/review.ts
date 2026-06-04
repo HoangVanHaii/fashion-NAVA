@@ -1,5 +1,5 @@
 export interface CreateReviewPayload {
-    order_item_id: string;
+    order_item_id: number;
     rating: number; 
     comment: string;
     files?: File[]; 
@@ -12,10 +12,10 @@ export interface ReviewImage {
 
 export interface IReview {
     _id: string; 
-    sql_id: string;
-    review_id_sql: string;
-    order_item_id: string;
-    user_id: string;
+    sql_id: number;
+    review_id_sql: number;
+    order_item_id: number;
+    user_id: number;
     rating: number;
     comment: string;
     images: ReviewImage[];
@@ -24,7 +24,7 @@ export interface IReview {
 }
 
 export interface ProductStat {
-    product_id: string;
+    product_id: number;
     product_name: string;
     total_reviews: number;
     avg_star: number;

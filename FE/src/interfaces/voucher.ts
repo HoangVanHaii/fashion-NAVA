@@ -1,5 +1,5 @@
 export interface Voucher {
-    id: string; // BE mới dùng string (UUID)
+    id: number;
     code: string;
     description?: string;
     discount_type: 'PERCENT' | 'FIXED';
@@ -16,7 +16,7 @@ export interface Voucher {
 }
 
 export interface VoucherAdmin {
-    ID?: string;
+    ID?: number;
     code: string;
     description?: string;
     discount_type: "PERCENT" | "FIXED";

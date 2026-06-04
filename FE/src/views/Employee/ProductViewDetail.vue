@@ -20,7 +20,7 @@
     // 1. Cập nhật Interface cho reactive object (Thêm video)
     const productData = reactive<IProduct.IProductMongoDetail & { video?: string }>({
       _id: "",
-      product_id_sql: "",
+      product_id_sql: 0,
       category_id: 0 as any,
       brand_id: 0 as any,
       name: "",

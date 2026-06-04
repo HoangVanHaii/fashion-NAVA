@@ -89,16 +89,15 @@ const selectBranch = async (branch: typeof branches[0]) => {
 // Hàm tải toàn bộ dữ liệu (Centralized Data Fetching)
 const fetchAllData = async () => {
   loading.value = true;
-    const branchCode = selectedBranch.value.code;
     
     // 1. Tải số liệu thống kê (KPIs) - 4 API
     await handleDashBoard(currentFilter.value);
 
     // 2. Tải các phần còn lại - 3 API
     const [bestSeller, topOrders, revenueData] = await Promise.all([
-        useProduct.getProductBestSellerForAdminStore(10, branchCode), // API 5
-        useOrder.getTopOrderOfBranchStore(10, branchCode),    // API 6
-        useOrder.getTotalOrderMonthForAdminStore(selectedYear.value.toString(), branchCode), // API 7
+        useProduct.getProductBestSellerForAdminStore(10), // API 5
+        useOrder.getTopOrderOfBranchStore(10),    // API 6
+        useOrder.getTotalOrderMonthForAdminStore(selectedYear.value.toString()), // API 7
     ]);
     productBestSeller.value = bestSeller;
     listOrders.value = topOrders;
@@ -180,16 +179,15 @@ const chartOptions = {
 
 const handleDashBoard = async (option: string) => {
   currentFilter.value = option;
-  const branchCode = selectedBranch.value.code;
 
   // Gọi 4 API thống kê với branchCode
   // loading.value = true; // Bỏ loading ở đây để trải nghiệm mượt hơn khi click filter tab
   const [dailyOrders, totalOrders, totalUsers, totalCancelled] =
     await Promise.all([
-      useOrder.getDailyOrderComparisonForAdminStore(option, branchCode), // API 1
-      useOrder.getTotalOrderComparisonForAdminStore(option, branchCode), // API 2
-      userAdmin.getTotalUserComparisonForAdminStore(option, branchCode), // API 3
-      useOrder.getTotalOrderCancelledForAdminStore(option, branchCode),  // API 4
+      useOrder.getDailyOrderComparisonForAdminStore(option), // API 1
+      useOrder.getTotalOrderComparisonForAdminStore(option), // API 2
+      userAdmin.getTotalUserComparisonForAdminStore(option), // API 3
+      useOrder.getTotalOrderCancelledForAdminStore(option),  // API 4
     ]);
 
   const responses = [dailyOrders, totalOrders, totalUsers, totalCancelled];
@@ -220,8 +218,7 @@ const fetchRevenue = async () => {
   // API 7 (Gọi lại khi đổi năm)
   loading.value = true;
   const data = await useOrder.getTotalOrderMonthForAdminStore(
-    selectedYear.value.toString(),
-    selectedBranch.value.code // Truyền branchCode
+    selectedYear.value.toString()
   );
   loading.value = false;
   listRevenueData.value = {

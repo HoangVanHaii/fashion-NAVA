@@ -1,9 +1,9 @@
 import type { Address } from './address';
 
 export interface Order {
-    id?: string;
-    user_id: string;
-    voucher_id?: string;
+    id?: number;
+    user_id: number;
+    voucher_id?: number;
     total: number;
     discount_value: number;
     payment_method: 'cod' | 'credit_card' | 'paypal' | 'vnpay' | 'momo';
@@ -14,13 +14,13 @@ export interface Order {
     method_order?: string
 }
 export interface OrderItem {
-    id?: string;
-    order_id?: string;
-    order_item_id?: string;
+    id?: number;
+    order_id?: number;
+    order_item_id?: number;
     size_id_mongo: string;
     size: string;
     color: string;
-    product_id_sql: string;
+    product_id_sql: number;
     product_name: string;
     quantity: number;
     price: number;
@@ -75,8 +75,8 @@ export interface OderPayLoad {
 
 
 export interface IOrderItem {
-    order_item_id?: string;
-    product_id_sql: string;
+    order_item_id?: number;
+    product_id_sql: number;
     size_id_mongo: string;
 
     product_name: string;
@@ -90,9 +90,9 @@ export interface IOrderItem {
 }
 
 export interface GetOrder {
-    id: string;
-    user_id: string;
-    voucher_id?: string;
+    id: number;
+    user_id: number;
+    voucher_id?: number | null;
     total: number;
     discount_value: number;
     user_name_buyer?: string;

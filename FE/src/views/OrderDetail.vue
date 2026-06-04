@@ -12,7 +12,7 @@ import type { GetOrder } from "../interfaces/order";
 const auth = useAuthStore();
 const props = defineProps<{
     showOrderDetail: boolean;
-    orderId: string ;
+    orderId: number;
 }>();
 
 const emit = defineEmits(['close']);

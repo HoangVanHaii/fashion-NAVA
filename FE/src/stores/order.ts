@@ -82,7 +82,7 @@ export const useOrderEmployeeStore = defineStore("orderEmployee", () => {
 
         if (/^\d+$/.test(keyword)) {
             return orders.filter(order =>
-                order.id.includes(keyword)
+                order.id === parseInt(keyword)
             );
         }
         return orders.filter(order => {
@@ -98,7 +98,7 @@ export const useOrderEmployeeStore = defineStore("orderEmployee", () => {
         selectedStatus.value = "Tất cả";
     };
 
-    const changeStatusStore = async (order_id: string, status: string) => {
+    const changeStatusStore = async (order_id: number, status: string) => {
         error.value = null;
         loading.value = true;
         try {
@@ -167,7 +167,7 @@ export const useOrderEmployeeStore = defineStore("orderEmployee", () => {
     };
 
     // 3. Revenue Month
-    const getTotalOrderMonthForAdminStore = async (year: string, branch_code: string) => {
+    const getTotalOrderMonthForAdminStore = async (year: string) => {
         loading.value = true;
         try {
             const result = await getTotalOrderMonthForAdmin(year);
@@ -228,7 +228,7 @@ export const useOrderEmployeeStore = defineStore("orderEmployee", () => {
             loading.value = false;
         }
     } 
-    const getOrderByIdStore = async (order_id: string) => {
+    const getOrderByIdStore = async (order_id: number) => {
         loading.value = true;
         try {
             const result = await getOrderById(order_id);
@@ -239,7 +239,7 @@ export const useOrderEmployeeStore = defineStore("orderEmployee", () => {
             loading.value = false;
         }
     } 
-    const getOrderByIdForAdminStore = async (order_id: string) => {
+    const getOrderByIdForAdminStore = async (order_id: number) => {
         loading.value = true;
         try {
             const result = await getOrderByIdForAdmin(order_id);

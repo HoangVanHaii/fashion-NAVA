@@ -51,7 +51,7 @@
     const category = ref<Category>()
     const brand = ref<IBrandResponse>();
     const showBrandModal = ref(false);
-    const currentBrandId = ref<string>('');
+    const currentBrandId = ref<number>(0);
     const brandRating = ref<BrandRatingResult>();
     
     // --- STATE CHO CHỨC NĂNG CHILD REVIEW & UPLOAD ẢNH ---
@@ -80,7 +80,7 @@
     };
     
     // --- CÁC HÀM HELPER CŨ ---
-    const handleOpenBrand = (id: string) => {
+    const handleOpenBrand = (id: number) => {
         currentBrandId.value = id;
         showBrandModal.value = true;
     };
@@ -103,7 +103,7 @@
     }
     
     const loadData = async () => {
-        const id = route.params.id as string;
+        const id = Number(route.params.id as string);
         productId.value = await product.getProductByIdStore(id);
         await reviewStore.getReviewsByProductIdStore(id);
         console.log("aaaaa", productId.value)
@@ -118,7 +118,7 @@
             url_main.value = colorChose.value.image_main;
         }
         // console.log("aaaa", productId.value);
-        let result = await product.searchByCategoryIdStore(productId.value?.category_id || "");
+        let result = await product.searchByCategoryIdStore(productId.value?.category_id || 0);
         listpProducts.value = result;
         listpProducts.value = result.filter((p) => p._id !== productId.value?._id);
     

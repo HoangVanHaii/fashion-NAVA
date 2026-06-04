@@ -45,7 +45,7 @@ export const useProductAdminStore = defineStore("product-admin", () => {
     }
   };
   const addProductColorStore = async (
-    product_id_sql: string,
+    product_id_sql: number,
     formData: FormData
   ) => {
     try {
@@ -61,7 +61,7 @@ export const useProductAdminStore = defineStore("product-admin", () => {
     }
   };
   const updateProductInfoStore = async (
-    id: string,
+    id: number,
     name: string,
     description: string,
     brand_id: string,
@@ -103,7 +103,7 @@ export const useProductAdminStore = defineStore("product-admin", () => {
     }
   };
   const deleteProductColorStore = async (
-    product_id_sql: string,
+    product_id_sql: number,
     color_id_mongo: string
   ) => {
     try {
@@ -171,7 +171,7 @@ export const useProductAdminStore = defineStore("product-admin", () => {
     }
   };
   const updateProductStatusStore = async (
-    product_id: string,
+    product_id: number,
     status: string
   ) => {
     try {

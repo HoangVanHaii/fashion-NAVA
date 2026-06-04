@@ -1,5 +1,5 @@
 export interface User {
-    user_id: string;
+    user_id: number;
     name: string;
     email: string;
     phone: string;
@@ -14,7 +14,7 @@ export interface User {
 
 export interface UserProfile {
     _id: string;
-    user_id_sql: string;
+    user_id_sql: number;
     bio?: string;
     preferences: {
         fb?: string;
@@ -26,7 +26,7 @@ export interface UserProfile {
     __v: number;
 }
 export interface UserAdmin {
-    id: string; // Map từ ID
+    id: number; // Map từ ID
     name: string;
     email: string;
     phone: string;
@@ -39,8 +39,6 @@ export interface UserAdmin {
     created_at: string;
     branch?: string; // Thêm trường chi nhánh
     preferences: UserPreferences;
-    branch_id?: string;
-    
     city_code?: number | null;
     city_name?: string;
     district_code?: number | null;

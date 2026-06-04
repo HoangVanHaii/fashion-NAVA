@@ -1,7 +1,7 @@
     export interface IProductSQL {
-        id?: string;
-        brand_id: string;
-        category_id: string;
+        id?: number;
+        brand_id: number;
+        category_id: number;
         name: string;
         mongodb_id: string;
         status: 'active' | 'hidden' | 'banned';
@@ -9,9 +9,9 @@
     }
     
     export interface IBranchInventorySQL {
-        id?: string;
-        branch_id: string;
-        product_id?: string;
+        id?: number;
+        branch_id: number;
+        product_id?: number;
         color_id_mongo: string;
         size_id_mongo: string;
         price: number;
@@ -39,7 +39,7 @@
     
     export interface IProductMongo {
         _id: string;
-        product_id_sql: string;
+        product_id_sql: number;
         description: string;
         attributes?: {
             [key: string]: string | number | boolean;
@@ -57,7 +57,7 @@
     }
 
     export interface IUpdateProductColor {
-        product_id_sql: string;
+        product_id_sql: number;
         color_id_mongo: string;
         color?: string;
         is_main?: boolean;
@@ -68,11 +68,11 @@
 
 
     export interface UpdateProductInfo {
-        product_id_sql: string;
+        product_id_sql: number;
         name?: string;
         description?: string;
-        brand_id?: string;
-        category_id?: string;
+        brand_id?: number;
+        category_id?: number;
         attributes?: {
             [key: string]: string | number | boolean;
         };
@@ -82,11 +82,11 @@
 
     export interface IProductMongoDetail {
         _id: string;
-        product_id_sql: string;
+        product_id_sql: number;
         name?: string;
         description: string;
-        brand_id?: string
-        category_id?: string;
+        brand_id?: number;
+        category_id?: number;
         status?: string;
         attributes?: {
             [key: string]: string | number | boolean;
@@ -123,14 +123,14 @@
         sale_sold: number;
     }
     export interface updateInventory {
-        product_id: string;
+        product_id: number;
         color_id_mongo: string;
         size_id_mongo: string;
         price?: number;
         stock?: number;
     }
     export interface deleteInventory {
-        product_id: string;
+        product_id: number;
         color_id_mongo: string;
         size_id_mongo: string;
     }

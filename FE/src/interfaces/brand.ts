@@ -6,14 +6,14 @@ export interface IBrandCreate {
 }
 
 export interface IBrandUpdate {
-    brand_id: string;
+    brand_id: number;
     name?: string;
     description?: string | null;
     status?: string;
 }
 
 export interface IBrandResponse {
-    brand_id: string;
+    brand_id: number;
     name: string;
     description: string | null;
     logo: string;

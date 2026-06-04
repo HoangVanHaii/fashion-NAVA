@@ -8,7 +8,7 @@ import { useOrderEmployeeStore } from '@/stores/order';
 
 const props = defineProps<{
     showDetail: boolean;
-    orderId: string  | null;
+    orderId: number  | null;
 }>();
 
 const emit = defineEmits(['close', 'update']);

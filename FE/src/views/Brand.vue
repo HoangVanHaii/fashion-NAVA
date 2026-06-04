@@ -14,7 +14,7 @@ import { useProductStore } from "@/stores/product";
 
 // Interface cho Brand/Shop
 export interface IBrandResponse {
-    brand_id: string;
+    brand_id: number;
     name: string;
     description: string | null;
     logo: string;
@@ -29,7 +29,7 @@ export interface IBrandResponse {
 // Props nhận từ trang cha
 const props = defineProps<{
     show: boolean;
-    brandId:string;
+    brandId:number;
 }>();
 
 const emit = defineEmits(['close']);
@@ -85,11 +85,11 @@ const handleClose = () => {
     emit('close');
 };
 
-const handleCart = async (id: string) => {
-    // productDetail.value = await productStore.getProductByIdStore(id);
-    // if (productDetail.value) {
-    //     showFormAdd.value = true;
-    // }
+const handleCart = async (id: number) => {
+    productDetail.value = await productStore.getProductByIdStore(id);
+    if (productDetail.value) {
+        showFormAdd.value = true;
+    }
     toastText.value = 'Thêm vào giỏ thành công'
     showNotification.value = true;
 };

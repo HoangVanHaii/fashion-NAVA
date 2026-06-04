@@ -11,14 +11,14 @@ export const vnpay = new VNPay({
 export const buildPaymentUrl = async (order_id: string | number, amount: number): Promise<string> => {
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
-
+    const returnUrl = process.env.VNP_RETURN_URL || 'http://localhost:3000/api/payments/check-payment-vnpay';
     return await vnpay.buildPaymentUrl({
         vnp_Amount: amount,
         vnp_IpAddr: '127.0.0.1',
         vnp_TxnRef: order_id.toString(),
         vnp_OrderInfo: `Thanhtoandonhang${order_id}`,
         vnp_OrderType: ProductCode.Other,
-        vnp_ReturnUrl: 'http://localhost:3000/api/payments/check-payment-vnpay',
+        vnp_ReturnUrl: returnUrl,
         vnp_Locale: VnpLocale.VN,
         vnp_CreateDate: dateFormat(new Date()),
         vnp_ExpireDate: dateFormat(tomorrow),

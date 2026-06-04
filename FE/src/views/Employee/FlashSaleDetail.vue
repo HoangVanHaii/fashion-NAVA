@@ -24,7 +24,7 @@ const fetchData = async () => {
     loading.value = true;
     try {
         flashSaleInfo.value = props.flashSale;
-        products.value = await flashSale.getProductActiveByFlashSaleIdStore(flashSaleInfo.value.id || "");
+        products.value = await flashSale.getProductActiveByFlashSaleIdStore(flashSaleInfo.value.id || 0);
 
     } catch (error) {
         console.error(error);

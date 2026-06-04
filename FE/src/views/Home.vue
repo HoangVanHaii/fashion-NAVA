@@ -232,7 +232,7 @@ const getTotalStock = (product: any): number => {
 
   return totalSold;
 };
-const copyText = async (text: string, index: number, voucher_id: string) => {
+const copyText = async (text: string, index: number, voucher_id: number) => {
   navigator.clipboard.writeText(text);
   copiedList.value[index] = true;
 

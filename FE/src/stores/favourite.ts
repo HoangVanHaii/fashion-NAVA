@@ -33,7 +33,7 @@ export const useFavouriteStore = defineStore("favourite", () => {
         }
     };
 
-    const deleteFavouriteStore = async (product_id: string) => {
+    const deleteFavouriteStore = async (product_id: number) => {
         loading.value = true;
         error.value = null;
         try {
@@ -47,7 +47,7 @@ export const useFavouriteStore = defineStore("favourite", () => {
         }
     };
 
-    const addFavouriteStore = async (product_id: string) => {
+    const addFavouriteStore = async (product_id: number) => {
         loading.value = true;
         error.value = null;
         try {
@@ -61,7 +61,7 @@ export const useFavouriteStore = defineStore("favourite", () => {
         }
     };
 
-    const isFavourite = (productId: string) => {
+    const isFavourite = (productId: number) => {
         return listFavourite.value.some(
             product => product.product_id_sql === productId
         );
@@ -73,7 +73,7 @@ export const useFavouriteStore = defineStore("favourite", () => {
             .toLowerCase()
             .trim();
     }
-    const toggleLocalFavourite = (productId: string, isFav: boolean) => {
+    const toggleLocalFavourite = (productId: number, isFav: boolean) => {
         if (isFav) {
             listFavourite.value = listFavourite.value
                 .filter(
@@ -82,7 +82,7 @@ export const useFavouriteStore = defineStore("favourite", () => {
                 
         } else {
             listFavourite.value.push({
-                favourite_id: ``,
+                favourite_id: 0,
                 product_id_mongo: ``,
                 product_id_sql: productId,
                 name: '',
@@ -116,7 +116,7 @@ export const useFavouriteStore = defineStore("favourite", () => {
         }
     };
 
-    const toggleFavouriteInstant = async (productId: string) => {
+    const toggleFavouriteInstant = async (productId: number) => {
         const currentStatus = isFavourite(productId);
 
         toggleLocalFavourite(productId, currentStatus);

@@ -14,7 +14,7 @@ export const addProduct = async (formData: FormData) => {
   return response.data;
 };
 export const addProductColor = async (
-  product_id_sql: string,
+  product_id_sql: number,
   formData: FormData
 ) => {
   const response = await api.post(
@@ -28,14 +28,14 @@ export const addProductColor = async (
   );
   return response.data;
 };
-export const updateProductStatus = async (id: string, status: string) => {
+export const updateProductStatus = async (id: number, status: string) => {
   const response = await api.put(`/admin/product/status/${id}`, {
     status: status,
   });
   return response.data;
 };
 export const updateProductInfo = async (
-  id: string,
+  id: number,
   name: string,
   description: string,
   brand_id: string,
@@ -71,7 +71,7 @@ export const deleteBranchInnventory = async (
   return response.data;
 };
 export const deleteProductColor = async (
-  product_id_sql: string,
+  product_id_sql: number,
   color_id_mongo: string
 ) => {
   const response = await api.delete(`/admin/product/delete/color`, {

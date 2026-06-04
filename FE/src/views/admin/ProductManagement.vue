@@ -212,12 +212,12 @@ const toggleExpand = (id: string) => {
     expandedProductIds.value.push(id);
   }
 };
-const isExpanded = (id: string) => expandedProductIds.value.includes(id);
+// const isExpanded = (id: string) => expandedProductIds.value.includes(id);
 
 const calculateSoldProduct = (p: IProduct.IProductMongoDetail) => {
   return p.colors.reduce((acc, color) => acc + getSoldOfColor(color), 0);
 };
-const productIdTmp = ref('')
+const productIdTmp = ref(0)
 const handleHidden = async (item: IProduct.IProductMongoDetail) => {
     productIdTmp.value = item.product_id_sql;
     pendingAction.value = 'hide';

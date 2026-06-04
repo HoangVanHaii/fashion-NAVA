@@ -2,29 +2,23 @@ import api from "./api"; // <--- CHỈ ĐƯỢC CÓ 1 DÒNG NÀY THÔI
 import type { CreateReviewPayload } from "../interfaces/review";
 
 // --- CÁC HÀM GET ---
-export const getReviewsByProductId = async (product_id: string, branch_code?: string) => {
-    const res = await api.get(`/review/product/${product_id}`, {
-        params: branch_code ? { branch: branch_code } : {}
-    });
+export const getReviewsByProductId = async (product_id: number) => {
+    const res = await api.get(`/review/product/${product_id}`);
     return res.data;
 };
 
-export const getReviewsByProductIdGuest = async (product_id: string, branch_code?: string) => {
-    const res = await api.get(`/review/product/${product_id}/guest`, {
-        params: branch_code ? { branch: branch_code } : {}
-    });
+export const getReviewsByProductIdGuest = async (product_id: number) => {
+    const res = await api.get(`/review/product/${product_id}/guest`);
     return res.data;
 };
 
-export const getReviewsByOrderItemIdOfMe = async (order_item_id: string) => {
+export const getReviewsByOrderItemIdOfMe = async (order_item_id: number) => {
     const response = await api.get(`/review/review_of_me/${order_item_id}`);
     return response.data;
 };
 
-export const getAllProductStats = async (branchCode?: string) => {
-    const response = await api.get(`/review/stats/products/all`, {
-        params: { branch: branchCode }
-    });
+export const getAllProductStats = async () => {
+    const response = await api.get(`/review/stats/products/all`);
     return response.data;
 };
 
@@ -33,7 +27,7 @@ export const getAllProductStatsCentral = async () => {
     return response.data;
 };
 
-export const getTopDiscussedByProduct = async (product_id: string) => {
+export const getTopDiscussedByProduct = async (product_id: number) => {
     const response = await api.get(`/review/product/${product_id}/top-discussed`);
     return response.data;
 };

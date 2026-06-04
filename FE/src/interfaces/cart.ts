@@ -1,6 +1,6 @@
 export interface ICartItem {
     _id?: string; 
-    product_id_sql?: string;
+    product_id_sql?: number;
     size_id_mongo: string;
     quantity: number;
 }
@@ -18,7 +18,7 @@ export interface ICartItemColor {
 
 export interface ICartItemFull {
     _id: string;
-    product_id_sql: string;         
+    product_id_sql: number;         
     name: string;                   
     quantity: number;                
     base_price?: number;    
@@ -31,8 +31,8 @@ export interface ICartItemFull {
 }
 
 export interface ICartFull {
-    cart_id_sql: string;
-    user_id_sql: string;
+    cart_id_sql: number;
+    user_id_sql: number;
     items: ICartItemFull[];
     total_quantity: number;  
     total_amount: number;    

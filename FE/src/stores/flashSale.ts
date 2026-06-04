@@ -46,12 +46,12 @@ export const flashSaleStore = defineStore("flashSale", () => {
             loading.value = false
         }
     }
-    const getProductNotSaleStore = async (branch_code: string) => {
+    const getProductNotSaleStore = async () => {
         loading.value = true;
         hotDeal1.value = null;
         error.value = null;
         try {
-            const data = await getProductNotSale(branch_code);
+            const data = await getProductNotSale();
             return data.products;
         } catch (err) {
             console.log(err);
@@ -87,7 +87,7 @@ export const flashSaleStore = defineStore("flashSale", () => {
             loading.value = false;
         }
     }
-    const changeStatusStore = async (id: string) => {
+    const changeStatusStore = async (id: number) => {
         hotDeal2.value = null;
         error.value = null;
         loading.value = true;
@@ -99,12 +99,12 @@ export const flashSaleStore = defineStore("flashSale", () => {
             loading.value = false;
         }
     }
-    const addFlashSaleItemStore = async (id: string, items: FlashSaleItem[], branch_code: string) => {
+    const addFlashSaleItemStore = async (id: number, items: FlashSaleItem[]) => {
         hotDeal2.value = null;
         error.value = null;
         loading.value = true;
         try {
-            const res = await addFlashSaleItem(id, items, branch_code)
+            const res = await addFlashSaleItem(id, items)
             return res
         } catch (err) {
             console.log("err",  err);
@@ -137,7 +137,7 @@ export const flashSaleStore = defineStore("flashSale", () => {
             loading.value = false;
         }
     }
-    const getProductActiveByFlashSaleIdStore = async (flash_id: string) => {
+    const getProductActiveByFlashSaleIdStore = async (flash_id: number) => {
         loading.value = true;
         try {
             const result = await getProductActiveByFlashSaleId(flash_id);
@@ -149,10 +149,10 @@ export const flashSaleStore = defineStore("flashSale", () => {
             loading.value = false;
         }
     }
-    const getProductActiveByFlashSaleIdBranchStore = async (flash_id: string, branch_code: string) => {
+    const getProductActiveByFlashSaleIdBranchStore = async (flash_id: number) => {
         loading.value = true;
         try {
-            const result = await getProductActiveByFlashSaleIdBranch(flash_id, branch_code);
+            const result = await getProductActiveByFlashSaleIdBranch(flash_id);
             return result.data;
         } catch (err) {
             loading.value = false;

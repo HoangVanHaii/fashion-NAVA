@@ -17,7 +17,7 @@ import ReviewForm from '../components/ReviewModal.vue';
 import type { OrderItem } from "../interfaces/order";
 
 const showOrderDetail = ref<boolean>(false);
-const selectedOrder = ref<string | null>(null)
+const selectedOrder = ref<number | null>(null)
 const showFormConfirm = ref(false);
 const router = useRouter();
 const order = useOrderEmployeeStore();
@@ -26,7 +26,7 @@ const cartStore = useCartStore();
 const listShopName = ref<string[]>([]);
 const textToast = ref<string>("");
 const showNotification = ref<boolean>(false);
-const orderCancel_id = ref<string>('');
+const orderCancel_id = ref<number>(0);
 const showNavbar = ref<boolean>(true);
 
 // --- [MỚI] State cho popup xác nhận Mua lại ---
@@ -161,7 +161,7 @@ const getStatusLabel = (status: string) => {
     return map[status] || status;
 };
 
-const viewDetail = (id: string) => {
+const viewDetail = (id: number) => {
     showOrderDetail.value = true;
     selectedOrder.value = id;
 }
@@ -187,10 +187,10 @@ const handleReview = (order: GetOrder) => {
     const dataForReview: OrderItem = {
        ...productData,
        order_id: order.id,
-       id: productData.order_item_id || '', 
+       id: productData.order_item_id || 0, 
        order_item_id: productData.order_item_id,
        size_id_mongo: productData.size_id_mongo || '', 
-       product_id_sql: productData.product_id_sql || '',
+       product_id_sql: productData.product_id_sql || 0,
        product_name: productData.product_name || '',
        image: productData.image || '',
        size: productData.size || '',

@@ -31,7 +31,7 @@ export const addAddress = async (address: Address) => {
     return response.data
 }
 
-export const deleteAddress = async (addressId: string) => {
+export const deleteAddress = async (addressId: number) => {
     const response = await api.delete(`address/${addressId}`)
     return response.data
 }

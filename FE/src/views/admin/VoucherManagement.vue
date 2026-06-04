@@ -13,7 +13,7 @@
     // --- 1. DEFINITIONS & INTERFACES ---
 
     export interface Voucher {
-        ID?: string;
+        ID?: number;
         code: string;
         description?: string;
         discount_type: "PERCENT" | "FIXED";

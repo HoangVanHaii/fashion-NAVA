@@ -15,7 +15,7 @@ const favourite = useFavouriteStore();
 const showNotification = ref<boolean>(false);
 const toastText = ref<string>("");
 const router = useRouter();
-const favouriteDelete_id = ref<string | null>(null);
+const favouriteDelete_id = ref<number | null>(null);
 const showNavbar = ref<boolean>(true);
 
 onMounted(async () => {
@@ -55,7 +55,7 @@ const handleDelete = async () => {
   }
 };
 
-const confirmDelete = (id: string) => {
+const confirmDelete = (id: number) => {
     favouriteDelete_id.value = id;
     showFormConfirm.value = true;
 }

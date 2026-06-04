@@ -27,7 +27,7 @@ onMounted(async () => {
 });
 
 const productDetail = ref<IProductMongoDetail>();
-const handleCart = async (id: string) => {
+const handleCart = async (id: number) => {
   productDetail.value = await product.getProductByIdStore(id);
   if (productDetail.value) {
     showFormAdd.value = true;
