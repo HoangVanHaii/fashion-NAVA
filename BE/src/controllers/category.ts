@@ -1,14 +1,10 @@
 import { Request, Response, NextFunction } from "express";
 import * as categoryService from "../services/category";
 import { AppError } from "../utils/appError";
-import { getBranchPool } from "../config/database";
 
 export const getAllActiveCategories = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        if (!req.dbBranch || !req.dbBranch.connected) {
-            throw new AppError(`${ req.user?.branch_code } is not connected`, 503);
-        }
-        const categories = await categoryService.getAllActiveCategories(req.dbBranch);
+        const categories = await categoryService.getAllActiveCategories();
         res.json({
             success: true,
             message: "Get active categories successfully",
@@ -21,9 +17,6 @@ export const getAllActiveCategories = async (req: Request, res: Response, next: 
 
 export const getCategoryNameByGender = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        if (!req.dbBranch || !req.dbBranch.connected) {
-            throw new AppError(`${ req.user?.branch_code } is not connected`, 503);
-        }
         const gender = req.query.gender as string;
         if (!gender) {
             return res.status(400).json({
@@ -31,7 +24,8 @@ export const getCategoryNameByGender = async (req: Request, res: Response, next:
                 message: "Missing gender parameter",
             });
         }
-        const categoryNames = await categoryService.getCategoryNamByGender(req.dbBranch, gender);
+
+        const categoryNames = await categoryService.getCategoryNamByGender(gender);
         res.json({
             success: true,
             message: "Get category names successfully",
@@ -45,12 +39,8 @@ export const getCategoryNameByGender = async (req: Request, res: Response, next:
 
 export const getCategoryById = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        if (!req.dbBranch || !req.dbBranch.connected) {
-            throw new AppError(`${ req.user?.branch_code } is not connected`, 503);
-        }
-        
-        const categoryId = req.params.id;
-        const category = await categoryService.getCategoryById(req.dbBranch, categoryId);
+        const categoryId = Number(req.params.id);
+        const category = await categoryService.getCategoryById(categoryId);
 
         if (!category) {
             throw new AppError("Category not found", 404);
@@ -66,17 +56,9 @@ export const getCategoryById = async (req: Request, res: Response, next: NextFun
     }
 };
 
-///
-
-
-
 export const getAllActiveCategoriesForGuest = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const pool = getBranchPool("DN");
-        if (!pool) {
-            throw new AppError("DaNang DB is not connected", 503);
-        }
-        const categories = await categoryService.getAllActiveCategories(pool);
+        const categories = await categoryService.getAllActiveCategories();
         res.json({
             success: true,
             message: "Get active categories successfully",
@@ -89,10 +71,6 @@ export const getAllActiveCategoriesForGuest = async (req: Request, res: Response
 
 export const getCategoryNameByGenderForGuest = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const pool = getBranchPool("DN");
-        if (!pool) {
-            throw new AppError("DaNang DB is not connected", 503);
-        }
         const gender = req.query.gender as string;
         if (!gender) {
             return res.status(400).json({
@@ -100,7 +78,7 @@ export const getCategoryNameByGenderForGuest = async (req: Request, res: Respons
                 message: "Missing gender parameter",
             });
         }
-        const categoryNames = await categoryService.getCategoryNamByGender(pool, gender);
+        const categoryNames = await categoryService.getCategoryNamByGender(gender);
         res.json({
             success: true,
             message: "Get category names successfully",
@@ -114,14 +92,8 @@ export const getCategoryNameByGenderForGuest = async (req: Request, res: Respons
 
 export const getCategoryByIdForGuest = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const pool = getBranchPool("DN");
-        if (!pool) {
-            throw new AppError("DaNang DB is not connected", 503);
-        }
-        
-        const categoryId = req.params.id;
-        console.log(req.params);
-        const category = await categoryService.getCategoryById(pool, categoryId);
+        const categoryId = Number(req.params.id);
+        const category = await categoryService.getCategoryById(categoryId);
 
         if (!category) {
             throw new AppError("Category not found", 404);

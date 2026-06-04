@@ -8,14 +8,14 @@ export const vnpay = new VNPay({
     hashAlgorithm: HashAlgorithm.SHA512,
     loggerFn: ignoreLogger
 });
-export const buildPaymentUrl = async (order_id: string, amount: number, branch_code: string): Promise<string> => {
+export const buildPaymentUrl = async (order_id: string | number, amount: number): Promise<string> => {
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
 
     return await vnpay.buildPaymentUrl({
         vnp_Amount: amount,
         vnp_IpAddr: '127.0.0.1',
-        vnp_TxnRef: order_id + " " + branch_code,
+        vnp_TxnRef: order_id.toString(),
         vnp_OrderInfo: `Thanhtoandonhang${order_id}`,
         vnp_OrderType: ProductCode.Other,
         vnp_ReturnUrl: 'http://localhost:3000/api/payments/check-payment-vnpay',

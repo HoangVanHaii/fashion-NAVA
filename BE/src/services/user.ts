@@ -1,527 +1,383 @@
-import { ConnectionPool, Request, Transaction } from 'mssql';
 import * as bcrypt from 'bcrypt';
-import { v4 as uuidv4 } from 'uuid';
-import { dbPools, getBranchPool } from '../config/database';
+import { mysqlPool } from '../config/database';
 import { sendOtp, generateOTP } from '../utils/sendOTP';
 import { UserProfileModel } from '../models/user.mongo';
 import { Address } from '../interfaces/address';
-import *as jwtUtils from '../utils/token'
+import * as jwtUtils from '../utils/token';
 import mongoose from 'mongoose';
 import { AppError } from '../utils/appError';
 import cloudinary from '../config/cloudinary';
 import { IKpiResponse } from '../interfaces/order';
 import { getDateRange } from './order';
+import { RowDataPacket, PoolConnection } from 'mysql2/promise';
+import { User, UserProfile } from '../interfaces/user';
 
-const resendOTP = async (email: string, pool: ConnectionPool) => {
+// ─────────────────────────────────────────────────────────────────────────────
+// PRIVATE HELPERS
+// ─────────────────────────────────────────────────────────────────────────────
+
+const resendOTP = async (email: string): Promise<void> => {
     const otp = generateOTP();
-
-    const request = pool.request();
-    request.input('email', email);
-    request.input('otp', otp);
-
-    await request.query('DELETE FROM otp_codes WHERE email = @email');
-    await request.query('INSERT INTO otp_codes (email, otp, expires_at) VALUES (@email, @otp, DATEADD(MINUTE, 5, GETDATE()))');
-
+    await mysqlPool.query(`DELETE FROM otp_codes WHERE email = ?`, [email]);
+    await mysqlPool.query(
+        `INSERT INTO otp_codes (email, otp, expires_at)
+         VALUES (?, ?, DATE_ADD(NOW(), INTERVAL 5 MINUTE))`,
+        [email, otp]
+    );
     await sendOtp(email, otp);
 };
-const checkExistingUser = async (pool: ConnectionPool, email: string) => {
-    const req = dbPools.central.request();
-    req.input("email", email);
-    const exist_directory = await req.query('SELECT email from user_directory where email = @email');
-    if (exist_directory.recordset.length > 0) {
-        const result = await pool.request().input('email', email).query(
-            "SELECT is_verified FROM users WHERE email = @email"
-        );
-        if (result.recordset.length > 0) return result.recordset[0].is_verified
-        return exist_directory.recordset[0].email;
-    }
-    return null;
 
-};
-const getBranchId = async (pool: ConnectionPool, branch_code: string) => {
-    const req = pool.request();
-    req.input("branch_code", branch_code);
-
-    const result = await req.query(
-        "SELECT id FROM branches WHERE branch_code = @branch_code"
+const checkExistingUser = async (email: string): Promise<boolean | null> => {
+    const [rows] = await mysqlPool.query<RowDataPacket[]>(
+        `SELECT id, is_verified FROM users WHERE email = ?`,
+        [email]
     );
-
-    if (!result.recordset[0]) throw new AppError("Branch not found", 404);
-
-    return result.recordset[0].id;
-};
-const insertUserSql = async (request: Request, userId: string, name: string, email: string, is_verified : number,role: string, hashedPassword: string, phone: string, dob: Date, gender: string, branchId: string, mongodb_id: mongoose.Types.ObjectId) => {
-    request.input("id", userId);
-    request.input("name", name);
-    request.input("email", email);  
-    request.input("is_verified", is_verified);
-    request.input("role", role);
-    request.input("password", hashedPassword);
-    request.input("phone", phone);
-    request.input("date_of_birth", dob);
-    request.input("gender", gender);
-    request.input("branch_id", branchId);
-    request.input('mongodb_id', mongodb_id)
-
-    await request.query(`
-        INSERT INTO users (ID, name, email, password, phone, date_of_birth, gender, avatar, is_verified, status, role, mongodb_id, branch_id)
-        VALUES (@id, @name, @email, @password, @phone, @date_of_birth, @gender, 'https://res.cloudinary.com/duxdpc100/image/upload/v1765982522/Users/pbs9v2lwgcvrbjjb3oyw.jpg', @is_verified, 'active', @role, @mongodb_id, @branch_id)
-    `);
-};
-const saveOtpCode = async (request: Request, email: string, otp: string) => {
-    request.input("email_user", email);
-    request.input("otp", otp);
-
-    await request.query("DELETE FROM otp_codes WHERE email = @email");
-    await request.query(`
-        INSERT INTO otp_codes (email, otp, expires_at)
-        VALUES (@email_user, @otp, DATEADD(MINUTE, 5, GETDATE()))
-    `);
-};
-const insertAddress = async (request: Request, userId: string, name: string, phone: string, address: Address) => {
-    request.input("shipping_user_id", userId);
-    request.input("shipping_name", name);
-    request.input("shipping_phone", phone);
-    request.input("province", address.province);
-    request.input("district", address.district);
-    request.input("ward", address.ward);
-    request.input("street_address", address.street_address);
-
-    await request.query(`
-        INSERT INTO addresses (user_id, name, phone, is_default, province, district, ward, street_address)
-        VALUES (@shipping_user_id, @shipping_name, @shipping_phone, 1, @province, @district, @ward, @street_address)
-    `);
+    if (rows.length === 0) return null;
+    return rows[0].is_verified === 1 ? true : false;
 };
 
-const createMongoProfile = async (userId: string, bio: any, mongodb_id: mongoose.Types.ObjectId, preferences: any) => {
+const insertUserSql = async (
+    conn: PoolConnection,
+    name: string,
+    email: string,
+    is_verified: number,
+    role: string,
+    hashedPassword: string,
+    phone: string,
+    dob: Date,
+    gender: string,
+    mongodb_id: mongoose.Types.ObjectId
+): Promise<number> => {
+    const [result]: any = await conn.query(
+        `INSERT INTO users (name, email, password, phone, date_of_birth, gender, avatar, is_verified, status, role, mongodb_id)
+         VALUES (?, ?, ?, ?, ?, ?, 'https://res.cloudinary.com/djti5v9ex/image/upload/v1780481896/user_default_kycexh.png', ?, 'active', ?, ?)`,
+        [name, email, hashedPassword, phone, dob, gender, is_verified, role, mongodb_id.toString()]
+    );
+    return result.insertId as number;
+};
+
+const saveOtpCode = async (conn: PoolConnection, email: string, otp: string): Promise<void> => {
+    await conn.query(`DELETE FROM otp_codes WHERE email = ?`, [email]);
+    await conn.query(
+        `INSERT INTO otp_codes (email, otp, expires_at)
+         VALUES (?, ?, DATE_ADD(NOW(), INTERVAL 5 MINUTE))`,
+        [email, otp]
+    );
+};
+
+const insertAddress = async (
+    conn: PoolConnection,
+    userId: number,
+    name: string,
+    phone: string,
+    address: Address
+): Promise<void> => {
+    await conn.query(
+        `INSERT INTO addresses (user_id, name, phone, is_default, address)
+         VALUES (?, ?, ?, 1, ?)`,
+        [userId, name, phone, address.street_address ?? JSON.stringify(address)]
+    );
+};
+
+const createMongoProfile = async (
+    userId: number,
+    bio: any,
+    mongodb_id: mongoose.Types.ObjectId,
+    preferences: any
+) => {
     return await UserProfileModel.create({
         _id: mongodb_id,
-        user_id_sql: userId,
-        bio: bio,
-        preferences: preferences,
-        last_active: new Date()
+        user_id_sql: userId.toString(),
+        bio,
+        preferences,
+        last_active: new Date(),
     });
 };
-const insertUserDirectory = async (email: string, branchCode: string) => {
-    const centralPool = dbPools.central;
-    if (!centralPool) throw new AppError("Mất kết nối tới Central Database.", 503);
 
-    const req = centralPool.request();
-    req.input("email", email);
-    req.input("branchCode", branchCode);
+const uploadToCloudinary = (file: any) =>
+    cloudinary.uploader.upload(
+        `data:${file.mimetype};base64,${file.buffer.toString("base64")}`,
+        { folder: "Users" }
+    );
 
-    await req.query(`
-        IF EXISTS (SELECT email FROM user_directory WHERE email = @email)
-            UPDATE user_directory SET branch_code = @branchCode WHERE email = @email
-        ELSE
-            INSERT INTO user_directory (email, branch_code) VALUES (@email, @branchCode)
-    `);
-};
 
-export const registerUser = async (name: string, email: string, password: string, phone: string, date_of_birth: Date, gender: string, address: Address, branch_code: string, bio: any, preferences: any) => {
-    const pool = getBranchPool(branch_code);
-    if (!pool) throw new AppError(`${branch_code} database pool is not connected.`, 503);
+// ─────────────────────────────────────────────────────────────────────────────
+// AUTH
+// ─────────────────────────────────────────────────────────────────────────────
 
-    const existingUser = await checkExistingUser(pool, email);
-    if (existingUser != null) {
+export const registerUser = async (
+    name: string,
+    email: string,
+    password: string,
+    phone: string,
+    date_of_birth: Date,
+    gender: string,
+    address: Address,
+    bio: any,
+    preferences: any
+): Promise<void> => {
+    const existingUser = await checkExistingUser(email);
+
+    if (existingUser !== null) {
         if (existingUser) throw new AppError("Email already in use.", 409);
-        return resendOTP(email, pool);
+        return resendOTP(email);
     }
 
-    const branchId = await getBranchId(pool, branch_code);
-
     const hashedPassword = await bcrypt.hash(password, 10);
-    const newUserId = uuidv4();
     const newMongoId = new mongoose.Types.ObjectId();
 
-    const transaction = pool.transaction();
-    console.log('service');
+    const conn = await mysqlPool.getConnection();
+    await conn.beginTransaction();
     try {
-        await transaction.begin();
-        const req = transaction.request();
-
-        await insertUserSql(
-            req, newUserId, name, email, 0, 'customer', hashedPassword,
-            phone, date_of_birth, gender, branchId, newMongoId
+        const newUserId = await insertUserSql(
+            conn, name, email, 0, 'customer',
+            hashedPassword, phone, date_of_birth, gender, newMongoId
         );
 
         const otp = generateOTP();
-        await saveOtpCode(req, email, otp);
-        await insertAddress(req, newUserId, name, phone, address);
-
+        await saveOtpCode(conn, email, otp);
+        await insertAddress(conn, newUserId, name, phone, address);
         await createMongoProfile(newUserId, bio, newMongoId, preferences);
 
-        await insertUserDirectory(email, branch_code);
-        await transaction.commit();
+        await conn.commit();
         await sendOtp(email, otp);
-
     } catch (err) {
-        console.log(1);
-
-        await transaction.rollback();
+        await conn.rollback();
         await UserProfileModel.findByIdAndDelete(newMongoId);
-        
         if (err instanceof AppError) throw err;
         console.error(err);
-
-        throw new AppError("Failed to loginUser", 500, false);
+        throw new AppError("Failed to register user", 500, false);
+    } finally {
+        conn.release();
     }
 };
 
-export const verifyOTP = async (email: string, otp: string) => {
-
-    const centralPool = dbPools.central;
-    if (!centralPool) throw new AppError("Mất kết nối tới Central Database.", 503);
-
-    const directoryResult = await centralPool.request()
-        .input("email", email)
-        .query("SELECT branch_code FROM user_directory WHERE email = @email");
-
-    if (directoryResult.recordset.length === 0) {
-        throw new AppError("User not found (Directory)", 404);
-    }
-    const targetBranchCode = directoryResult.recordset[0].branch_code;
-    const pool: ConnectionPool | null = getBranchPool(targetBranchCode);
-
-    if (!pool) throw new AppError(`${targetBranchCode} database pool is not connected.`, 503);
-    const transaction: Transaction = pool.transaction();
+export const verifyOTP = async (email: string, otp: string): Promise<void> => {
+    const conn = await mysqlPool.getConnection();
+    await conn.beginTransaction();
     try {
-        await transaction.begin();
-        const tranRequest: Request = transaction.request();
-        tranRequest.input('email', email);
-        tranRequest.input('otp', otp);
-        const otpResult = await tranRequest.query(`
-            SELECT ID FROM otp_codes 
-            WHERE email = @email AND otp = @otp AND expires_at > GETDATE()
-        `);
-            
-        if (otpResult.recordset.length === 0) {
+        const [otpRows] = await conn.query<RowDataPacket[]>(
+            `SELECT ID FROM otp_codes
+             WHERE email = ? AND otp = ? AND expires_at > NOW()`,
+            [email, otp]
+        );
+
+        if (otpRows.length === 0) {
             console.log('Verifying OTP for email:', email, 'with OTP:', otp);
             throw new AppError("Invalid or expired OTP.", 400);
         }
 
-        const updateUserResult = await tranRequest.query(`
-            UPDATE users SET is_verified = 1 WHERE email = @email
-        `);
+        const [updateResult]: any = await conn.query(
+            `UPDATE users SET is_verified = 1 WHERE email = ?`,
+            [email]
+        );
 
-        if (updateUserResult.rowsAffected[0] === 0) {
+        if (updateResult.affectedRows === 0) {
             throw new AppError("User not found for this email.", 404);
         }
 
-        await tranRequest.query('DELETE FROM otp_codes WHERE email = @email');
-        await transaction.commit();
+        await conn.query(`DELETE FROM otp_codes WHERE email = ?`, [email]);
+        await conn.commit();
     } catch (err) {
-        await transaction.rollback();
+        await conn.rollback();
         if (err instanceof AppError) throw err;
         console.error(err);
-
-        throw new AppError("Failed to loginUser", 500, false);
+        throw new AppError("Failed to verify OTP", 500, false);
+    } finally {
+        conn.release();
     }
 };
 
 export const loginUser = async (email: string, password: string) => {
     try {
-        const centralPool = dbPools.central;
-        if (!centralPool) throw new AppError("Mất kết nối tới Central Database.", 503);
-
-        const directoryResult = await centralPool.request()
-            .input("email", email)
-            .query("SELECT branch_code FROM user_directory WHERE email = @email");
-
-        if (directoryResult.recordset.length === 0) {
-            throw new AppError("User not found (Directory)", 404);
-        }
-
-        const targetBranchCode = directoryResult.recordset[0].branch_code;
-        const pool = getBranchPool(targetBranchCode) || dbPools.central;
-
-        const result = await pool.request().input("email", email)
-            .query(`SELECT u.password, u.id, u.name, u.email, u.avatar, u.role, u.branch_id
-                FROM users u
-                WHERE email = @email AND is_verified = 1`);
-        if (result.recordset.length === 0) {
-            throw new AppError("User not found", 404);
-        }
-        if (result.recordset[0].status === "banned") {
-            throw new AppError("User is banned", 403);
-        }
-        const user = result.recordset[0];
-        const isMatch = await bcrypt.compare(
-            password,
-            result.recordset[0].password
+        const [rows] = await mysqlPool.query<RowDataPacket[]>(
+            `SELECT password, id, name, email, avatar, role, status
+             FROM users
+             WHERE email = ? AND is_verified = 1`,
+            [email]
         );
-        if (!isMatch) {
-            throw new AppError("Invalid password", 401);
-        }
-        delete user.password;
-        const branch = await pool.request().input('branch_id', user.branch_id).query(`SELECT branch_code from branches where id = @branch_id`);
-        user.branch_code = branch.recordset[0].branch_code;
-        const accessToken = jwtUtils.accessToken(user.id, user.email, user.role, branch.recordset[0].branch_code,user.branch_id);
-        const refreshToken = jwtUtils.refreshToken(user.id, user.email, user.role, branch.recordset[0].branch_code, user.branch_id);
 
-        return {
-            user,
-            accessToken,
-            refreshToken,
-        };
+        if (rows.length === 0) throw new AppError("User not found", 404);
+        if (rows[0].status === "banned") throw new AppError("User is banned", 403);
+
+        const user: any = { ...rows[0] };
+        const isMatch = await bcrypt.compare(password, user.password);
+        if (!isMatch) throw new AppError("Invalid password", 401);
+
+        delete user.password;
+
+        const accessToken = jwtUtils.accessToken(user.id, user.email, user.role);
+        const refreshToken = jwtUtils.refreshToken(user.id, user.email, user.role);
+
+        return { user, accessToken, refreshToken };
     } catch (err: any) {
         if (err instanceof AppError) throw err;
         console.error(err);
+        throw new AppError("Failed to login user", 500, false);
+    }
+};
 
-        throw new AppError("Failed to loginUser", 500, false);
+export const registerAccount = async (
+    name: string,
+    email: string,
+    password: string,
+    phone: string,
+    date_of_birth: Date,
+    gender: string,
+    address: Address,
+    bio: any,
+    preferences: any,
+    role: string
+): Promise<void> => {
+    const existingUser = await checkExistingUser(email);
+    if (existingUser) throw new AppError("User already exists", 409);
+
+    const newMongoId = new mongoose.Types.ObjectId();
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const conn = await mysqlPool.getConnection();
+    await conn.beginTransaction();
+    try {
+        const newUserId = await insertUserSql(
+            conn, name, email, 1, role,
+            hashedPassword, phone, date_of_birth, gender, newMongoId
+        );
+        await insertAddress(conn, newUserId, name, phone, address);
+        await createMongoProfile(newUserId, bio, newMongoId, preferences);
+        await conn.commit();
+    } catch (err) {
+        await conn.rollback();
+        await UserProfileModel.findByIdAndDelete(newMongoId);
+        if (err instanceof AppError) throw err;
+        console.error(err);
+        throw new AppError("Failed to register account", 500, false);
+    } finally {
+        conn.release();
     }
 };
 
 
-export const getAllUser = async (pool: ConnectionPool, branchCode: string) => { 
-    try {
-        const sqlResult = await pool.request().query(`
-            SELECT * FROM users
-        `);
-        const sqlUsers = sqlResult.recordset;
+// ─────────────────────────────────────────────────────────────────────────────
+// USER QUERIES
+// ─────────────────────────────────────────────────────────────────────────────
 
+export const getAllUsers = async (): Promise<any[]> => {
+    try {
+        const [sqlUsers] = await mysqlPool.query<RowDataPacket[]>(`SELECT * FROM users`);
         if (sqlUsers.length === 0) return [];
 
-        const listId = sqlUsers
-            .map((item) => item.mongodb_id)
-            .filter((id) => id);
+        const listId = sqlUsers.map(u => u.mongodb_id).filter(Boolean);
+        const mongoProfiles = await UserProfileModel.find({ _id: { $in: listId } }).lean();
 
-        const mongoProfiles = await UserProfileModel.find({
-            _id: { $in: listId }
-        }).lean();
         const profileMap: Record<string, any> = {};
-        mongoProfiles.forEach((p: any) => {
-            profileMap[String(p._id)] = p;
-        });
+        mongoProfiles.forEach((p: any) => { profileMap[String(p._id)] = p; });
 
-        const finalResult = sqlUsers.map((user) => {
-            const userProfile = user.mongodb_id ? profileMap[String(user.mongodb_id)] : null;
-
-            return {
-                ...user,
-                profile: userProfile || {},
-                branch: branchCode
-            };
-        });
-        return finalResult;
-
+        return sqlUsers.map(user => ({
+            ...user,
+            profile: user.mongodb_id ? (profileMap[String(user.mongodb_id)] ?? {}) : {},
+        }));
     } catch (err) {
         if (err instanceof AppError) throw err;
         console.error("Error in getAllUser:", err);
         throw new AppError("Failed to get all users", 500);
     }
 };
-
-const ALL_BRANCHES = ['CT'];
-const listID: Record<string, string> = {
-    '23C87EA6-C9F0-4247-885C-23D618C468C9': 'HN',
-    '73F306BD-316A-462F-B646-6DF61FE5CAA0': 'DN',
-    '0178EF67-FF67-48B3-B4DE-6E9907EBED27': 'HCM',
-    '0048BA0A-1EFD-4E07-8C87-C45E3AAA314B': 'CT',
-  };
-  
-  // truyền id vào
-  const getCodeById = (id: string): string | undefined => {
-    return listID[id];
-  };
-  
-  // ví dụ
-  
-export const getAllUserForCentral = async () => { 
+export const getUserProfile = async (email: string): Promise<User> => {
     try {
+        const [rows] = await mysqlPool.query<RowDataPacket[]>(
+            `SELECT u.ID AS user_id, u.name, u.email, u.phone,
+                    u.date_of_birth, u.gender, u.role, u.avatar, u.mongodb_id
+             FROM users u
+             WHERE u.email = ?`,
+            [email]
+        );
 
-        const branchPromises = ALL_BRANCHES.map(async (branchCode) => {
-            const pool = getBranchPool(branchCode);
-            if (!pool || !pool.connected) {
-                console.warn(`⚠️ Chi nhánh ${branchCode} đang offline hoặc chưa kết nối.`);
-                return []; 
-            }
-            try {
-                const result = await pool.request().query(`SELECT * FROM users`);
-                    return result.recordset.map((user: any) => ({
-                        ...user,
-                        branch: getCodeById(user.branch_id) 
-                    }));
-            } catch (err) {
-                console.error(`❌ Lỗi query tại chi nhánh ${branchCode}:`, err);
-                return [];
-            }
-        });
+        if (rows.length === 0) throw new AppError("User not found.", 404);
 
-        const results = await Promise.all(branchPromises);
-        const allUsersSQL = results.flat();
+        // Destructure các field cần thiết để tránh kéo theo metadata của RowDataPacket
+        const { user_id, name, email: userEmail, phone, date_of_birth, gender, role, avatar, mongodb_id } = rows[0];
 
-        if (allUsersSQL.length === 0) return [];
-        const listId = allUsersSQL
-            .map((item) => item.mongodb_id)
-            .filter((id) => id);
-        const mongoProfiles = await UserProfileModel.find({
-            _id: { $in: listId }
-        }).lean();
-
-        const profileMap: Record<string, any> = {};
-        mongoProfiles.forEach((p: any) => {
-            profileMap[String(p._id)] = p;
-        });
-
-        const finalResult = allUsersSQL.map((user) => {
-            const userProfile = user.mongodb_id ? profileMap[String(user.mongodb_id)] : null;
-
-            return {
-                ...user,
-                profile: userProfile || {},
-            };
-        });
-
-        return finalResult;
-
-    } catch (err) {
-        console.error("Critical Error in getAllUserForCentral:", err);
-        throw new AppError("Failed to aggregate users from all branches", 500);
-    }
-};
-export const getUserProfile = async (email: string) => {
-    try {
-        const centralPool = dbPools.central;
-        if (!centralPool) throw new AppError("Mất kết nối Central DB.", 503);
-
-        const directoryResult = await centralPool.request()
-            .input("email", email)
-            .query("SELECT branch_code FROM user_directory WHERE email = @email");
-
-        if (directoryResult.recordset.length === 0) {
-            throw new AppError("User not found in directory.", 404);
-        }
-
-        const branchCode = directoryResult.recordset[0].branch_code;
-        const branchPool = getBranchPool(branchCode);
-
-        if (!branchPool) throw new AppError(`Chi nhánh ${branchCode} đang bảo trì.`, 503);
-
-        const sqlResult = await branchPool.request()
-            .input("email", email)
-            .query(`
-            SELECT 
-                u.ID as user_id, u.name, u.email, u.phone, u.date_of_birth, u.gender, u.role, u.avatar, u.mongodb_id
-            FROM users u
-            WHERE u.email = @email
-        `);
-
-        if (sqlResult.recordset.length === 0) throw new AppError("User data not found in Branch SQL.", 404);
-
-        const sqlData = sqlResult.recordset[0];
-
-        let mongoData = null;
-        if (sqlData.mongodb_id) {
-            mongoData = await UserProfileModel.findById(sqlData.mongodb_id).lean();
+        let mongoData: UserProfile | null = null;
+        if (mongodb_id) {
+            mongoData = await UserProfileModel.findById(mongodb_id).lean() as UserProfile | null;
         } else {
-            mongoData = await UserProfileModel.findOne({ user_id_sql: sqlData.user_id }).lean();
+            mongoData = await UserProfileModel.findOne({ user_id_sql: user_id }).lean() as UserProfile | null;
         }
 
         return {
-            ...sqlData,
-            profile: mongoData || {},
-            branch: branchCode
+            user_id,
+            name,
+            email: userEmail,
+            phone,
+            date_of_birth,
+            gender,
+            role,
+            avatar,
+            mongodb_id,
+            profile: mongoData ?? ({} as UserProfile),
         };
     } catch (err) {
         if (err instanceof AppError) throw err;
         console.error(err);
-
-        throw new AppError("Failed to loginUser", 500, false);
+        throw new AppError("Failed to get user profile", 500, false);
     }
 };
 
-const uploadToCloudinary = (file: any) => {
-    return cloudinary.uploader.upload(
-        `data:${file.mimetype};base64,${file.buffer.toString("base64")}`,
-        { folder: "Users" }
-    )
-}
 
-export const updateAvatar = async (email: string, avatarUrl: Express.Multer.File) : Promise<string> => {
-    const centralPool = dbPools.central;
-    if (!centralPool) throw new AppError("Mất kết nối tới Central Database.", 503);
+// ─────────────────────────────────────────────────────────────────────────────
+// PROFILE UPDATE
+// ─────────────────────────────────────────────────────────────────────────────
 
-    const directoryResult = await centralPool.request()
-        .input("email", email)
-        .query("SELECT branch_code FROM user_directory WHERE email = @email");
-    
-    if (directoryResult.recordset.length === 0) {
-        throw new AppError("User not found in directory.", 404);
-    }
-    const branch_code = directoryResult.recordset[0].branch_code;
-    const pool = getBranchPool(branch_code);
-    if (!pool) throw new AppError(`${branch_code} database pool is not connected.`, 503);
+export const updateAvatar = async (email: string, avatarFile: Express.Multer.File): Promise<string> => {
     try {
-        const uploadResult = await uploadToCloudinary(avatarUrl);
-        const avatarUrlStr = uploadResult.secure_url;
-        await pool.request()
-            .input("email", email)   
-
-            .input("avatar", avatarUrlStr)
-            .query(`
-                UPDATE users
-                SET avatar = @avatar
-                WHERE email = @email
-            `);
-        return avatarUrlStr;
+        const uploadResult = await uploadToCloudinary(avatarFile);
+        const avatarUrl = uploadResult.secure_url;
+        await mysqlPool.query(
+            `UPDATE users SET avatar = ? WHERE email = ?`,
+            [avatarUrl, email]
+        );
+        return avatarUrl;
     } catch (err) {
         if (err instanceof AppError) throw err;
         console.error(err);
         throw new AppError("Failed to update avatar", 500, false);
     }
 };
-export const upadteUserProfile = async (email: string, name?: string, phone?: string, date_of_birth?: Date, gender?: string, bio?: string, preferences?: any) => {
-    const centralPool = dbPools.central;
-    if (!centralPool) throw new AppError("Mất kết nối tới Central Database.", 503);
 
-    const directoryResult = await centralPool.request()
-        .input("email", email)
-        .query("SELECT branch_code FROM user_directory WHERE email = @email");
-
-    if (directoryResult.recordset.length === 0) {
-        throw new AppError("User not found in directory.", 404);
-    }
-
-    const branch_code = directoryResult.recordset[0].branch_code;
-    const pool = getBranchPool(branch_code);
-
-    if (!pool) throw new AppError(`${branch_code} database pool is not connected.`, 503);
-
+export const updateUserProfile = async (
+    email: string,
+    name?: string,
+    phone?: string,
+    date_of_birth?: Date,
+    gender?: string,
+    bio?: string,
+    preferences?: any
+): Promise<void> => {
     try {
         const fieldsToUpdate: string[] = [];
+        const values: any[] = [];
 
-        if (name !== undefined) fieldsToUpdate.push("name = @name");
-        if (phone !== undefined) fieldsToUpdate.push("phone = @phone");
-        if (date_of_birth !== undefined) fieldsToUpdate.push("date_of_birth = @date_of_birth");
-        if (gender !== undefined) fieldsToUpdate.push("gender = @gender");
+        if (name !== undefined) { fieldsToUpdate.push("name = ?"); values.push(name); }
+        if (phone !== undefined) { fieldsToUpdate.push("phone = ?"); values.push(phone); }
+        if (date_of_birth !== undefined) { fieldsToUpdate.push("date_of_birth = ?"); values.push(date_of_birth); }
+        if (gender !== undefined) { fieldsToUpdate.push("gender = ?"); values.push(gender); }
 
         if (fieldsToUpdate.length > 0) {
-            const sqlQuery = `
-                UPDATE users
-                SET ${fieldsToUpdate.join(", ")}
-                WHERE email = @email
-            `;
-
-            const req = pool.request().input("email", email);
-
-            if (name !== undefined) req.input("name", name);
-            if (phone !== undefined) req.input("phone", phone);
-            if (date_of_birth !== undefined) req.input("date_of_birth", date_of_birth);
-            if (gender !== undefined) req.input("gender", gender);
-
-            await req.query(sqlQuery);
+            values.push(email);
+            await mysqlPool.query(
+                `UPDATE users SET ${fieldsToUpdate.join(", ")} WHERE email = ?`,
+                values
+            );
         }
 
-        const userResult = await pool.request()
-            .input("email", email)
-            .query(`SELECT id, mongodb_id FROM users WHERE email = @email`);
+        const [userRows] = await mysqlPool.query<RowDataPacket[]>(
+            `SELECT id, mongodb_id FROM users WHERE email = ?`,
+            [email]
+        );
 
-        if (userResult.recordset.length === 0) {
-            throw new AppError("User data not found in Branch SQL.", 404);
-        }
+        if (userRows.length === 0) throw new AppError("User not found.", 404);
 
-        const { id: userIdSql, mongodb_id } = userResult.recordset[0];
+        const { id: userIdSql, mongodb_id } = userRows[0];
 
         const updateMongo: any = {};
         if (bio !== undefined) updateMongo.bio = bio;
@@ -532,243 +388,148 @@ export const upadteUserProfile = async (email: string, name?: string, phone?: st
                 await UserProfileModel.findByIdAndUpdate(mongodb_id, updateMongo);
             }
         } else {
-            const newMongoId = new mongoose.Types.ObjectId().toString();
-
+            const newMongoId = new mongoose.Types.ObjectId();
             await UserProfileModel.create({
                 _id: newMongoId,
-                user_id_sql: userIdSql,
+                user_id_sql: userIdSql.toString(),
                 bio: bio ?? "",
                 preferences: preferences ?? {},
-                last_active: new Date()
+                last_active: new Date(),
             });
-
-            await pool.request()
-                .input("email", email)
-                .input("mongodb_id", newMongoId)
-                .query(`
-                    UPDATE users
-                    SET mongodb_id = @mongodb_id
-                    WHERE email = @email
-                `);
+            await mysqlPool.query(
+                `UPDATE users SET mongodb_id = ? WHERE email = ?`,
+                [newMongoId.toString(), email]
+            );
         }
-
     } catch (err) {
         if (err instanceof AppError) throw err;
         console.error(err);
         throw new AppError("Failed to update profile", 500, false);
     }
 };
-export const forgotPasswordSendOTP = async (email: string) => {
-    const centralPool = dbPools.central;
-    if (!centralPool) throw new AppError("Mất kết nối tới Central Database.", 503); 
-    const directoryResult = await centralPool.request()
-        .input("email", email)
-        .query("SELECT branch_code FROM user_directory WHERE email = @email");
-    if (directoryResult.recordset.length === 0) {
-        throw new AppError("User not found in directory.", 404);
-    }   
-    const branch_code = directoryResult.recordset[0].branch_code;
-    const pool = getBranchPool(branch_code);
-    if (!pool) throw new AppError(`${branch_code} database pool is not connected.`, 503);
-    return resendOTP(email, pool);
-}
-export const forgotPasswordVerifyOTP = async (email: string, otp: string) => {
-    const centralPool = dbPools.central;
-    if (!centralPool) throw new AppError("Mất kết nối tới Central Database.", 503); 
-    const directoryResult = await centralPool.request()
-        .input("email", email)
-        .query("SELECT branch_code FROM user_directory WHERE email = @email");  
-    if (directoryResult.recordset.length === 0) {
-        throw new AppError("User not found in directory.", 404);
-    }
-    const branch_code = directoryResult.recordset[0].branch_code;
-    const pool = getBranchPool(branch_code);
-    if (!pool) throw new AppError(`${branch_code} database pool is not connected.`, 503);
-    const transaction: Transaction = pool.transaction();    
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PASSWORD
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const forgotPasswordSendOTP = async (email: string): Promise<void> => {
+    const [rows] = await mysqlPool.query<RowDataPacket[]>(
+        `SELECT id FROM users WHERE email = ?`,
+        [email]
+    );
+    if (rows.length === 0) throw new AppError("User not found.", 404);
+    return resendOTP(email);
+};
+
+export const forgotPasswordVerifyOTP = async (email: string, otp: string): Promise<void> => {
+    const conn = await mysqlPool.getConnection();
+    await conn.beginTransaction();
     try {
-        await transaction.begin();
-        const tranRequest: Request = transaction.request();
-        tranRequest.input('email', email);
-        tranRequest.input('otp', otp);
-        const otpResult = await tranRequest.query(`
-            SELECT ID FROM otp_codes 
-            WHERE email = @email AND otp = @otp AND expires_at > GETDATE()
-        `); 
-        if (otpResult.recordset.length === 0) {
-            throw new AppError("Invalid or expired OTP.", 400);
-        }
-        await tranRequest.query('DELETE FROM otp_codes WHERE email = @email');
-        await transaction.commit();
+        const [otpRows] = await conn.query<RowDataPacket[]>(
+            `SELECT ID FROM otp_codes
+             WHERE email = ? AND otp = ? AND expires_at > NOW()`,
+            [email, otp]
+        );
+        if (otpRows.length === 0) throw new AppError("Invalid or expired OTP.", 400);
+
+        await conn.query(`DELETE FROM otp_codes WHERE email = ?`, [email]);
+        await conn.commit();
     } catch (err) {
-        await transaction.rollback();
-        if (err instanceof AppError) throw err; 
+        await conn.rollback();
+        if (err instanceof AppError) throw err;
         console.error(err);
         throw new AppError("Failed to verify OTP", 500, false);
+    } finally {
+        conn.release();
     }
 };
-export const forgotPasswordReset = async (email: string, newPassword: string) => {
-    const centralPool = dbPools.central;
-    if (!centralPool) throw new AppError("Mất kết nối tới Central Database.", 503);
-    const directoryResult = await centralPool.request()
-        .input("email", email)
-        .query("SELECT branch_code FROM user_directory WHERE email = @email");
-    if (directoryResult.recordset.length === 0) {
-        throw new AppError("User not found in directory.", 404);
-    }
-    const branch_code = directoryResult.recordset[0].branch_code;
-    const pool = getBranchPool(branch_code);
 
-
-    if (!pool) throw new AppError(`${branch_code} database pool is not connected.`, 503);
+export const forgotPasswordReset = async (email: string, newPassword: string): Promise<void> => {
     try {
         const hashedPassword = await bcrypt.hash(newPassword, 10);
-        await pool.request()
-            .input("email", email)
-            .input("password", hashedPassword)
-            .query(`
-                UPDATE users
-                SET password = @password
-                WHERE email = @email
-            `);
+        await mysqlPool.query(
+            `UPDATE users SET password = ? WHERE email = ?`,
+            [hashedPassword, email]
+        );
     } catch (err) {
         if (err instanceof AppError) throw err;
         console.error(err);
         throw new AppError("Failed to reset password", 500, false);
-    }   
+    }
 };
-export const changeUserRole = async (email: string, newRole: string) => {
-    const centralPool = dbPools.central;
-    if (!centralPool) throw new AppError("Mất kết nối tới Central Database.", 503);
-    const directoryResult = await centralPool.request()
-        .input("email", email)
-        .query("SELECT branch_code FROM user_directory WHERE email = @email");
-    if (directoryResult.recordset.length === 0) {
-        throw new AppError("User not found in directory.", 404);
-    }   
-    const branch_code = directoryResult.recordset[0].branch_code;
-    const pool = getBranchPool(branch_code);
-    if (!pool) throw new AppError(`${branch_code} database pool is not connected.`, 503);
-    try {
-        await pool.request()
 
-            .input("email", email)
-            .input("role", newRole)
-            .query(`       
-                UPDATE users
-                SET role = @role
-                WHERE email = @email
-            `);
+export const changePassword = async (email: string, oldPassword: string, newPassword: string): Promise<void> => {
+    try {
+        const [rows] = await mysqlPool.query<RowDataPacket[]>(
+            `SELECT password FROM users WHERE email = ?`,
+            [email]
+        );
+        if (rows.length === 0) throw new AppError("User not found", 404);
+
+        const isMatch = await bcrypt.compare(oldPassword, rows[0].password);
+        if (!isMatch) throw new AppError("Incorrect current password", 401);
+
+        const hashed = await bcrypt.hash(newPassword, 10);
+        await mysqlPool.query(
+            `UPDATE users SET password = ? WHERE email = ?`,
+            [hashed, email]
+        );
+    } catch (err) {
+        if (err instanceof AppError) throw err;
+        console.error(err);
+        throw new AppError("Failed to change password", 500, false);
+    }
+};
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ROLE / STATUS
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const changeUserRole = async (email: string, newRole: string): Promise<void> => {
+    try {
+        await mysqlPool.query(
+            `UPDATE users SET role = ? WHERE email = ?`,
+            [newRole, email]
+        );
     } catch (err) {
         if (err instanceof AppError) throw err;
         console.error(err);
         throw new AppError("Failed to change user role", 500, false);
     }
 };
-export const registerAccount = async (name: string, email: string, password: string, phone: string, date_of_birth: Date, gender: string, address: Address, branch_code: string, bio: any, preferences: any, role: string) => {
-    const pool = getBranchPool(branch_code);
-    if (!pool) throw new AppError(`${branch_code} database pool is not connected.`, 503);
-    const existingUser = await checkExistingUser(pool, email);
-    if (existingUser) {
-        throw new AppError("User already exists", 409);
-    }
-    const newUserId = uuidv4();
-    const newMongoId = new mongoose.Types.ObjectId();
-    const transaction = pool.transaction();
-    try {
-        await transaction.begin();
-        const branchId = await getBranchId(pool, branch_code);
-        const hashedPassword = await bcrypt.hash(password, 10);
 
-        const req = transaction.request();
-        await insertUserSql(
-            req, newUserId, name, email, 1, role,hashedPassword,
-            phone, date_of_birth, gender, branchId, newMongoId
+
+// ─────────────────────────────────────────────────────────────────────────────
+// KPI / STATISTICS
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const getTotalUserComparisonService = async (type: string): Promise<IKpiResponse> => {
+    try {
+        const { currentStart, currentEnd, previousStart, previousEnd } = getDateRange(type);
+        const isAllTime = type.toLowerCase() === 'từ trước tới nay';
+
+        const [currentRows] = await mysqlPool.query<RowDataPacket[]>(
+            `SELECT COUNT(ID) AS total
+             FROM users
+             WHERE is_verified = 1
+               AND created_at >= ${currentStart} AND created_at < ${currentEnd}`
         );
-        
-        await insertAddress(req, newUserId, name, phone, address);
-        await createMongoProfile(newUserId, bio, newMongoId, preferences);
-        await insertUserDirectory(email, branch_code);
-        await transaction.commit();
-    } catch (err) {
-        await transaction.rollback();
-        await UserProfileModel.findByIdAndDelete(newMongoId);
-        if (err instanceof AppError) throw err;
-        console.error(err);
-        throw new AppError("Failed to register employee", 500, false);
-    }   
-};
+        const currentTotal = currentRows[0]?.total || 0;
 
-const getTotalUserComparisonFromPool = async (dbBranch: ConnectionPool, type: string): Promise<IKpiResponse> => {
-    const { currentStart, currentEnd, previousStart, previousEnd } = getDateRange(type);
-    const isAllTime = type.toLowerCase() === 'từ trước tới nay';
-
-    // 1. Hiện tại
-    const currentQuery = `
-        SELECT COUNT(ID) AS total
-        FROM users
-        WHERE is_verified = 1 
-          AND created_at >= ${currentStart} AND created_at < ${currentEnd};
-    `;
-    const currentResult = await dbBranch.request().query(currentQuery);
-    const currentTotalUsers = currentResult.recordset[0]?.total || 0;
-
-    // 2. Quá khứ
-    let previousTotalUsers = 0;
-    if (!isAllTime) {
-        const previousQuery = `
-            SELECT COUNT(ID) AS previous_total
-            FROM users
-            WHERE is_verified = 1 
-              AND created_at >= ${previousStart} AND created_at < ${previousEnd};
-        `;
-        const previousResult = await dbBranch.request().query(previousQuery);
-        previousTotalUsers = previousResult.recordset[0]?.previous_total || 0;
-    }
-
-    return { total: currentTotalUsers, previousTotal: previousTotalUsers };
-};
-
-
-// ---------------------------------------------------------
-// 2. MAIN SERVICE: Xử lý logic Branch / CT
-// ---------------------------------------------------------
-export const getTotalUserComparisonService = async (branch_code: string, type: string) => {
-    try {
-        // CASE 1: Toàn hệ thống (CT)
-        // Lưu ý: User thường là data toàn cục (Global) nếu dùng chung DB User.
-        // NHƯNG nếu hệ thống của bạn phân tán User theo chi nhánh (User đăng ký ở nhánh nào nằm DB nhánh đó)
-        // thì mới cần cộng dồn. Nếu User nằm ở DB chung (VD: chỉ DB HN chứa User) thì logic sẽ khác.
-        // -> Giả sử mô hình của bạn là User phân tán (mỗi nhánh có User riêng):
-        if (branch_code === 'CT') {
-            const branches = ['HN', 'DN', 'HCM'];
-
-            const promises = branches.map(async (code) => {
-                const pool = getBranchPool(code);
-                if (!pool || !pool.connected) return { total: 0, previousTotal: 0 };
-                try {
-                    return await getTotalUserComparisonFromPool(pool, type);
-                } catch {
-                    return { total: 0, previousTotal: 0 };
-                }
-            });
-
-            const results = await Promise.all(promises);
-
-            return results.reduce((acc, curr) => ({
-                total: acc.total + curr.total,
-                previousTotal: acc.previousTotal + curr.previousTotal
-            }), { total: 0, previousTotal: 0 });
+        let previousTotal = 0;
+        if (!isAllTime) {
+            const [prevRows] = await mysqlPool.query<RowDataPacket[]>(
+                `SELECT COUNT(ID) AS previous_total
+                 FROM users
+                 WHERE is_verified = 1
+                   AND created_at >= ${previousStart} AND created_at < ${previousEnd}`
+            );
+            previousTotal = prevRows[0]?.previous_total || 0;
         }
 
-        // CASE 2: Chi nhánh lẻ
-        else {
-            const pool = getBranchPool(branch_code);
-            if (!pool || !pool.connected) {
-                throw new AppError(`Branch ${branch_code} disconnected`, 503);
-            }
-            return await getTotalUserComparisonFromPool(pool, type);
-        }
-
+        return { total: currentTotal, previousTotal };
     } catch (err) {
         if (err instanceof AppError) throw err;
         console.error("getTotalUserComparisonService Error:", err);

@@ -1,121 +1,121 @@
-import { ConnectionPool } from "mssql";
+import { RowDataPacket } from "mysql2";
 import { Category } from "../interfaces/category";
 import { AppError } from "../utils/appError";
+import { mysqlPool } from "../config/database"; // Điều chỉnh lại đường dẫn nếu cần
 
-export const addCategory = async (pool: ConnectionPool, category: Category): Promise<void> => {
+export const addCategory = async (category: Category): Promise<void> => {
     try {
-        await pool.request()
-            .input("category_name", category.category_name)
-            .input("description", category.description || null)
-            .input("status", category.status || "active")
-            .input('gender', category.gender)
-            .query(`
-        INSERT INTO categories (category_name, description, status, gender)
-        VALUES (@category_name, @description, @status, @gender)
-      `);
+        await mysqlPool.query(
+            `INSERT INTO categories (category_name, description, status, gender)
+             VALUES (?, ?, ?, ?)`,
+            [
+                category.category_name,
+                category.description || null,
+                category.status || "active",
+                category.gender
+            ]
+        );
     } catch (error) {
+        console.error("Failed to add category", error);
         throw new AppError("Failed to add category", 500, false);
     }
 };
 
-export const getAllActiveCategories = async(pool: ConnectionPool): Promise<Category[]> => {
+export const getAllActiveCategories = async (): Promise<Category[]> => {
     try {
-        const result = await pool.request()
-            .query(`
-        SELECT category_id, category_name, description, status, gender
-        FROM categories
-        WHERE status = 'active'
-      `);
-        return result.recordset;
+        const [rows] = await mysqlPool.query<RowDataPacket[]>(
+            `SELECT category_id, category_name, description, status, gender
+             FROM categories
+             WHERE status = 'active'`
+        );
+        return rows as Category[];
     } catch (error) {
         throw new AppError("Failed to get active categories", 500, false);
     }
 };
-export const getCategoryNamByGender = async (pool: ConnectionPool, gender: string) => {
-    try {
-        const query = `SELECT category_id, category_name
-                    FROM categories 
-                    WHERE gender = @gender`;
-        const result = await pool.request()
-            .input('gender', gender)
-            .query(query);
 
-        if(!result) return null;
-        return result.recordset;
+export const getCategoryNamByGender = async (gender: string) => {
+    try {
+        const [rows] = await mysqlPool.query<RowDataPacket[]>(
+            `SELECT category_id, category_name
+             FROM categories 
+             WHERE gender = ?`,
+            [gender]
+        );
+
+        return rows;
     } catch (error) {
-        console.log("Failed to fetching category name",error);
+        console.error("Failed to fetching category name", error);
         throw new AppError('Failed to fetching category name', 500, false);
     }
-}
-export const getAllInactiveCategories = async (pool: ConnectionPool): Promise<Category[]> => {
+};
+
+export const getAllInactiveCategories = async (): Promise<Category[]> => {
     try {
-        const result = await pool.request()
-            .query(`
-        SELECT category_id, category_name, description, status, gender
-        FROM categories
-        WHERE status = 'inactive'
-      `);
-        return result.recordset;
+        const [rows] = await mysqlPool.query<RowDataPacket[]>(
+            `SELECT category_id, category_name, description, status, gender
+             FROM categories
+             WHERE status = 'inactive'`
+        );
+        return rows as Category[];
     } catch (error) {
         throw new AppError("Failed to get inactive categories", 500, false);
     }
 };
 
-export const getCategoryById = async (pool: ConnectionPool, id: string): Promise<Category | null> => {
+export const getCategoryById = async (id: number): Promise<Category | null> => {
     try {
-        const result = await pool.request()
-            .input("id", id)
-            .query(`
-        SELECT category_id, category_name, description, status, gender
-        FROM categories
-        WHERE category_id = @id
-      `);
+        const [rows] = await mysqlPool.query<RowDataPacket[]>(
+            `SELECT category_id, category_name, description, status, gender
+             FROM categories
+             WHERE category_id = ?`,
+            [id]
+        );
 
-        if (result.recordset.length === 0) return null;
-        return result.recordset[0];
+        if (rows.length === 0) return null;
+        return rows[0] as Category;
     } catch (error) {
         throw new AppError("Failed to get category by id", 500, false);
     }
 };
 
-
-export const updateCategory = async (pool: ConnectionPool, category: Category): Promise<void> => {
+export const updateCategory = async (category: Category): Promise<void> => {
     try {
         let updates: string[] = [];
-        let request = pool.request();
+        let values: any[] = [];
 
         Object.entries(category).forEach(([key, value]) => {
             if (key !== "category_id" && value !== undefined && value !== null && value !== "") {
-                updates.push(`${key} = @${key}`);
-                request.input(key, value);
+                updates.push(`${key} = ?`);
+                values.push(value);
             }
         });
 
         if (updates.length === 0) return;
 
-        request.input("id", category.category_id);
+        // Thêm id vào mảng values để phục vụ cho mệnh đề WHERE
+        values.push(category.category_id);
 
         const query = `
             UPDATE categories
             SET ${updates.join(", ")}
-            WHERE category_id = @id
+            WHERE category_id = ?
         `;
 
-        await request.query(query);
+        await mysqlPool.query(query, values);
     } catch (error) {
         throw new AppError("Failed to update category", 500, false);
     }
 };
 
-export const deleteCategory = async (pool: ConnectionPool, id: string): Promise<void> => {
+export const deleteCategory = async (id: number): Promise<void> => {
     try {
-        await pool.request()
-            .input("id", id)
-            .query(`
-        UPDATE categories
-        SET status = 'inactive'
-        WHERE category_id = @id
-      `);
+        await mysqlPool.query(
+            `UPDATE categories
+             SET status = 'inactive'
+             WHERE category_id = ?`,
+            [id]
+        );
     } catch (error) {
         throw new AppError("Failed to soft delete category", 500, false);
     }

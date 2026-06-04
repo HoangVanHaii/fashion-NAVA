@@ -96,11 +96,11 @@ router.delete(
     productController.deleteProductColor
 );
 
-router.delete(
-    "/delete",
-    authMiddleware,
-    isAdmin,
-    validateRequest,
-    productController.deleteBranchInnventory
-);
+// router.delete(
+//     "/delete",
+//     authMiddleware,
+//     isAdmin,
+//     validateRequest,
+//     productController.deleteBranchInnventory
+// );
 export default router;

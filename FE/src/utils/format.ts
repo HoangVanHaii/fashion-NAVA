@@ -11,17 +11,19 @@ export const getImage = (path: string) => {
 export const getMinProductPrice = (product: any): number | null => {
     const prices = product?.colors
         ?.flatMap((c: any) => c.sizes || [])
-        .filter((s: any) => s.stock > 0) 
-        .map((s: any) => s.sale_price ?? s.price)
-        .filter((p: any): p is number => typeof p === 'number');
+        .filter((s: any) => s.stock > 0)
+        .map((s: any) => Number(s.sale_price ?? s.price))
+        .filter((p: number) => !isNaN(p));
+
     return prices?.length ? Math.min(...prices) : null;
 }
 export const getMaxProductPrice = (product: any): number | null => {
     const prices = product?.colors
         ?.flatMap((c: any) => c.sizes || [])
         .filter((s: any) => s.stock > 0)
-        .map((s: any) => s.sale_price ?? s.price)
-        .filter((p: any): p is number => typeof p === 'number');
+        .map((s: any) => Number(s.sale_price ?? s.price))
+        .filter((p: number) => !isNaN(p));
+
     return prices?.length ? Math.max(...prices) : null;
 }
 export const getTotalSold = (product: IProductMongoDetail): number => {

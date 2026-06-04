@@ -30,10 +30,10 @@ export const useUserAdminStore = defineStore('admin-user', () => {
         }
     }
 
-    const getTotalUserComparisonForAdminStore = async (type: string, branch_code: string) => {
+    const getTotalUserComparisonForAdminStore = async (type: string) => {
         loading.value = true;
         try {
-            const result = await getTotalUserComparisonForAdmin(type, branch_code);
+            const result = await getTotalUserComparisonForAdmin(type);
             return result.results;
         } catch (err: any) {
             console.error(err);

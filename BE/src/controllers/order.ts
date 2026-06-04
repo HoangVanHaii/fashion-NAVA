@@ -2,32 +2,32 @@ import { Response, Request, NextFunction } from "express";
 import { OderPayLoad, OrderItem } from "../interfaces/order";
 import { AppError } from "../utils/appError";
 import * as orderService from "../services/order";
-import *as voucherService from "../services/voucher";
+import * as voucherService from "../services/voucher";
 import * as productService from "../services/product";
-import *as paymentUtils from "../utils/vnpay";
-import { ConnectionPool } from "mssql";
+import * as paymentUtils from "../utils/vnpay";
 import { ProductDetailModel } from "../models/product";
-import { getBranchPool } from "../config/database";
 
-const makeOrderItem = async (orderItems: any, dbBranch: ConnectionPool, branch_id: string): Promise<any> => {
+const makeOrderItem = async (orderItems: any[]): Promise<{ orderItemsData: OrderItem[], total: number }> => {
     const orderItemsData: OrderItem[] = [];
     let total = 0;
+
     for (const item of orderItems) {
-        const productSize = await productService.getProductSizesBySizeId(item.size_id, dbBranch, branch_id);
-        
+        // Đã cập nhật productService để không cần truyền pool/branch
+        const productSize = await productService.getProductSizesBySizeId(item.size_id);
+
         if (!productSize) {
             throw new AppError(`Size with ID ${item.size_id} not found`, 404);
         }
         if (productSize.stock < item.quantity) {
-            throw new AppError(`Insufficient stock for size ${productSize.id} (available: ${productSize.stock}, requested: ${item.quantity}`, 400)
+            throw new AppError(`Insufficient stock for size ${productSize.id} (available: ${productSize.stock}, requested: ${item.quantity})`, 400);
         }
-        const productName = await productService.getProductName(productSize.product_id, dbBranch);
 
+        const productName = await productService.getProductName(productSize.product_id);
 
         const productMongo = await ProductDetailModel.findOne({
             product_id_sql: productSize.product_id.toString().toLowerCase()
         }).lean();
-        
+
         let foundSizeName = "Unknown";
         let foundColorName = "Unknown";
         let foundImage = "default.jpg";
@@ -38,13 +38,14 @@ const makeOrderItem = async (orderItems: any, dbBranch: ConnectionPool, branch_i
 
         if (matchedColor) {
             foundColorName = matchedColor.color || 'Unknown';
-            foundImage = matchedColor.image_main.toString(); 
+            foundImage = matchedColor.image_main.toString();
 
             const matchedSize = matchedColor.sizes.find((s: any) => s._id.toString() === item.size_id);
             if (matchedSize) {
                 foundSizeName = matchedSize.size;
             }
         }
+
         item.price = productSize.price;
         const orderItem: OrderItem = {
             size_id_mongo: item.size_id,
@@ -55,8 +56,8 @@ const makeOrderItem = async (orderItems: any, dbBranch: ConnectionPool, branch_i
             size: foundSizeName,
             product_id_sql: productSize.product_id,
             product_name: productName || "Unknown Product",
-            
-        }
+        };
+
         if (productSize.flash_sale_price && productSize.stock_fsi > item.quantity) {
             orderItem.price = productSize.flash_sale_price;
         } else if (productSize.flash_sale_price && productSize.stock_fsi > 0 && productSize.stock_fsi < item.quantity) {
@@ -64,61 +65,58 @@ const makeOrderItem = async (orderItems: any, dbBranch: ConnectionPool, branch_i
             const regularQuantity = item.quantity - flashSaleQuantity;
             orderItem.price = ((flashSaleQuantity * productSize.flash_sale_price) + (regularQuantity * productSize.price)) / item.quantity;
         }
+
         total += orderItem.price * orderItem.quantity;
         orderItemsData.push(orderItem);
     }
+
     return { orderItemsData, total };
-}
+};
+
 export const createOrder = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const { orderItems, voucherCode, address, methodPayment, note,checkout_source } = req.body;
+        const { orderItems, voucherCode, address, methodPayment, note, checkout_source } = req.body;
 
-        const userId = req.user?.id as string;
-        const branch_id = req.user?.branch_id as string;
-        const dbBranch = req.dbBranch;
-        const branch_code = req.user?.branch_code;
-        
-        if (!dbBranch || !dbBranch.connected) {
-            throw new AppError(`${branch_code} is not connected`, 503);
-        }
-        
-        const { orderItemsData, total } = await makeOrderItem(orderItems, dbBranch, branch_id);
+        if (!req.user) throw new AppError("Unauthorized", 401);
+        const userId = Number(req.user.id);
+
+        const { orderItemsData, total } = await makeOrderItem(orderItems);
 
         let discount_value = 0;
-        let validVoucherId = null; 
+        let validVoucherId = null;
 
         if (voucherCode) {
-            const voucherResult = await voucherService.validateVoucher(voucherCode, total, dbBranch);
-            
+            const voucherResult = await voucherService.validateVoucher(voucherCode, total);
+
             discount_value = voucherResult.discount;
-            validVoucherId = voucherResult.voucher_id; 
+            validVoucherId = voucherResult.voucher_id;
         }
 
         const orderPayload: OderPayLoad = {
             order: {
-                user_id: userId, 
-                voucher_id: validVoucherId ? validVoucherId : undefined,
+                user_id: userId,
+                voucher_id: validVoucherId ? Number(validVoucherId) : undefined,
                 total: total - discount_value,
                 discount_value: discount_value,
                 payment_method: methodPayment,
                 address: address,
                 note: note,
-                checkout_source:checkout_source
+                checkout_source: checkout_source
             },
             orderItems: orderItemsData
         };
 
-        const newOrder = await orderService.createOrder(orderPayload, dbBranch, branch_id);
+        const newOrder = await orderService.createOrder(orderPayload);
 
         if (methodPayment === 'vnpay') {
             if (total < 5000) {
-                throw new AppError("Minimum order amount for VNPAY is 5000", 400);
+                throw new AppError("Minimum order amount for VNPAY is 5000 VND", 400);
             }
 
+            // Gọi hàm tạo URL VNPAY (nhớ xóa biến branch_code ở trong utils của bạn nhé)
             const paymentUrl = await paymentUtils.buildPaymentUrl(
                 newOrder,
-                total - discount_value,
-                branch_code ? branch_code : 'DN'
+                total - discount_value
             );
             return res.status(201).json({ paymentUrl });
         }
@@ -130,41 +128,34 @@ export const createOrder = async (req: Request, res: Response, next: NextFunctio
         });
 
     } catch (err) {
-        console.log(err)
+        console.error(err);
         next(err);
     }
-}
+};
 
 export const getOrderOfMe = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const userId = req.user?.id as string;  
-        const dbBranch = req.dbBranch;
-        const branch_code = req.user?.branch_code;
-        if (!dbBranch || !dbBranch.connected) {
-            throw new AppError(`${branch_code} is not connected`, 503);
-        }
-        const orders = await orderService.getOrdersByUserId(userId, dbBranch);
+        if (!req.user) throw new AppError("Unauthorized", 401);
+        const userId = Number(req.user.id);
+
+        const orders = await orderService.getOrdersByUserId(userId);
         return res.status(200).json({
             success: true,
             data: orders
         });
     } catch (err) {
-        console.log(err)
+        console.error(err);
         next(err);
     }
 };
+
 export const getOrderDetail = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const orderId = req.params.id;
-        const pool = req.dbBranch;
-        // const o
-        // const pool = getBranchPool(branch_code);
-        const branch_code = req.user?.branch_code;
-        if (!pool || !pool.connected) {
-            throw new AppError(`${branch_code} is not connected`, 503);
-        }
-        console.log(pool);
-        const orderDetail = await orderService.getOrderById(orderId, pool); 
+        const orderId = Number(req.params.id);
+        const orderDetail = await orderService.getOrderById(orderId);
+
+        if (!orderDetail) throw new AppError("Order not found", 404);
+
         return res.status(200).json({
             success: true,
             data: orderDetail
@@ -173,16 +164,14 @@ export const getOrderDetail = async (req: Request, res: Response, next: NextFunc
         next(err);
     }
 };
+
 export const getOrderDetailforAdmin = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const orderId = req.params.id;
-        const pool = getBranchPool('CT');
-        const branch_code = req.user?.branch_code;
-        if (!pool || !pool.connected) {
-            throw new AppError(`${branch_code} is not connected`, 503);
-        }
-        console.log(pool);
-        const orderDetail = await orderService.getOrderById(orderId, pool);
+        const orderId = Number(req.params.id);
+        const orderDetail = await orderService.getOrderById(orderId);
+
+        if (!orderDetail) throw new AppError("Order not found", 404);
+
         return res.status(200).json({
             success: true,
             data: orderDetail
@@ -191,21 +180,17 @@ export const getOrderDetailforAdmin = async (req: Request, res: Response, next: 
         next(err);
     }
 };
+
 export const cancelOrder = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const orderId = req.params.id;
-        const dbBranch = req.dbBranch;
-        const branch_code = req.user?.branch_code;
-        if (!dbBranch || !dbBranch.connected) {
-            throw new AppError(`${branch_code} is not connected`, 503);
-        }
-        await orderService.cancelOrderById(orderId, dbBranch);
+        const orderId = Number(req.params.id);
+        await orderService.cancelOrderById(orderId);
+
         return res.status(200).json({
             success: true,
             message: "Order cancelled successfully"
         });
-    }
-    catch (err) {
+    } catch (err) {
         next(err);
     }
 };

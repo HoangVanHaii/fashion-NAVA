@@ -30,7 +30,7 @@ router.get(
 router.get(
     '/user/total/daily-comparison/:type',
     authMiddleware,
-    isAdmin, // Middleware check quyền Admin
+    isAdmin, 
     admincontroller.getTotalUserComparisonForAdmin
 );
 export default router;

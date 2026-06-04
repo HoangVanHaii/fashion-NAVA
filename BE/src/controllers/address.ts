@@ -5,13 +5,12 @@ import { AppError } from '../utils/appError';
 
 export const addAddress = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const branch_code = req.user!.branch_code ; 
-        const { name, phone, province, district, ward, street_address, is_default } = req.body;
-        
         if (!req.user) throw new AppError("Unauthorized", 401);
 
+        const { name, phone, province, district, ward, street_address, is_default } = req.body;
+
         const newAddress: Address_Order = {
-            user_id: req.user.id, 
+            user_id: Number(req.user.id),
             name,
             phone,
             province,
@@ -21,7 +20,8 @@ export const addAddress = async (req: Request, res: Response, next: NextFunction
             is_default
         };
 
-        await addressService.addAddress(newAddress, branch_code);
+        // Bỏ truyền branch_code
+        await addressService.addAddress(newAddress);
 
         res.status(201).json({ message: "Address added successfully" });
     } catch (error) {
@@ -31,10 +31,10 @@ export const addAddress = async (req: Request, res: Response, next: NextFunction
 
 export const getAddressesByUser = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const branch_code = req.user?.branch_code || "chinhanh1";
         if (!req.user) throw new AppError("Unauthorized", 401);
 
-        const addresses = await addressService.getAddressesByUser(req.user.id, branch_code);
+        // Bỏ truyền branch_code
+        const addresses = await addressService.getAddressesByUser(req.user.id);
 
         res.json({
             success: true,
@@ -48,13 +48,12 @@ export const getAddressesByUser = async (req: Request, res: Response, next: Next
 
 export const getAddressById = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const branch_code = req.user?.branch_code || "chinhanh1";
         if (!req.user) throw new AppError("Unauthorized", 401);
 
-        // KHÔNG dùng parseInt nữa vì là UUID
-        const addressId = req.params.id; 
-        
-        const address = await addressService.getAddressById(req.user.id, addressId, branch_code);
+        const addressId = req.params.id;
+
+        // Bỏ truyền branch_code
+        const address = await addressService.getAddressById(Number(req.user.id), Number(addressId));
 
         if (!address) {
             throw new AppError("Address not found", 404);
@@ -72,13 +71,14 @@ export const getAddressById = async (req: Request, res: Response, next: NextFunc
 
 export const updateAddress = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const branch_code = req.user?.branch_code || "chinhanh1";
-        const user_id = req.user!.id;
-        const addressId = req.params.id; 
+        if (!req.user) throw new AppError("Unauthorized", 401);
+
+        const user_id = Number(req.user.id);
+        const addressId = Number(req.params.id);
 
         const { name, phone, province, district, ward, street_address, is_default } = req.body;
 
-        const existingAddress = await addressService.getAddressById(user_id, addressId, branch_code);
+        const existingAddress = await addressService.getAddressById(user_id, addressId);
         if (!existingAddress) {
             throw new AppError("Address not found", 404);
         }
@@ -95,7 +95,7 @@ export const updateAddress = async (req: Request, res: Response, next: NextFunct
             is_default,
         };
 
-        await addressService.updateAddress(updatedAddress, branch_code);
+        await addressService.updateAddress(updatedAddress);
         res.status(200).json({ message: "Address updated successfully" });
     } catch (error) {
         next(error);
@@ -104,16 +104,17 @@ export const updateAddress = async (req: Request, res: Response, next: NextFunct
 
 export const deleteAddress = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const branch_code = req.user?.branch_code || "chinhanh1";
-        const user_id = req.user!.id;
-        const addressId = req.params.id;
+        if (!req.user) throw new AppError("Unauthorized", 401);
 
-        const existingAddress = await addressService.getAddressById(user_id, addressId, branch_code);
+        const user_id = Number(req.user.id);
+        const addressId = Number(req.params.id);
+
+        const existingAddress = await addressService.getAddressById(user_id, addressId);
         if (!existingAddress) {
             throw new AppError("Address not found", 404);
         }
 
-        await addressService.deleteAddress(user_id, addressId, existingAddress.is_default, branch_code);
+        await addressService.deleteAddress(user_id, addressId, existingAddress.is_default);
 
         res.status(200).json({ message: "Address deleted successfully" });
     } catch (error) {

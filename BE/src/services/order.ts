@@ -1,109 +1,93 @@
-import { ConnectionPool, Transaction } from "mssql";
-import { GetOrder, IKpiResponse, IOrderItem, IRevenueMonth, IRevenueYearResponse, OderPayLoad, Order, OrderItem, RevenueOrder } from "../interfaces/order";
-import { v4 as uuidv4 } from 'uuid';
-import { getProductSizesBySizeId } from "./product";
+import { GetOrder, IKpiResponse, IOrderItem, IRevenueYearResponse, OderPayLoad, Order, OrderItem, RevenueOrder } from "../interfaces/order";
 import mongoose from "mongoose";
 import { OrderDetail } from "../models/order.mongo";
 import { AppError } from "../utils/appError";
 import { Address } from "../interfaces/address";
-import CartItemMongo  from "../models/cart.mongo";
-import { getBranchPool } from "../config/database";
-const insertOrder = async (tranRequest: Transaction, orderIdSql: string, orderData: Order, mongoOrderId: mongoose.Types.ObjectId): Promise<void> => {
-    const query = `INSERT INTO orders (ID, user_id, total, discount_value, voucher_id, mongodb_id, method_order, status)
-    VALUES (@orderId, @user_id, @total, @discount_value, @voucher_id, @mongodb_id, @method_order, @status)`;
-    await tranRequest.request()
-        .input('orderId', orderIdSql)
-        .input('user_id', orderData.user_id)
-        .input('total', orderData.total)
-        .input('discount_value', orderData.discount_value)
-        .input('voucher_id', orderData.voucher_id || null)
-        .input('mongodb_id', mongoOrderId.toString())
-        .input('method_order', orderData.method_order || 'online')
-        .input('status', orderData.status || 'pending')
-        .query(query);
-}
-const insertOrderItems = async (tranRequest: Transaction, orderIdSql: string, orderItems: any[]): Promise<void> => {
-    const query = `INSERT INTO order_items (order_id, product_id, size_id_mongo, quantity, price)
-    VALUES (@order_id, @product_id, @size_id_mongo, @quantity, @price)`;
+import CartItemMongo from "../models/cart.mongo";
+import { mysqlPool } from "../config/database";
+import { PoolConnection, ResultSetHeader, RowDataPacket } from "mysql2/promise";
+
+const insertOrder = async (connection: PoolConnection, orderData: Order, mongoOrderId: mongoose.Types.ObjectId): Promise<number> => {
+    const query = `
+        INSERT INTO orders (user_id, total, discount_value, voucher_id, mongodb_id, method_order, status)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    `;
+    const [result] = await connection.query<ResultSetHeader>(query, [
+        orderData.user_id,
+        orderData.total,
+        orderData.discount_value,
+        orderData.voucher_id || null,
+        mongoOrderId.toString(),
+        orderData.method_order || 'online',
+        orderData.status || 'pending'
+    ]);
+    return result.insertId;
+};
+
+const insertOrderItems = async (connection: PoolConnection, orderIdSql: number, orderItems: any[]): Promise<void> => {
+    const query = `
+        INSERT INTO order_items (order_id, product_id, size_id_mongo, quantity, price)
+        VALUES (?, ?, ?, ?, ?)
+    `;
     for (const item of orderItems) {
-        await tranRequest.request().input('order_id', orderIdSql)
-            .input('product_id', item.product_id_sql)
-            .input('size_id_mongo', item.size_id_mongo)
-            .input('quantity', item.quantity)
-            .input('price', item.price)
-            .query(query);
-    }
-}
-export const updateStockAfterOrder = async (
-    tranRequest: Transaction,
-    orderItems: OrderItem[],
-    branch_id: string
-): Promise<void> => {
-
-    for (const item of orderItems) {
-        const combinedUpdateQuery = `
-            DECLARE 
-                @QuantityNeeded INT = @quantity,
-                @FSCurrentStock INT = 0,
-                @RegCurrentStock INT = 0,
-                @DeductFS INT = 0,
-                @DeductReg INT = 0;
-
-            -- Lấy tồn flash sale và lock hàng
-            SELECT @FSCurrentStock = stock
-            FROM flash_sale_items WITH (UPDLOCK, ROWLOCK)
-            WHERE size_id_mongo = @size_id
-            AND branch_id = @branch_id;
-             
-            -- Lấy tồn kho thường
-            SELECT @RegCurrentStock = stock
-            FROM branch_inventories WITH (UPDLOCK, ROWLOCK)
-            WHERE size_id_mongo = @size_id
-            AND branch_id = @branch_id;
-
-            -- Kiểm tra tổng tồn đủ hay không
-            IF (@FSCurrentStock + @RegCurrentStock < @QuantityNeeded)
-            BEGIN
-                THROW 50001, 'NOT_ENOUGH_STOCK', 1;
-            END;
-
-            -- Tính số lượng trừ Flash sale
-            SET @DeductFS = CASE
-                WHEN @FSCurrentStock >= @QuantityNeeded THEN @QuantityNeeded
-                ELSE @FSCurrentStock
-            END;
-
-            SET @DeductReg = @QuantityNeeded - @DeductFS;
-
-            -- Trừ flash sale
-            IF @DeductFS > 0
-            BEGIN
-                UPDATE flash_sale_items
-                SET stock = stock - @DeductFS,
-                sold = sold + ${item.quantity} 
-                WHERE size_id_mongo = @size_id
-                AND branch_id = @branch_id;
-            END;
-
-            -- Trừ kho thường
-            IF @DeductReg > 0
-            BEGIN
-                UPDATE branch_inventories
-                SET stock = stock - @DeductReg
-                WHERE size_id_mongo = @size_id
-                AND branch_id = @branch_id;
-            END;
-        `;
-
-        await tranRequest.request()
-            .input("quantity", item.quantity)
-            .input("size_id", item.size_id_mongo)
-            .input("branch_id", branch_id)
-            .query(combinedUpdateQuery);
+        await connection.query(query, [
+            orderIdSql,
+            item.product_id_sql,
+            item.size_id_mongo,
+            item.quantity,
+            item.price
+        ]);
     }
 };
 
-const insertOrderDetailMongoDB = async (mongoOrderId: mongoose.Types.ObjectId, orderIdSql: string, orderItems: OrderItem[], address: Address, note: any): Promise<void> => {
+export const updateStockAfterOrder = async (connection: PoolConnection, orderItems: OrderItem[]): Promise<void> => {
+    for (const item of orderItems) {
+        // 1. Lấy tồn kho Flash Sale và khóa dòng (Row lock)
+        const [fsRows] = await connection.query<RowDataPacket[]>(
+            `SELECT stock FROM flash_sale_items WHERE size_id_mongo = ? FOR UPDATE`,
+            [item.size_id_mongo]
+        );
+        const fsCurrentStock = fsRows.length > 0 ? fsRows[0].stock : 0;
+
+        // 2. Lấy tồn kho thường và khóa dòng
+        const [regRows] = await connection.query<RowDataPacket[]>(
+            `SELECT stock FROM product_inventories WHERE size_id_mongo = ? FOR UPDATE`,
+            [item.size_id_mongo]
+        );
+        const regCurrentStock = regRows.length > 0 ? regRows[0].stock : 0;
+
+        // 3. Kiểm tra tổng tồn
+        if (fsCurrentStock + regCurrentStock < item.quantity) {
+            throw new AppError('NOT_ENOUGH_STOCK', 400);
+        }
+
+        // 4. Tính toán trừ kho
+        const deductFS = Math.min(fsCurrentStock, item.quantity);
+        const deductReg = item.quantity - deductFS;
+
+        // 5. Cập nhật tồn kho Flash Sale
+        if (deductFS > 0) {
+            await connection.query(
+                `UPDATE flash_sale_items 
+                 SET stock = stock - ?, sold = sold + ? 
+                 WHERE size_id_mongo = ?`,
+                [deductFS, item.quantity, item.size_id_mongo]
+            );
+        }
+
+        // 6. Cập nhật tồn kho thường
+        if (deductReg > 0) {
+            await connection.query(
+                `UPDATE product_inventories 
+                 SET stock = stock - ? 
+                 WHERE size_id_mongo = ?`,
+                [deductReg, item.size_id_mongo]
+            );
+        }
+    }
+};
+
+const insertOrderDetailMongoDB = async (mongoOrderId: mongoose.Types.ObjectId, orderIdSql: number, orderItems: OrderItem[], address: Address, note: any): Promise<void> => {
     await OrderDetail.create({
         _id: mongoOrderId,
         order_id_sql: orderIdSql,
@@ -111,19 +95,23 @@ const insertOrderDetailMongoDB = async (mongoOrderId: mongoose.Types.ObjectId, o
         shipping_address: address,
         note: note
     });
-}
-const insertPayment = async (tranRequest: Transaction, orderIdSql: string, orderData: Order): Promise<void> => {
-    const query = `INSERT INTO payments (order_id, amount, method, status)
-    VALUES (@order_id, @amount, @payment_method, @status)`;
-    await tranRequest.request().input('order_id', orderIdSql)
-        .input('amount', orderData.total)
-        .input('payment_method', orderData.payment_method)
-        .input('status', 'pending')
-        .query(query);
-}
+};
 
-const removeItemsFromCart = async (userIdSql: string, orderItems: OrderItem[],checkout_source?:string): Promise<void> => {
-    if(checkout_source==="cart"){
+const insertPayment = async (connection: PoolConnection, orderIdSql: number, orderData: Order): Promise<void> => {
+    const query = `
+        INSERT INTO payments (order_id, amount, method, status)
+        VALUES (?, ?, ?, ?)
+    `;
+    await connection.query(query, [
+        orderIdSql,
+        orderData.total,
+        orderData.payment_method,
+        'pending'
+    ]);
+};
+
+const removeItemsFromCart = async (userIdSql: number, orderItems: OrderItem[], checkout_source?: string): Promise<void> => {
+    if (checkout_source === "cart") {
         const sizeIdsToRemove = orderItems.map(item => item.size_id_mongo);
         await CartItemMongo.updateOne(
             { user_id_sql: userIdSql },
@@ -138,51 +126,48 @@ const removeItemsFromCart = async (userIdSql: string, orderItems: OrderItem[],ch
     }
 };
 
-export const createOrder = async (orderPayload: OderPayLoad, dbBranch: ConnectionPool, branch_id: string): Promise<string> => {
-    const tranRequest: Transaction = dbBranch.transaction();
-    const orderIdSql = uuidv4();
+export const createOrder = async (orderPayload: OderPayLoad): Promise<string> => {
+    const connection = await mysqlPool.getConnection();
     const mongoOrderId = new mongoose.Types.ObjectId();
     try {
-        await tranRequest.begin();
-        await insertOrder(tranRequest, orderIdSql, orderPayload.order, mongoOrderId);
-        await insertOrderItems(tranRequest, orderIdSql, orderPayload.orderItems);
-        await updateStockAfterOrder(tranRequest, orderPayload.orderItems, branch_id);
-        await insertOrderDetailMongoDB(mongoOrderId, orderIdSql ,orderPayload.orderItems, orderPayload.order.address!, orderPayload.order.note);
-        await insertPayment(tranRequest, orderIdSql, orderPayload.order);
-        await tranRequest.commit();
+        await connection.beginTransaction();
+
+        const orderIdSql = await insertOrder(connection, orderPayload.order, mongoOrderId);
+        await insertOrderItems(connection, orderIdSql, orderPayload.orderItems);
+        await updateStockAfterOrder(connection, orderPayload.orderItems);
+        await insertOrderDetailMongoDB(mongoOrderId, orderIdSql, orderPayload.orderItems, orderPayload.order.address!, orderPayload.order.note);
+        await insertPayment(connection, orderIdSql, orderPayload.order);
+        
+        await connection.commit();
 
         try {
-            await removeItemsFromCart(orderPayload.order.user_id, orderPayload.orderItems,orderPayload.order.checkout_source);
+            await removeItemsFromCart(orderPayload.order.user_id, orderPayload.orderItems, orderPayload.order.checkout_source);
         } catch (error) {
-            console.error(error);
+            console.error("Remove from cart failed:", error);
         }
 
-        return orderIdSql as string;
+        return orderIdSql.toString();
     } catch (err) {
-        console.error(" LỖI SQL GỐC (NGUYÊN NHÂN 500):", err);
-        await tranRequest.rollback();
+        await connection.rollback();
         await OrderDetail.findByIdAndDelete(mongoOrderId);
-
-        console.error(err);
+        console.error("Order Transaction Failed:", err);
         if (err instanceof AppError) throw err;
-
         throw new AppError("Failed to Order", 500, false);
+    } finally {
+        connection.release();
     }
-}
+};
 
-export const getOrdersByUserId = async (userId: string, dbBranch: ConnectionPool): Promise<GetOrder[]> => {
+export const getOrdersByUserId = async (userId: number): Promise<GetOrder[]> => {
     const query = `
         SELECT o.*, p.method as payment_method 
         FROM orders o
         LEFT JOIN payments p ON o.ID = p.order_id
-        WHERE o.user_id = @user_id 
+        WHERE o.user_id = ? 
         ORDER BY o.created_at DESC
     `;
-    const result = await dbBranch.request()
-        .input('user_id', userId)
-        .query(query);
+    const [ordersRecordset] = await mysqlPool.query<RowDataPacket[]>(query, [userId]);
     
-    const ordersRecordset = result.recordset;
     if (ordersRecordset.length === 0) return []; 
 
     const orderSqlIds = ordersRecordset.map(order => order.ID);
@@ -190,14 +175,15 @@ export const getOrdersByUserId = async (userId: string, dbBranch: ConnectionPool
     const sqlItemsQuery = `
         SELECT ID, order_id, product_id, size_id_mongo 
         FROM order_items 
-        WHERE order_id IN (${orderSqlIds.map(id => `'${id}'`).join(',')})
+        WHERE order_id IN (?)
     `;
-    const sqlItemsResult = await dbBranch.request().query(sqlItemsQuery);
-    const sqlItems = sqlItemsResult.recordset; 
-    const lowerCaseOrderSqlIds = orderSqlIds.map((id: string) => id.toString().toLowerCase());
-    const mongoOrders = await OrderDetail.find({ order_id_sql: { $in: lowerCaseOrderSqlIds } }).lean();
-    const orderResuts: GetOrder[] = ordersRecordset.map(order => {
-        const mongoOrder = mongoOrders.find(m => m.order_id_sql === order.ID.toString().toLowerCase());
+    const [sqlItems] = await mysqlPool.query<RowDataPacket[]>(sqlItemsQuery, [orderSqlIds]);
+    
+    const stringOrderSqlIds = orderSqlIds.map((id: number) => id.toString());
+    const mongoOrders = await OrderDetail.find({ order_id_sql: { $in: stringOrderSqlIds } }).lean();
+
+    const orderResults: GetOrder[] = ordersRecordset.map(order => {
+        const mongoOrder = mongoOrders.find(m => m.order_id_sql === order.ID.toString());
         let mergedItems: IOrderItem[] = [];
         
         if (mongoOrder && mongoOrder.items) {
@@ -230,37 +216,40 @@ export const getOrdersByUserId = async (userId: string, dbBranch: ConnectionPool
                 province: order.shipping_province,
                 district: order.shipping_district,
                 ward: order.shipping_ward,
-                street_address: order.shipping_street,
+                street_address: order.shipping_address,
                 full_address_mongo: mongoOrder?.shipping_address 
             },
-            
             status: order.status,
             created_at: order.created_at,
             items: mergedItems,
             note: mongoOrder?.note
-        };
+        } as GetOrder;
     });
 
-    return orderResuts;
-}
-export const getOrderById = async (orderId: string, dbBranch: ConnectionPool): Promise<GetOrder | null> => {
-    const query = `SELECT o.*, p.status as payment_status, p.method as payment_method
-             FROM orders o INNER JOIN payments p ON o.id = p.order_id
-            WHERE o.ID = @order_id`;
-    const result = await dbBranch.request()
-        .input('order_id', orderId)
-        .query(query);
-    if (result.recordset.length === 0) {
+    return orderResults;
+};
+
+export const getOrderById = async (orderId: number): Promise<GetOrder | null> => {
+    const query = `
+        SELECT o.*, p.status as payment_status, p.method as payment_method
+        FROM orders o 
+        INNER JOIN payments p ON o.id = p.order_id
+        WHERE o.ID = ?
+    `;
+    const [rows] = await mysqlPool.query<RowDataPacket[]>(query, [orderId]);
+    
+    if (rows.length === 0) {
         return null;
     }
-    const order = result.recordset[0];
-    const mongoOrder = await OrderDetail.findOne({ order_id_sql: order.ID.toString().toLowerCase() }).lean();
-    const orderDetail: GetOrder = {
+    const order = rows[0];
+    const mongoOrder = await OrderDetail.findOne({ order_id_sql: order.ID.toString() }).lean();
+    
+    return {
         id: order.ID,
         user_id: order.user_id,
         voucher_id: order.voucher_id,
         total: order.total,
-        discount_value: order.discount_Value || 0,
+        discount_value: order.discount_value || 0,
         mongo_id: order.mongodb_id,
         payment_method: order.payment_method,
         payment_status: order.payment_status,
@@ -270,338 +259,179 @@ export const getOrderById = async (orderId: string, dbBranch: ConnectionPool): P
         created_at: order.created_at,
         items: mongoOrder ? mongoOrder.items : [],
         note: mongoOrder ? mongoOrder.note : "Không có ghi chú"
-    };
-    return orderDetail;
-}
-export const cancelOrderById = async (orderId: string, dbBranch: ConnectionPool): Promise<void> => {
+    } as GetOrder;
+};
+
+export const cancelOrderById = async (orderId: number): Promise<void> => {
     try {
-        const queryCheck = `SELECT status FROM orders WHERE id = @order_id`;
-        const resultCheck = await dbBranch.request()
-            .input('order_id', orderId)
-            .query(queryCheck);
-        if (resultCheck.recordset.length === 0) {
+        const [checkRows] = await mysqlPool.query<RowDataPacket[]>(`SELECT status FROM orders WHERE id = ?`, [orderId]);
+        
+        if (checkRows.length === 0) {
             throw new AppError("Order not found", 404);
         }
-        const orderStatus = resultCheck.recordset[0].status;
+        
+        const orderStatus = checkRows[0].status;
         if (orderStatus !== 'pending') {
             throw new AppError("Only orders with pending payment can be cancelled", 400);
         }
-        // console.log(queryCheck);
-        const query = `UPDATE orders SET status = 'cancelled' WHERE id = @order_id`;
-        await dbBranch.request()
-            .input('order_id', orderId)
-            .query(query);
-
-    } catch (error) {
-        if (error instanceof AppError) {
-            throw error;
-        }   
-        console.error(error);
-        throw new AppError("Failed to cancel order", 500);
-    }
-   
-}
-export const changeStatusOrder = async (dbBranch: ConnectionPool, order_id: string, status: string) => {
-    try {
-        const queryCheck = `SELECT status FROM orders WHERE id = @order_id`;
-        const resultCheck = await dbBranch.request()
-            .input('order_id', order_id)
-            .query(queryCheck);
-        if (resultCheck.recordset.length === 0) {
-            throw new AppError("Order not found", 404);
-        }
-        const orderStatus = resultCheck.recordset[0].status;
-        // console.log(queryCheck);
-        const query = `UPDATE orders SET status = @status WHERE id = @order_id`;
-        await dbBranch.request()
-            .input('status', status)
-            .input('order_id', order_id)
-            .query(query);
-
-    } catch (error) {
-        if (error instanceof AppError) {
-            throw error;
-        }
-        console.error(error);
-        throw new AppError("Failed to cancel order", 500);
-    }
-
-}
-export const getOrderOfBranch = async (dbBranch: ConnectionPool, method_order: string) : Promise<GetOrder[]> => {
-    try {
-        const query = `SELECT 
-                o.*, 
-                u.name AS user_name_buyer
-            FROM orders o
-            INNER JOIN users u ON o.user_id = u.ID
-            WHERE o.method_order = @method_order
-        `;
-        const result = await dbBranch.request().input('method_order', method_order).query(query);
-        const orderSqlIds = result.recordset.map(order => order.ID);
-        const lowerCaseOrderSqlIds = orderSqlIds.map((id: string) => id.toString().toLowerCase());
-        const mongoOrders = await OrderDetail.find({ order_id_sql: { $in: lowerCaseOrderSqlIds } }).lean();
-        // console.log("aa", mongoOrders)
-        const orders = result.recordset.map(order => {
-            const mongoOrder = mongoOrders.find(mongoOrder => mongoOrder.order_id_sql === order.ID.toString().toLowerCase());
-            return {
-                ...order,
-                items: mongoOrder ? mongoOrder.items : [],
-                shipping_address: mongoOrder ? mongoOrder.shipping_address : {},
-                note: mongoOrder ? mongoOrder.note : "Không có ghi chú"
-            };
-        });
-        // console.log("1", orders)
-        const orderResuts: GetOrder[] = orders.map(order => ({
-            id: order.ID,
-            user_id: order.user_id,
-            voucher_id: order.voucher_id,
-            total: order.total,
-            discount_value: order.discount_value,
-            mongo_id: order.mongodb_id,
-            payment_method: order.payment_method,
-            user_name_buyer: order.user_name_buyer,
-            address: order.shipping_address,
-            status: order.status,
-            created_at: order.created_at,
-            items: order.items,
-            note: order.note
-        }));
-        return orderResuts;
-
-    } catch (error) {
-        if (error instanceof AppError) {
-            throw error;
-        }
-        console.error(error);
-        throw new AppError("Failed to get order of branch", 500);
-    }
-}
-
-const fetchOrdersFromPool = async (pool: ConnectionPool, method_order: string): Promise<GetOrder[]> => {
-    if (!pool || !pool.connected) {
-        console.warn("Pool is not connected or not found");
-        return [];
-    }
-
-    // Query SQL Server
-    const query = `
-        SELECT 
-            o.*, 
-            u.name AS user_name_buyer
-        FROM orders o
-        INNER JOIN users u ON o.user_id = u.ID
-        WHERE o.method_order = @method_order
-    `;
-
-    const result = await pool.request().input('method_order', method_order).query(query);
-
-    if (result.recordset.length === 0) return [];
-
-    // Chuẩn bị ID để query Mongo
-    const orderSqlIds = result.recordset.map(order => order.ID);
-    const lowerCaseOrderSqlIds = orderSqlIds.map((id: any) => id.toString().toLowerCase());
-
-    // Query MongoDB (OrderDetail)
-    const mongoOrders = await OrderDetail.find({ order_id_sql: { $in: lowerCaseOrderSqlIds } }).lean();
-
-    // Merge Data
-    const orders = result.recordset.map(order => {
-        const mongoOrder = mongoOrders.find(mo => mo.order_id_sql === order.ID.toString().toLowerCase());
-        return {
-            id: order.ID,
-            user_id: order.user_id,
-            voucher_id: order.voucher_id,
-            total: order.total,
-            discount_value: order.discount_value,
-            mongo_id: order.mongodb_id,
-            payment_method: order.payment_method,
-            user_name_buyer: order.user_name_buyer,
-            // Data từ Mongo
-            address: mongoOrder ? mongoOrder.shipping_address : {},
-            status: order.status,
-            created_at: order.created_at,
-            items: mongoOrder ? mongoOrder.items : [],
-            note: mongoOrder ? mongoOrder.note : "Không có ghi chú"
-        };
-    });
-
-    return orders;
-};
-
-// 2. Main Service Function: Xử lý logic Branch Code (CT vs Single Branch)
-export const getOrderOfTypeBranchService = async (branch_code: string, method_order: string): Promise<GetOrder[]> => {
-    try {
-        // CASE 1: Toàn hệ thống (CT) -> Merge data
-        if (branch_code === 'CT') {
-            const branches = ['HN', 'DN', 'HCM'];
-
-            // Chạy song song 3 request
-            const promises = branches.map(async (code) => {
-                const pool = getBranchPool(code); // hoặc getDbPool(code) tùy tên hàm bạn import
-
-                // 1. Kiểm tra kết nối
-                if (!pool || !pool.connected) {
-                    console.warn(`[WARNING] Branch ${code} is disconnected or pool not found. Skipping...`);
-                    // Trả về mảng rỗng để không ảnh hưởng chi nhánh khác
-                    return [];
-                }
-
-                // 2. Thử lấy dữ liệu, nếu query lỗi cũng catch lại để không sập app
-                try {
-                    return await fetchOrdersFromPool(pool, method_order);
-                } catch (err) {
-                    console.error(`[ERROR] Failed to fetch data from branch ${code}:`, err);
-                    return []; // Trả về mảng rỗng nếu query lỗi
-                }
-            });
-
-            const results = await Promise.all(promises);
-
-            // results lúc này là mảng 2 chiều: [[...ordersHN], [], [...ordersHCM]]
-            // Dùng flat() sẽ tự động loại bỏ các mảng rỗng và gộp thành 1 mảng duy nhất
-            const allOrders = results.flat().sort((a, b) => {
-                const timeA = new Date(a.created_at ?? 0).getTime();
-                const timeB = new Date(b.created_at ?? 0).getTime();
-                return timeB - timeA; // Mới nhất lên đầu
-            });
-
-            return allOrders;
-        }
-
-        // CASE 2: Chi nhánh lẻ (HN, DN, HCM)
-        else {
-            const pool = getBranchPool(branch_code);
-
-            // Nếu chọn cụ thể 1 chi nhánh mà nó mất kết nối thì PHẢI báo lỗi cho người dùng biết
-            if (!pool || !pool.connected) {
-                return [];
-            }
-
-            const orders = await fetchOrdersFromPool(pool, method_order);
-            return orders.sort((a, b) => new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime());
-        }
+        
+        await mysqlPool.query(`UPDATE orders SET status = 'cancelled' WHERE id = ?`, [orderId]);
 
     } catch (error) {
         if (error instanceof AppError) throw error;
-        console.error("getOrderOfTypeBranchService Error:", error);
-        throw new AppError("Failed to get order of type branch", 500);
+        console.error(error);
+        throw new AppError("Failed to cancel order", 500);
     }
 };
-export const statisticalOrder = async (dbBranch: ConnectionPool): Promise<any[]> => {
+
+export const changeStatusOrder = async (order_id: number, status: string): Promise<void> => {
     try {
-        const query = `SELECT status FROM orders`;
-        const result = await dbBranch.request().query(query);
+        const [checkRows] = await mysqlPool.query<RowDataPacket[]>(`SELECT status FROM orders WHERE id = ?`, [order_id]);
         
-        return result.recordset;
-    } catch (err) {
-        if (err instanceof AppError) {
-            throw err;
+        if (checkRows.length === 0) {
+            throw new AppError("Order not found", 404);
         }
+        
+        await mysqlPool.query(`UPDATE orders SET status = ? WHERE id = ?`, [status, order_id]);
+    } catch (error) {
+        if (error instanceof AppError) throw error;
+        console.error(error);
+        throw new AppError("Failed to update status order", 500);
+    }
+};
+
+export const getOrderOfSystem = async (method_order: string) : Promise<GetOrder[]> => {
+    try {
+        const query = `
+            SELECT o.*, u.name AS user_name_buyer
+            FROM orders o
+            INNER JOIN users u ON o.user_id = u.ID
+            WHERE o.method_order = ?
+            ORDER BY o.created_at DESC
+        `;
+        const [ordersRecordset] = await mysqlPool.query<RowDataPacket[]>(query, [method_order]);
+        
+        if (ordersRecordset.length === 0) return [];
+        
+        const orderSqlIds = ordersRecordset.map(order => order.ID);
+        const stringOrderSqlIds = orderSqlIds.map((id: number) => id.toString());
+        const mongoOrders = await OrderDetail.find({ order_id_sql: { $in: stringOrderSqlIds } }).lean();
+
+        const orderResults: GetOrder[] = ordersRecordset.map(order => {
+            const mongoOrder = mongoOrders.find(m => m.order_id_sql === order.ID.toString());
+            return {
+                id: order.ID,
+                user_id: order.user_id,
+                voucher_id: order.voucher_id,
+                total: order.total,
+                discount_value: order.discount_value,
+                mongo_id: order.mongodb_id,
+                payment_method: order.payment_method,
+                user_name_buyer: order.user_name_buyer,
+                address: order.shipping_address,
+                status: order.status,
+                created_at: order.created_at,
+                items: mongoOrder ? mongoOrder.items : [],
+                note: mongoOrder ? mongoOrder.note : "Không có ghi chú"
+            } as GetOrder;
+        });
+        
+        return orderResults;
+
+    } catch (error) {
+        if (error instanceof AppError) throw error;
+        console.error(error);
+        throw new AppError("Failed to get order of system", 500);
+    }
+};
+
+export const statisticalOrder = async (): Promise<any[]> => {
+    try {
+        const [rows] = await mysqlPool.query<RowDataPacket[]>(`SELECT status FROM orders`);
+        return rows;
+    } catch (err) {
+        if (err instanceof AppError) throw err;
         console.log(err);
         throw new AppError('Failed to get statistical order', 500);
     }
-}
+};
 
-export const getRevenueOfBranch = async (dbBranch: ConnectionPool): Promise<number> => {
-    try {
-        const query = `SELECT Sum(total) as total_aoumt FROM orders WHERE status = 'completed' `;
-        const result = await dbBranch.request().query(query);
-
-        return result.recordset[0].total_aoumt || 0;
-    } catch (err) {
-        if (err instanceof AppError) {
-            throw err;
-        }
-        console.log(err);
-        throw new AppError('Failed to get order by status', 500);
-    }
-}
-
-export const getDateRange = (type: string): { currentStart: string, currentEnd: string, previousStart: string, previousEnd: string } => {
-    const today = 'CAST(GETDATE() AS DATE)';
+export const getDateRange = (type: string): {
+    currentStart: string;
+    currentEnd: string;
+    previousStart: string;
+    previousEnd: string;
+} => {
     let currentStart = '';
     let previousStart = '';
-    const currentEnd = 'GETDATE()';
+    let currentEnd = 'NOW()';
+    let previousEnd = '';
 
     switch (type.toLowerCase()) {
         case 'hôm nay':
-            currentStart = today; // 00:00:00 hôm nay
-            previousStart = `DATEADD(DAY, -1, ${today})`; // 00:00:00 hôm qua
-            return { currentStart, currentEnd, previousStart, previousEnd: today };
+            currentStart = 'CURDATE()';
+            previousStart = 'DATE_SUB(CURDATE(), INTERVAL 1 DAY)';
+            previousEnd = 'CURDATE()';
+            break;
         case 'tuần này':
-            return {
-                currentStart: `DATEADD(DAY, -((DATEPART(WEEKDAY, GETDATE()) + @@DATEFIRST - 2) % 7), CAST(GETDATE() AS DATE))`,
-                currentEnd: `GETDATE()`,
-                previousStart: `DATEADD(WEEK, -1, DATEADD(DAY, -((DATEPART(WEEKDAY, GETDATE()) + @@DATEFIRST - 2) % 7), CAST(GETDATE() AS DATE)))`,
-                previousEnd: `DATEADD(DAY, -((DATEPART(WEEKDAY, GETDATE()) + @@DATEFIRST - 2) % 7), CAST(GETDATE() AS DATE))`
-            };
-              
-            
+            currentStart = 'DATE(DATE_SUB(NOW(), INTERVAL WEEKDAY(NOW()) DAY))';
+            previousStart = 'DATE_SUB(DATE(DATE_SUB(NOW(), INTERVAL WEEKDAY(NOW()) DAY)), INTERVAL 1 WEEK)';
+            previousEnd = 'DATE(DATE_SUB(NOW(), INTERVAL WEEKDAY(NOW()) DAY))';
+            break;
         case 'tháng này':
-            currentStart = `DATEADD(mm, DATEDIFF(mm, 0, GETDATE()), 0)`;
-            previousStart = `DATEADD(mm, DATEDIFF(mm, 0, GETDATE()) - 1, 0)`;
-            return { currentStart, currentEnd, previousStart, previousEnd: currentStart };
+            currentStart = "DATE_FORMAT(NOW() ,'%Y-%m-01')";
+            previousStart = "DATE_SUB(DATE_FORMAT(NOW() ,'%Y-%m-01'), INTERVAL 1 MONTH)";
+            previousEnd = "DATE_FORMAT(NOW() ,'%Y-%m-01')";
+            break;
         case 'năm nay':
-            return {
-                currentStart: `DATEFROMPARTS(YEAR(GETDATE()), 1, 1)`,
-                currentEnd: `GETDATE()`,
-                previousStart: `DATEFROMPARTS(YEAR(GETDATE()) - 1, 1, 1)`,
-                previousEnd: `DATEFROMPARTS(YEAR(GETDATE()), 1, 1)`
-            };
-              
-              
+            currentStart = "DATE_FORMAT(NOW() ,'%Y-01-01')";
+            previousStart = "DATE_SUB(DATE_FORMAT(NOW() ,'%Y-01-01'), INTERVAL 1 YEAR)";
+            previousEnd = "DATE_FORMAT(NOW() ,'%Y-01-01')";
+            break;
         case 'từ trước tới nay':
-            // Không có khoảng thời gian so sánh, chỉ lấy tổng
-            currentStart = `'1900-01-01'`;
-            previousStart = `'1900-01-01'`; // Giả lập để không lỗi cú pháp
-            return { currentStart, currentEnd, previousStart, previousEnd: currentStart };
-
+            currentStart = "'1900-01-01'";
+            previousStart = "'1900-01-01'";
+            previousEnd = "'1900-01-01'";
+            break;
         default:
-            // Mặc định về hôm nay nếu type không hợp lệ
             return getDateRange('hôm nay');
     }
-}
+    return { currentStart, currentEnd, previousStart, previousEnd };
+};
 
-
-export const getRevenueOrderComparison = async (dbBranch: ConnectionPool, type: string): Promise<RevenueOrder> => {
+export const getRevenueOrderComparisonService = async (type: string): Promise<RevenueOrder> => {
     const { currentStart, currentEnd, previousStart, previousEnd } = getDateRange(type); 
-
     const isAllTime = type.toLowerCase() === 'từ trước tới nay';
 
     try {
-        // --- 1. TRUY VẤN DỮ LIỆU HIỆN TẠI (CURRENT) ---
-        // Lấy Tổng doanh thu, Đơn Online, Đơn Offline trong khoảng thời gian hiện tại
         const currentQuery = `
             SELECT 
-                SUM(CASE WHEN status != 'cancelled' THEN total ELSE 0 END) AS revenue,
-                COUNT(CASE WHEN status != 'cancelled' AND method_order = 'online' THEN 1 ELSE NULL END) AS total_order_online,
-                COUNT(CASE WHEN status != 'cancelled' AND method_order = 'offline' THEN 1 ELSE NULL END) AS total_order_offline,
-                COUNT(ID) AS total_orders -- Tổng số đơn hiện tại
-            FROM orders
-            WHERE created_at >= ${currentStart} AND created_at < ${currentEnd};
+                IFNULL(SUM(CASE WHEN o.status != 'cancelled' THEN o.total ELSE 0 END), 0) AS revenue,
+                COUNT(CASE WHEN o.status != 'cancelled' AND p.method = 'online' THEN 1 ELSE NULL END) AS total_order_online,
+                COUNT(CASE WHEN o.status != 'cancelled' AND p.method = 'offline' THEN 1 ELSE NULL END) AS total_order_offline,
+                COUNT(o.ID) AS total_orders
+            FROM orders o
+            JOIN payments p ON o.ID = p.order_id
+            WHERE o.created_at >= ${currentStart} AND o.created_at < ${currentEnd}
         `;
 
-        const currentResult = await dbBranch.request().query(currentQuery);
-        const currentData = currentResult.recordset[0];
+        const [currentResult] = await mysqlPool.query<RowDataPacket[]>(currentQuery);
+        const currentData = currentResult[0];
 
-        // --- 2. TRUY VẤN DỮ LIỆU SO SÁNH (PREVIOUS) ---
         let previousTotalOrders = 0;
         let percentageChange = 0;
 
         if (!isAllTime) {
-            // Lấy Tổng số đơn trong khoảng thời gian so sánh
             const previousQuery = `
-                SELECT 
-                    COUNT(ID) AS previous_total_orders
+                SELECT COUNT(ID) AS previous_total_orders
                 FROM orders
                 WHERE status != 'cancelled'
-                  AND created_at >= ${previousStart} AND created_at < ${previousEnd};
+                  AND created_at >= ${previousStart} AND created_at < ${previousEnd}
             `;
-
-            const previousResult = await dbBranch.request().query(previousQuery);
-            previousTotalOrders = previousResult.recordset[0].previous_total_orders as number;
-            // phần trăm
-            const currentTotalOrders = currentData.total_orders as number;
+            const [previousResult] = await mysqlPool.query<RowDataPacket[]>(previousQuery);
+            previousTotalOrders = Number(previousResult[0].previous_total_orders) || 0;
+            
+            const currentTotalOrders = Number(currentData.total_orders) || 0;
 
             if (previousTotalOrders === 0) {
                 percentageChange = currentTotalOrders > 0 ? 100 : 0;
@@ -610,130 +440,91 @@ export const getRevenueOrderComparison = async (dbBranch: ConnectionPool, type: 
             }
         }
 
-        const revenueOrder: RevenueOrder = {
-            revenue: currentData.revenue ? parseFloat(currentData.revenue.toFixed(2)) : 0,
-            total_order_online: currentData.total_order_online as number,
-            total_order_offline: currentData.total_order_offline as number,
+        return {
+            revenue: parseFloat(Number(currentData.revenue).toFixed(2)),
+            total_order_online: Number(currentData.total_order_online),
+            total_order_offline: Number(currentData.total_order_offline),
             percentageChange: parseFloat(percentageChange.toFixed(2))
         };
 
-        return revenueOrder;
-
     } catch (error) {
-        if (error instanceof AppError) {
-            console.error("Error in getRevenueOrderComparison:", error);
-            throw error;
-        }
+        console.error("Error in getRevenueOrderComparison:", error);
         throw new AppError("Failed to get revenue and order comparison data", 500);
     }
 };
 
-const getRevenueOrderComparisonFromPool = async (dbBranch: ConnectionPool, type: string): Promise<IKpiResponse> => {
+export const getTotalOrderComparisonService = async (type: string): Promise<IKpiResponse> => {
     const { currentStart, currentEnd, previousStart, previousEnd } = getDateRange(type);
     const isAllTime = type.toLowerCase() === 'từ trước tới nay';
 
-    // 1. DOANH THU HIỆN TẠI
-    const currentQuery = `
-        SELECT ISNULL(SUM(total), 0) AS total_revenue
-        FROM orders
-        WHERE status != 'cancelled'
-          AND created_at >= ${currentStart} AND created_at < ${currentEnd};
-    `;
-    const currentResult = await dbBranch.request().query(currentQuery);
-    const currentRevenue = currentResult.recordset[0]?.total_revenue || 0;
-
-    // 2. DOANH THU KỲ TRƯỚC
-    let previousRevenue = 0;
-    if (!isAllTime) {
-        const previousQuery = `
-            SELECT ISNULL(SUM(total), 0) AS previous_total_revenue
-            FROM orders
-            WHERE status != 'cancelled'
-              AND created_at >= ${previousStart} AND created_at < ${previousEnd};
-        `;
-        const previousResult = await dbBranch.request().query(previousQuery);
-        previousRevenue = previousResult.recordset[0]?.previous_total_revenue || 0;
-    }
-
-    return { total: currentRevenue, previousTotal: previousRevenue };
-};
-
-const getTotalOrderComparisonFromPool = async (dbBranch: ConnectionPool, type: string): Promise<IKpiResponse> => {
-    const { currentStart, currentEnd, previousStart, previousEnd } = getDateRange(type);
-    const isAllTime = type.toLowerCase() === 'từ trước tới nay';
-
-    // 1. DỮ LIỆU HIỆN TẠI
     const currentQuery = `
         SELECT COUNT(ID) AS total_orders
         FROM orders
         WHERE status != 'cancelled'
-          AND created_at >= ${currentStart} AND created_at < ${currentEnd};
+          AND created_at >= ${currentStart} AND created_at < ${currentEnd}
     `;
-    const currentResult = await dbBranch.request().query(currentQuery);
-    const currentTotalOrders = currentResult.recordset[0]?.total_orders || 0;
+    const [currentResult] = await mysqlPool.query<RowDataPacket[]>(currentQuery);
+    const currentTotalOrders = currentResult[0]?.total_orders || 0;
 
-    // 2. DỮ LIỆU SO SÁNH
     let previousTotalOrders = 0;
     if (!isAllTime) {
         const previousQuery = `
             SELECT COUNT(ID) AS previous_total_orders
             FROM orders
             WHERE status != 'cancelled'
-              AND created_at >= ${previousStart} AND created_at < ${previousEnd};
+              AND created_at >= ${previousStart} AND created_at < ${previousEnd}
         `;
-        const previousResult = await dbBranch.request().query(previousQuery);
-        previousTotalOrders = previousResult.recordset[0]?.previous_total_orders || 0;
+        const [previousResult] = await mysqlPool.query<RowDataPacket[]>(previousQuery);
+        previousTotalOrders = previousResult[0]?.previous_total_orders || 0;
     }
     return { total: currentTotalOrders, previousTotal: previousTotalOrders };
 };
 
-const getTotalOrderCancelledFromPool = async (dbBranch: ConnectionPool, type: string): Promise<IKpiResponse> => {
+export const getTotalOrderCancelledService = async (type: string): Promise<IKpiResponse> => {
     const { currentStart, currentEnd, previousStart, previousEnd } = getDateRange(type);
     const isAllTime = type.toLowerCase() === 'từ trước tới nay';
 
-    // 1. DỮ LIỆU HIỆN TẠI
     const currentQuery = `
         SELECT COUNT(ID) AS total_orders
         FROM orders
         WHERE status = 'cancelled'
-          AND created_at >= ${currentStart} AND created_at < ${currentEnd};
+          AND created_at >= ${currentStart} AND created_at < ${currentEnd}
     `;
-    const currentResult = await dbBranch.request().query(currentQuery);
-    const currentTotalOrders = currentResult.recordset[0]?.total_orders || 0;
+    const [currentResult] = await mysqlPool.query<RowDataPacket[]>(currentQuery);
+    const currentTotalOrders = currentResult[0]?.total_orders || 0;
 
-    // 2. DỮ LIỆU SO SÁNH
     let previousTotalOrders = 0;
     if (!isAllTime) {
         const previousQuery = `
             SELECT COUNT(ID) AS previous_total_orders
             FROM orders
             WHERE status = 'cancelled'
-              AND created_at >= ${previousStart} AND created_at < ${previousEnd};
+              AND created_at >= ${previousStart} AND created_at < ${previousEnd}
         `;
-        const previousResult = await dbBranch.request().query(previousQuery);
-        previousTotalOrders = previousResult.recordset[0]?.previous_total_orders || 0;
+        const [previousResult] = await mysqlPool.query<RowDataPacket[]>(previousQuery);
+        previousTotalOrders = previousResult[0]?.previous_total_orders || 0;
     }
     return { total: currentTotalOrders, previousTotal: previousTotalOrders };
 };
 
-const getTopOrderFromPool = async (dbBranch: ConnectionPool, top: number) => {
+export const getTopOrderService = async (top: number) => {
     const query = `
-        SELECT TOP (@top)
-            o.*, 
-            u.name AS user_name_buyer
+        SELECT o.*, u.name AS user_name_buyer
         FROM orders o
         INNER JOIN users u ON o.user_id = u.ID
         ORDER BY o.created_at DESC
+        LIMIT ?
     `;
-    const result = await dbBranch.request().input('top', top).query(query);
+    // Lưu ý: LIMIT trong query MySQL2 yêu cầu số phải được bind cẩn thận (với kiểu number)
+    const [rows] = await mysqlPool.query<RowDataPacket[]>(query, [top]);
 
-    const orderSqlIds = result.recordset.map(order => order.ID);
-    const lowerCaseOrderSqlIds = orderSqlIds.map((id: any) => id.toString().toLowerCase());
+    const orderSqlIds = rows.map(order => order.ID);
+    const stringOrderSqlIds = orderSqlIds.map((id: number) => id.toString());
 
-    const mongoOrders = await OrderDetail.find({ order_id_sql: { $in: lowerCaseOrderSqlIds } }).lean();
+    const mongoOrders = await OrderDetail.find({ order_id_sql: { $in: stringOrderSqlIds } }).lean();
 
-    const orders = result.recordset.map(order => {
-        const mongoOrder = mongoOrders.find(mongoOrder => mongoOrder.order_id_sql === order.ID.toString().toLowerCase());
+    return rows.map(order => {
+        const mongoOrder = mongoOrders.find(mo => mo.order_id_sql === order.ID.toString());
         return {
             id: order.ID,
             user_id: order.user_id,
@@ -748,143 +539,24 @@ const getTopOrderFromPool = async (dbBranch: ConnectionPool, top: number) => {
             created_at: order.created_at,
             items: mongoOrder ? mongoOrder.items : [],
             note: mongoOrder ? mongoOrder.note : "Không có ghi chú"
-        };
+        } as GetOrder;
     });
-    // Map về đúng kiểu GetOrder nếu cần thiết, ở đây return luôn
-    return orders;
 };
 
-const getRevenueByYearFromPool = async (dbBranch: ConnectionPool, year: number): Promise<IRevenueYearResponse> => {
-    const result = await dbBranch.request().input('year', year).query(`
+export const getRevenueByYearService = async (year: number): Promise<IRevenueYearResponse> => {
+    const query = `
         SELECT MONTH(created_at) AS month, SUM(total) AS revenue
-        FROM orders WHERE status != 'cancelled' AND YEAR(created_at) = @year
-        GROUP BY MONTH(created_at) ORDER BY month
-    `);
+        FROM orders 
+        WHERE status != 'cancelled' AND YEAR(created_at) = ?
+        GROUP BY MONTH(created_at) 
+        ORDER BY month
+    `;
+    const [rows] = await mysqlPool.query<RowDataPacket[]>(query, [year]);
 
     const monthlyRevenue = Array.from({ length: 12 }, (_, i) => {
-        const monthData = result.recordset.find(r => r.month === i + 1);
-        return { month: i + 1, revenue: monthData?.revenue || 0 };
+        const monthData = rows.find(r => r.month === i + 1);
+        return { month: i + 1, revenue: monthData ? Number(monthData.revenue) : 0 };
     });
+    
     return { year, monthlyRevenue };
-};
-
-
-// ==========================================
-// 2. MAIN SERVICE FUNCTIONS (Exported)
-// ==========================================
-
-// 1. Service: Daily Revenue Comparison (KPI Doanh thu)
-export const getRevenueOrderComparisonService = async (branch_code: string, type: string) => {
-    if (branch_code === 'CT') {
-        const branches = ['HN', 'DN', 'HCM'];
-        const promises = branches.map(async (code) => {
-            const pool = getBranchPool(code);
-            if (!pool || !pool.connected) return { total: 0, previousTotal: 0 };
-            try { return await getRevenueOrderComparisonFromPool(pool, type); }
-            catch { return { total: 0, previousTotal: 0 }; }
-        });
-        const results = await Promise.all(promises);
-        return results.reduce((acc, curr) => ({
-            total: acc.total + curr.total,
-            previousTotal: acc.previousTotal + curr.previousTotal
-        }), { total: 0, previousTotal: 0 });
-    } else {
-        const pool = getBranchPool(branch_code);
-        if (!pool || !pool.connected) return { total: 0, previousTotal: 0 };
-        return await getRevenueOrderComparisonFromPool(pool, type);
-    }
-};
-
-// 2. Service: Total Orders Comparison (KPI Tổng đơn hàng)
-export const getTotalOrderComparisonService = async (branch_code: string, type: string) => {
-    if (branch_code === 'CT') {
-        const branches = ['HN', 'DN', 'HCM'];
-        const promises = branches.map(async (code) => {
-            const pool = getBranchPool(code);
-            if (!pool || !pool.connected) return { total: 0, previousTotal: 0 };
-            try { return await getTotalOrderComparisonFromPool(pool, type); }
-            catch { return { total: 0, previousTotal: 0 }; }
-        });
-        const results = await Promise.all(promises);
-        return results.reduce((acc, curr) => ({
-            total: acc.total + curr.total,
-            previousTotal: acc.previousTotal + curr.previousTotal
-        }), { total: 0, previousTotal: 0 });
-    } else {
-        const pool = getBranchPool(branch_code);
-        if (!pool || !pool.connected) return { total: 0, previousTotal: 0 };
-        return await getTotalOrderComparisonFromPool(pool, type);
-    }
-};
-
-// 3. Service: Cancelled Orders Comparison (KPI Đơn hủy)
-export const getTotalOrderCancelledService = async (branch_code: string, type: string) => {
-    if (branch_code === 'CT') {
-        const branches = ['HN', 'DN', 'HCM'];
-        const promises = branches.map(async (code) => {
-            const pool = getBranchPool(code);
-            if (!pool || !pool.connected) return { total: 0, previousTotal: 0 };
-            try { return await getTotalOrderCancelledFromPool(pool, type); }
-            catch { return { total: 0, previousTotal: 0 }; }
-        });
-        const results = await Promise.all(promises);
-        return results.reduce((acc, curr) => ({
-            total: acc.total + curr.total,
-            previousTotal: acc.previousTotal + curr.previousTotal
-        }), { total: 0, previousTotal: 0 });
-    } else {
-        const pool = getBranchPool(branch_code);
-        if (!pool || !pool.connected) return { total: 0, previousTotal: 0 };
-        return await getTotalOrderCancelledFromPool(pool, type);
-    }
-};
-
-// 4. Service: Top Orders (Đơn hàng gần đây)
-export const getTopOrderOfBranchService = async (branch_code: string, top: number) => {
-    if (branch_code === 'CT') {
-        const branches = ['HN', 'DN', 'HCM'];
-        const promises = branches.map(async (code) => {
-            const pool = getBranchPool(code);
-            if (!pool || !pool.connected) return [];
-            try { return await getTopOrderFromPool(pool, top); }
-            catch { return []; }
-        });
-        const results = await Promise.all(promises);
-
-        return results.flat()
-            .sort((a, b) => new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime())
-            .slice(0, top);
-    } else {
-        const pool = getBranchPool(branch_code);
-        if (!pool || !pool.connected) return [];
-        return await getTopOrderFromPool(pool, top);
-    }
-};
-
-// 5. Service: Revenue By Year (Biểu đồ doanh thu)
-export const getRevenueByYearService = async (branch_code: string, year: number) => {
-    if (branch_code === 'CT') {
-        const branches = ['HN', 'DN', 'HCM'];
-        const promises = branches.map(async (code) => {
-            const pool = getBranchPool(code);
-            if (!pool || !pool.connected) return null;
-            try { return await getRevenueByYearFromPool(pool, year); }
-            catch { return null; }
-        });
-        const results = await Promise.all(promises);
-
-        let finalRevenue = { year, monthlyRevenue: Array.from({ length: 12 }, (_, i) => ({ month: i + 1, revenue: 0 })) };
-        results.forEach(res => {
-            if (res) {
-                res.monthlyRevenue.forEach(m => {
-                    finalRevenue.monthlyRevenue[m.month - 1].revenue += m.revenue;
-                });
-            }
-        });
-        return finalRevenue;
-    } else {
-        const pool = getBranchPool(branch_code);
-        if (!pool || !pool.connected) return null;
-        return await getRevenueByYearFromPool(pool, year);
-    }
 };

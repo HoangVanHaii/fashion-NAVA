@@ -8,8 +8,8 @@ export interface Address {
 }
 
 export interface Address_Order {
-    id?: string; 
-    user_id: string; 
+    id?: number; 
+    user_id: number; 
     name: string;
     phone: string;
     province: string;

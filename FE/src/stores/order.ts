@@ -1,6 +1,6 @@
 import { ref, computed } from "vue";
 import { defineStore } from "pinia";
-import { getOrderOfBranch, getOrderOfTypeBranch, changeStatus, createOrderByEmployee, getStatistical, getDailyOrderComparison, getProductBySize, getOrderById, getTopOrderOfBranch, getDailyOrderComparisonForAdmin, getTotalOrderComparisonForAdmin, getTotalOrderCancelledForAdmin, getTotalOrderMonthForAdmin, getOrderByIdForAdmin } from "@/services/employee/order";
+import { getOrderOfBranch, getOrderOfTypeBranch, changeStatus, createOrderByEmployee, getStatistical, getDailyOrderComparison, getProductBySize, getOrderById, getTopOrder, getDailyOrderComparisonForAdmin, getTotalOrderComparisonForAdmin, getTotalOrderCancelledForAdmin, getTotalOrderMonthForAdmin, getOrderByIdForAdmin } from "@/services/employee/order";
 import { type RevenueOrder, type GetOrder, type StatisticalOrder } from "@/interfaces/order";
 import type { IProductMongoDetail } from "@/interfaces/product";
 import { getOrderOfMe } from "@/services/order";
@@ -45,11 +45,11 @@ export const useOrderEmployeeStore = defineStore("orderEmployee", () => {
             loading.value = false;
         }
     };
-    const getOrderOfTypeBranchStore = async (method_order: string, branch_code: string) => {
+    const getOrderOfTypeBranchStore = async (method_order: string) => {
         loading.value = true;
         error.value = null;
         try {
-            const data = await getOrderOfTypeBranch(method_order, branch_code);
+            const data = await getOrderOfTypeBranch(method_order);
             listOrder.value = sortOrdersByCreatedAt(data.data);
             return data;
         } catch (err) {
@@ -141,10 +141,10 @@ export const useOrderEmployeeStore = defineStore("orderEmployee", () => {
         }
     }
     // 1. Daily Order Comparison
-    const getDailyOrderComparisonForAdminStore = async (type: string, branch_code: string) => {
+    const getDailyOrderComparisonForAdminStore = async (type: string) => {
         loading.value = true;
         try {
-            const result = await getDailyOrderComparisonForAdmin(type, branch_code);
+            const result = await getDailyOrderComparisonForAdmin(type);
             return result.results;
         } catch (err: any) {
             console.error(err);
@@ -154,10 +154,10 @@ export const useOrderEmployeeStore = defineStore("orderEmployee", () => {
     };
 
     // 2. Total Order Comparison
-    const getTotalOrderComparisonForAdminStore = async (type: string, branch_code: string) => {
+    const getTotalOrderComparisonForAdminStore = async (type: string) => {
         loading.value = true;
         try {
-            const result = await getTotalOrderComparisonForAdmin(type, branch_code);
+            const result = await getTotalOrderComparisonForAdmin(type);
             return result.results;
         } catch (err: any) {
             console.error(err);
@@ -170,7 +170,7 @@ export const useOrderEmployeeStore = defineStore("orderEmployee", () => {
     const getTotalOrderMonthForAdminStore = async (year: string, branch_code: string) => {
         loading.value = true;
         try {
-            const result = await getTotalOrderMonthForAdmin(year, branch_code);
+            const result = await getTotalOrderMonthForAdmin(year);
             return result; // result ở đây là { year: ..., monthlyRevenue: [...] }
         } catch (err: any) {
             console.error(err);
@@ -180,10 +180,10 @@ export const useOrderEmployeeStore = defineStore("orderEmployee", () => {
     };
 
     // 4. Cancelled Order
-    const getTotalOrderCancelledForAdminStore = async (type: string, branch_code: string) => {
+    const getTotalOrderCancelledForAdminStore = async (type: string) => {
         loading.value = true;
         try {
-            const result = await getTotalOrderCancelledForAdmin(type, branch_code);
+            const result = await getTotalOrderCancelledForAdmin(type);
             return result.results;
         } catch (err: any) {
             console.error(err);
@@ -193,10 +193,10 @@ export const useOrderEmployeeStore = defineStore("orderEmployee", () => {
     };
 
     // 5. Top Orders
-    const getTopOrderOfBranchStore = async (top: number, branch_code: string) => {
+    const getTopOrderOfBranchStore = async (top: number) => {
         loading.value = true;
         try {
-            const result = await getTopOrderOfBranch(top, branch_code);
+            const result = await getTopOrder(top);
             return result.orders; // Trả về mảng orders
         } catch (err: any) {
             console.error(err);

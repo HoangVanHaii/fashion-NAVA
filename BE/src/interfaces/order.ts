@@ -2,9 +2,9 @@ import { Document } from 'mongoose';
 import { Address } from './address';
 
 export interface Order {
-    id?: string;
-    user_id: string;
-    voucher_id?: string;
+    id?: number;
+    user_id: number;
+    voucher_id?: number;
     total: number;
     discount_value: number;
     payment_method: 'cod' | 'credit_card' | 'paypal' | 'vnpay' | 'momo';
@@ -16,12 +16,12 @@ export interface Order {
     checkout_source?: "cart" | "buy_now";
 }
 export interface OrderItem {
-    id?: string;
-    order_id?: string;
+    id?: number;
+    order_id?: number;
     size_id_mongo: string;
     size: string;
     color: string;
-    product_id_sql: string;
+    product_id_sql: number;
     product_name: string;
     quantity: number;
     price: number;
@@ -35,8 +35,8 @@ export interface OderPayLoad {
 
 
 export interface IOrderItem {
-    order_item_id?: string;
-    product_id_sql: string; 
+    order_item_id?: number;   
+    product_id_sql: number; 
     size_id_mongo: string;
     
     product_name: string;
@@ -50,7 +50,7 @@ export interface IOrderItem {
 }
 
 export interface IOrderDetail extends Document {
-    order_id_sql: string;
+    order_id_sql: number;
     items: IOrderItem[];
     shipping_address: Address
     note?: string;
@@ -59,9 +59,9 @@ export interface IOrderDetail extends Document {
 }
 
 export interface GetOrder {
-    id: string;
-    user_id: string;
-    voucher_id?: string;
+    id: number;
+    user_id: number;
+    voucher_id?: number;
     total: number;
     discount_value: number;
     user_name_buyer?: string;

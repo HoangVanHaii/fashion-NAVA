@@ -1,5 +1,7 @@
+import mongoose from "mongoose";
+
 export interface User {
-    user_id: string;
+    user_id: number;
     name: string;
     email: string;
     phone: string;
@@ -8,13 +10,12 @@ export interface User {
     role: string;
     avatar: string;
     mongodb_id: string;
-    branch: string;
     profile: UserProfile;
 }
 
 export interface UserProfile {
-    _id: string;
-    user_id_sql: string;
+    _id: string | mongoose.Types.ObjectId;
+    user_id_sql: number;
     bio?: string;
     preferences: {
         fb?: string;

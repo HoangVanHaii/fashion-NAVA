@@ -1,5 +1,5 @@
 export interface FlashSale {
-    id?: string;
+    id?: number;
     title: string;
     start_date: Date;
     end_date: Date;
@@ -10,8 +10,8 @@ export interface FlashSale {
     is_participate?: boolean
 }
 export interface FlashSaleItem {
-    flash_sale_id?: string;
-    product_id?: string; 
+    flash_sale_id?: number;
+    product_id?: number; 
     color_id_mongo?: string;
     size_id_mongo?: string
     product_name?: string;
@@ -26,7 +26,7 @@ export interface ImageProducts {
     image_url: string;
 }
 export interface FlashSaleProductSold {
-    product_id: string;
+    product_id: number;
     total_flash_sale_sold: number;
     total_stock: number;
 }

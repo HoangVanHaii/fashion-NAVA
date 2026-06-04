@@ -1,64 +1,67 @@
-import { ConnectionPool } from "mssql";
+import { RowDataPacket } from "mysql2";
 import { FavouriteDetail, FavouritePayload, FavouriteResponse } from "../interfaces/favourite";
-import { AppError } from "../utils/appError"
-import * as IProduct from '../interfaces/product'
-import * as productService from '../services/product'
+import { AppError } from "../utils/appError";
+import * as IProduct from '../interfaces/product';
+import * as productService from '../services/product';
+import { mysqlPool } from "../config/database"; // Điều chỉnh lại đường dẫn cho chuẩn với project của bạn
 
-export const createFavourite = async (favourite: FavouritePayload, pool: ConnectionPool): Promise<void> => {
+export const createFavourite = async (favourite: FavouritePayload): Promise<void> => {
     try {
-        const checkProduct = await productService.checkProduct(pool, favourite.product_id);
+
+        const checkProduct = await productService.checkProduct(favourite.product_id);
         if (!checkProduct) {
             throw new AppError("Product not found", 404);
         }
-        const checkConflict = await pool.request()
-            .input("product_id", favourite.product_id)
-            .input("user_id", favourite.user_id)
-            .query(`SELECT id 
-                    FROM favourites 
-                    WHERE user_id = @user_id AND product_id = @product_id`)
-        
-        if (checkConflict.recordset.length !== 0) {
+
+        const [conflictRows] = await mysqlPool.query<RowDataPacket[]>(
+            `SELECT id 
+             FROM favourites 
+             WHERE user_id = ? AND product_id = ?`,
+            [favourite.user_id, favourite.product_id]
+        );
+
+        if (conflictRows.length !== 0) {
             throw new AppError("Product already in favourites", 409);
         }
-        
-        const query = `INSERT INTO favourites (user_id, product_id)
-                       VALUES (@user_id, @product_id)`;
-        await pool.request()
-            .input("user_id", favourite.user_id)
-            .input("product_id", favourite.product_id)
-            .query(query);
-        
+
+        await mysqlPool.query(
+            `INSERT INTO favourites (user_id, product_id)
+             VALUES (?, ?)`,
+            [favourite.user_id, favourite.product_id]
+        );
+
     } catch (error) {
         if (error instanceof AppError) throw error;
         console.error("Failed to create favourite", error);
         throw new AppError('Failed to create favourite', 500, false);
     }
-}
-export const deleteFavourite = async (user_id: string, product_id: string, pool: ConnectionPool): Promise<void> => {
+};
+
+export const deleteFavourite = async (user_id: number, product_id: number): Promise<void> => {
     try {
-        const query = `DELETE FROM favourites WHERE user_id = @user_id AND product_id = @product_id`;
-        await pool.request()
-            .input("user_id", user_id)
-            .input("product_id", product_id)
-            .query(query);
+        await mysqlPool.query(
+            `DELETE FROM favourites WHERE user_id = ? AND product_id = ?`,
+            [user_id, product_id]
+        );
     } catch (error: any) {
         throw new AppError('Failed to delete favourite', 500, false);
-    } 
-}
-export const getAllFavouritesDetailByUserId = async (pool: ConnectionPool, user_id: string, branch_id: string): Promise<FavouriteDetail[]> => {
+    }
+};
+
+export const getAllFavouritesDetailByUserId = async (user_id: number): Promise<FavouriteDetail[]> => {
     try {
-        const productSql = await getAllFavouritesSql(pool, user_id, branch_id);
-        
+        const productSql = await getAllFavouritesSql(user_id);
+
         const mongoIds = productSql
             .map(p => p.mongodb_id)
             .filter(Boolean);
-        const mongoProducts = await productService.getMongoProductsByIds(mongoIds)
-        
+        const mongoProducts = await productService.getMongoProductsByIds(mongoIds);
+
         const inventoryMap = productService.buildInventoryMap(productSql);
 
         const productResult = mergeSqlMongoProducts(productSql, mongoProducts, inventoryMap);
-        
-        return productResult 
+
+        return productResult;
 
     } catch (error: any) {
         console.error(error);
@@ -66,16 +69,17 @@ export const getAllFavouritesDetailByUserId = async (pool: ConnectionPool, user_
     }
 };
 
-export const getAllFavouriteIdsByUserId = async (pool: ConnectionPool, user_id: string): Promise<FavouriteResponse[]> => {
+export const getAllFavouriteIdsByUserId = async (user_id: number): Promise<FavouriteResponse[]> => {
     try {
-        const productSql = await pool.request()
-            .input("user_id", user_id)
-            .query(`SELECT f.id as favourite_id, f.product_id
-                    FROM favourites f
-                    JOIN products p ON f.product_id = p.id AND p.status = 'active'
-                    WHERE f.user_id = @user_id`);
-        
-        return productSql.recordset as FavouriteResponse[]; 
+        const [rows] = await mysqlPool.query<RowDataPacket[]>(
+            `SELECT f.id as favourite_id, f.product_id
+             FROM favourites f
+             JOIN products p ON f.product_id = p.id AND p.status = 'active'
+             WHERE f.user_id = ?`,
+            [user_id]
+        );
+
+        return rows as FavouriteResponse[];
 
     } catch (error: any) {
         console.error(error);
@@ -83,9 +87,8 @@ export const getAllFavouriteIdsByUserId = async (pool: ConnectionPool, user_id: 
     }
 };
 
-export const mergeSqlMongoProducts = (sqlRows: any[], mongoMap: Map<string, IProduct.IProductMongoDetail>, inventoryMap: Map<string, IProduct.IInventoryItem>) =>{
+export const mergeSqlMongoProducts = (sqlRows: any[], mongoMap: Map<string, IProduct.IProductMongoDetail>, inventoryMap: Map<string, IProduct.IInventoryItem>) => {
     try {
-        
         const productMap = new Map<string, FavouriteDetail>();
         sqlRows.forEach(row => {
             let product = productMap.get(row.mongodb_id);
@@ -112,7 +115,7 @@ export const mergeSqlMongoProducts = (sqlRows: any[], mongoMap: Map<string, IPro
                     let key = `${color._id.toString()}_${size._id.toString()}`;
                     let inv = inventoryMap.get(key);
                     if (!inv) {
-                        key = `product_${product.product_id_sql}`;
+                        key = `product_${product!.product_id_sql}`;
                     }
                     inv = inventoryMap.get(key);
                     Object.assign(size, {
@@ -122,59 +125,54 @@ export const mergeSqlMongoProducts = (sqlRows: any[], mongoMap: Map<string, IPro
                         sale_stock: inv?.sale_stock ?? 0,
                         sale_sold: inv?.sale_sold ?? 0
                     });
-                    
                 });
-            });            
+            });
         });
         return Array.from(productMap.values());
     } catch (err) {
         throw err;
     }
-}
+};
 
-const getAllFavouritesSql = async (pool: ConnectionPool, user_id: string, branch_id: string) => {
+const getAllFavouritesSql = async (user_id: number) => {
     try {
-    const query = `
-                    SELECT
-                        f.id as favourite_id,
-                        f.created_at,
-                        p.id,
-                        p.mongodb_id,
-                        p.name,
-                        p.category_id,
-                        p.brand_id,
-                        p.status,
-                        bi.color_id_mongo,
-                        bi.size_id_mongo,
-                        bi.price,
-                        bi.stock,
-                        fsi.flash_sale_price AS sale_price,
-                        fsi.stock AS sale_stock,
-                        fsi.sold AS sale_sold
-                    FROM favourites f
-                    INNER JOIN products p ON p.id = f.product_id AND p.status = 'active'
-                    LEFT JOIN branch_inventories bi 
-                        ON p.id = bi.product_id AND bi.branch_id = @branch_id
-                    LEFT JOIN flash_sale_items fsi
-                        ON fsi.branch_id = @branch_id
-                        AND fsi.product_id = p.id
-                        AND fsi.color_id_mongo = bi.color_id_mongo
-                        AND fsi.size_id_mongo = bi.size_id_mongo
-                        AND fsi.status = 'active'
-                    LEFT JOIN flash_sales fs
-                        ON fs.id = fsi.flash_sale_id
-                        AND fs.status = 'active'
-                        AND fs.start_date <= GETDATE()
-                        AND fs.end_date >= GETDATE()
-                    WHERE user_id = @user_id
-                    `;
-        const req = await  pool.request()
-            .input("user_id", user_id)
-            .input("branch_id", branch_id)
-            .query(query);
-        
-        return req.recordset;
-        
+        const query = `
+            SELECT
+                f.id as favourite_id,
+                f.created_at,
+                p.id,
+                p.mongodb_id,
+                p.name,
+                p.category_id,
+                p.brand_id,
+                p.status,
+                pi.color_id_mongo,
+                pi.size_id_mongo,
+                pi.price,
+                pi.stock,
+                fsi.flash_sale_price AS sale_price,
+                fsi.stock AS sale_stock,
+                fsi.sold AS sale_sold
+            FROM favourites f
+            INNER JOIN products p ON p.id = f.product_id AND p.status = 'active'
+            LEFT JOIN product_inventories pi 
+                ON p.id = pi.product_id
+            LEFT JOIN flash_sale_items fsi
+                ON fsi.product_id = p.id
+                AND fsi.color_id_mongo = pi.color_id_mongo
+                AND fsi.size_id_mongo = pi.size_id_mongo
+                AND fsi.status = 'active'
+            LEFT JOIN flash_sales fs
+                ON fs.id = fsi.flash_sale_id
+                AND fs.status = 'active'
+                AND fs.start_date <= NOW()
+                AND fs.end_date >= NOW()
+            WHERE user_id = ?
+        `;
+
+        const [rows] = await mysqlPool.query<RowDataPacket[]>(query, [user_id]);
+        return rows;
+
     } catch (error) {
         throw error;
     }

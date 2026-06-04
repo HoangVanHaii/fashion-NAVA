@@ -39,7 +39,7 @@ router.get(
 );
 router.get(
     "/public/category/gender",
-    productController.getAllProductsByGenderForGuest
+    productController.getAllProductsByGender
 );
 router.get(
     "/brand/:brand_id",
@@ -51,7 +51,6 @@ router.get(
 
 router.get(
     "/best-seller",
-    authMiddleware,
     productController.getTopProductsBestSeller
 );
 
@@ -62,32 +61,32 @@ router.get(
 );
 ///
 
-router.get("/public", productController.getAllProductsForGuests);
+router.get("/public", productController.getAllProducts);
 router.get(
     "/public/best-seller",
-    productController.getTopProductsBestSellerForGuests
+    productController.getTopProductsBestSeller
 );
 router.get(
     "/public/new",
-    productController.getTopProductsNewForGuests
+    productController.getTopProductsNew
 );
 router.get(
     "/public/:id",
     productMiddleware.ProductIdValidation,
     validateRequest,
-    productController.getProductDetailForGuests
+    productController.getProductDetail
 );
 router.get(
     "/public/category/:category_id",
     productMiddleware.getByCategoryValidation,
     validateRequest,
-    productController.getAllProductsByCategoryIdForGuests
+    productController.getAllProductsByCategoryId
 );
 router.get(
     "/public/brand/:brand_id",
     productMiddleware.getByBrandValidation,
     validateRequest,
-    productController.getAllProductsByBrandIdForGuests
+    productController.getAllProductsByBrandId
 );
 router.get(
     "/:id",

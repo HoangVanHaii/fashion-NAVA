@@ -2,7 +2,7 @@
 import { ref, nextTick, onMounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useAuthStore } from "../stores/auth";
-import iconLock from '../assets/iconLock.jpg'
+// import iconLock from '../assets/iconLock.jpg'
 // import Notification from "./Notification.vue";
 // import RePassConfirm from "./RePassConfirm.vue";
 

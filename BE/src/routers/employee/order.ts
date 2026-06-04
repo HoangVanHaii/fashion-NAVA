@@ -6,10 +6,10 @@ import { validateRequest } from '../../middlewares/validateRequest';
 const router = express.Router();
 
 router.get(
-    '/orderOfBranch/:method_order',
+    '/orderOfSystem/:method_order',
     authMiddleware,
     adminOrEmployee,
-    orderController.getOrderOfBranch
+    orderController.getOrderOfSystem
 );
 router.get(
     '/orderOfTypeBranch',
@@ -18,10 +18,10 @@ router.get(
     orderController.getOrderOfTypeBranch
 );
 router.get(
-    '/orderTopOfBranch/:top',
+    '/topOrder/:top',
     authMiddleware,
     adminOrEmployee,
-    orderController.getTopOrderOfBranch
+    orderController.getTopOrder
 );
 router.get(
     '/statistical',

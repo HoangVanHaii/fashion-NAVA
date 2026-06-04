@@ -42,7 +42,7 @@ export const useProductStore = defineStore('product', () => {
       loading.value = true;
 
       const res = await getAllProduct();
-
+      console.log("Fetched all products:", res.products);
       return res.products as IProductMongoDetail[];
     } catch (error) {
       loading.value = false;
@@ -116,6 +116,7 @@ export const useProductStore = defineStore('product', () => {
     const getProductBestSellerStore = async (top: number) => {
     try {
       const result = await getProductBestSeller(top || 20);
+      // const result = await getAllProduct();
       return result.products as IProductMongoDetail[];
     } catch (err) {
       console.log(err);

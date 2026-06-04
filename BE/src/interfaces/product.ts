@@ -1,25 +1,32 @@
 import mongoose from "mongoose";
 
 export interface IProductSQL {
-    id?: string;
-    brand_id: string;
-    category_id: string;
+    id?: number;
+    brand_id: number;
+    category_id: number;
     name: string;
     mongodb_id: string | mongoose.Types.ObjectId;
     status: 'active' | 'hidden' | 'banned';
     created_at?: Date;
 }
   
-export interface IBranchInventorySQL {
-    id?: string;
-    branch_id: string;
-    product_id?: string;
-    color_id_mongo: string; 
-    size_id_mongo: string;  
+export interface IProductInventorySQL {
+    product_id: number;
+    color_id_mongo: string | mongoose.Types.ObjectId;
+    size_id_mongo: string | mongoose.Types.ObjectId;
     price: number;
     stock: number;
-    created_at?: Date;
 }
+// export interface IBranchInventorySQL {
+//     id?: string;
+//     branch_id: string;
+//     product_id?: string;
+//     color_id_mongo: string; 
+//     size_id_mongo: string;  
+//     price: number;
+//     stock: number;
+//     created_at?: Date;
+// }
   
 ////
 
@@ -41,7 +48,7 @@ export interface IProductColorPayload {
   
 export interface IProductMongo {
     _id: mongoose.Types.ObjectId;
-    product_id_sql: string;
+    product_id_sql: number;
     description: string;
     video?: string;
     attributes?: {
@@ -60,7 +67,7 @@ export interface updateSize {
 }
 
 export interface IUpdateProductColor {
-    product_id_sql: string | mongoose.Types.ObjectId;
+    product_id_sql: number
     color_id_mongo: string;
     color?: string;
     is_main?: boolean;
@@ -71,11 +78,11 @@ export interface IUpdateProductColor {
 
 
 export interface UpdateProductInfo {
-    product_id_sql: string;
+    product_id_sql: number;
     name?: string;
     description?: string;
-    brand_id?: string;
-    category_id?: string;
+    brand_id?: number;
+    category_id?: number;
     attributes?: {
         [key: string]: string | number | boolean;
     };
@@ -85,11 +92,11 @@ export interface UpdateProductInfo {
 
 export interface IProductMongoDetail {
     _id: string | mongoose.Types.ObjectId;
-    product_id_sql: string;
+    product_id_sql: number;
     name?: string;
     description: string;
-    brand_id?: string;
-    category_id?: string;
+    brand_id?: number;
+    category_id?: number;
     status?: string;
     video?: string
     attributes?: {
@@ -127,14 +134,14 @@ export interface IProductSizeResponse {
 ///
 
 export interface updateInventory{
-    product_id: string;
+    product_id: number;
     color_id_mongo: string | mongoose.Types.ObjectId;
     size_id_mongo: string | mongoose.Types.ObjectId;
     price?: number;
     stock?: number;
 }
 export interface deleteInventory{
-    product_id: string;
+    product_id: number;
     color_id_mongo: string | mongoose.Types.ObjectId;
     size_id_mongo: string | mongoose.Types.ObjectId;
 }

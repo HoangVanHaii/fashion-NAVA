@@ -126,7 +126,7 @@ export const getProductBestSellerForAdmin = async (top: number, branch_code: str
 export const getProductLatest = async (top: number) => {
   const authStore = useAuthStore();
   const endpoint = authStore.isLogin
-    ? `/product/new?top=${top}`
+    ? `/product/public/new?top=${top}`
     : `/product/public/new?top=${top}`;
 
   const result = await api.get(endpoint);

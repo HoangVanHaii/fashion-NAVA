@@ -42,7 +42,7 @@ router.put(
 router.put(
     '/updateProfile',
     authMiddleware,
-    userController.upadteProfile
+    userController.updateProfile
 );
 
 router.get(

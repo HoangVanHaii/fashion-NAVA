@@ -1,138 +1,122 @@
 import { Response, Request, NextFunction } from "express";
 import * as productService from '../../services/product';
 import * as IProducts from '../../interfaces/product';
-import {v4 as UUID} from 'uuid'
-import sql from 'mssql'
 import mongoose from "mongoose";
 import { AppError } from "../../utils/appError";
+import { mysqlPool } from "../../config/database";
 
 export const createProduct = async (req: Request, res: Response, next: NextFunction) => {
-    const transaction = new sql.Transaction(req.dbBranch!);
-    await transaction.begin();
+    const connection = await mysqlPool.getConnection();
     const idProductMongo = new mongoose.Types.ObjectId();
-    const idProductSql = UUID();
     let uploadProducts: IProducts.IProductColorPayload[] = [];
     let uploadedVideoUrl: string = "";
+
     try {
-        if (!req.dbBranch! || !req.dbBranch!.connected) {
-            throw new AppError("Central DB is not connected", 503);
-        }
+        await connection.beginTransaction();
+
         const { category_id, brand_id, name, description, colors, attributes, video } = req.body;
         const videoFile = video as Express.Multer.File | undefined;
-        const productSql: IProducts.IProductSQL = {
-            id: idProductSql,
+
+        const productSql: Omit<IProducts.IProductSQL, 'id'> = {
             category_id: category_id,
             brand_id: brand_id,
             name: name,
-            mongodb_id: idProductMongo,
+            mongodb_id: idProductMongo.toString(),
             status: 'active'
-        }
-        await productService.insertProductSql(transaction, productSql);
+        };
 
-        const branchId = await productService.getBranchIdByCode(req.dbBranch!, req.user?.branch_code || "");
-        if (!branchId) {
-            throw new AppError("branch_id not found", 404);
-        }
-        const listBranchInventory: IProducts.IBranchInventorySQL[] = buildListInventory(idProductSql, colors, branchId);
-        await productService.insertBranchInventory(transaction, listBranchInventory);
+        const idProductSqlNum = await productService.insertProductSql(connection, productSql);
+        const idProductSql = Number(idProductSqlNum);
+
+        const listProductInventory: IProducts.IProductInventorySQL[] = buildListInventory(idProductSql, colors);
+        await productService.insertProductInventory(connection, listProductInventory);
+
         uploadProducts = await productService.uploadImageProducts(colors, idProductSql);
+
         if (typeof videoFile !== 'undefined') {
             uploadedVideoUrl = await productService.uploadSingleVideo(videoFile);
         }
+
         const productMongo: IProducts.IProductMongo = buildProductMongo(idProductMongo, idProductSql, description, attributes, uploadProducts, uploadedVideoUrl);
         await productService.insertProductMongo(productMongo);
 
-        await transaction.commit();
+        await connection.commit();
+
         return res.status(201).json({
             success: true,
             message: "Product created successfully"
-        })
+        });
     } catch (err) {
+        console.log(err);
+        await connection.rollback();
+
         await productService.deleteProductMongo(idProductMongo.toString());
-        await productService.deleteImagesFromColors(uploadProducts);
+        if (uploadProducts.length > 0) {
+            await productService.deleteImagesFromColors(uploadProducts);
+        }
         if (uploadedVideoUrl) {
             await productService.deleteVideo(uploadedVideoUrl);
         }
-        await transaction.rollback();
+
         next(err);
+    } finally {
+        connection.release();
     }
-}
+};
+
 export const getTopProductsBestSellerForAdmin = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const topCount = parseInt(req.query.top as string) || 20;
 
-        const target_branch_code = (req.query.branch as string) || req.user?.branch_code;
+        const products = await productService.getTopProductsBestsellerForAdminService(topCount);
 
-        if (!target_branch_code) {
-            throw new AppError("Branch code is required", 400);
-        }
-        let products;
-        if (req.user?.branch_code !== "CT") {
-            products = await productService.getTopProductsBestsellerForAdminService(req.user?.branch_code ||'DN', topCount);
-        }
-        else {
-            products = await productService.getTopProductsBestsellerForAdminService(target_branch_code, topCount);
-        }
         return res.status(200).json({
             success: true,
-            message: `Get best seller products for admin (${target_branch_code}) successfully`,
+            message: `Get best seller products for admin successfully`,
             data: products
         });
 
     } catch (err) {
         next(err);
     }
-}
+};
 
 export const AddProductColor = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        if (!req.dbBranch! || !req.dbBranch!.connected) {
-            throw new AppError("Central DB is not connected", 503);
-        }
-        const product_id_sql = req.params.id;
-        const branchId = await productService.getBranchIdByCode(req.dbBranch!, req.user?.branch_code || "");
-        if (!branchId) {
-            throw new AppError("branch_id not found", 404);
-        }
-        await productService.AddColorProduct(req.dbBranch!, branchId, product_id_sql, req.body);
+        const product_id_sql = Number(req.params.id);
+
+        await productService.AddColorProduct(product_id_sql, req.body);
 
         return res.status(201).json({
             success: true,
-            message: "Product Color successfully"
-        })
-        
+            message: "Add Product Color successfully"
+        });
+
     } catch (err) {
         next(err);
     }
-}
+};
 
 export const changeStatusProduct = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        if (!req.dbBranch! || !req.dbBranch!.connected) {
-            throw new AppError("Central DB is not connected", 503);
-        }
-        const product_id_sql = req.params.id;
+        const product_id_sql = Number(req.params.id);
         const { status } = req.body;
-        await productService.changeStatusProduct(req.dbBranch!, product_id_sql, status);
 
-        return res.status(201).json({
+        await productService.changeStatusProduct(product_id_sql, status);
+
+        return res.status(200).json({
             success: true,
-            message: "Product updated successfully"
-        })
-        
+            message: "Product status updated successfully"
+        });
+
     } catch (err) {
         next(err);
     }
-}
+};
 
 export const updateProductInfo = async (req: Request, res: Response, next: NextFunction) => {
-
     try {
-        if (!req.dbBranch! || !req.dbBranch!.connected) {
-            throw new AppError("Central DB is not connected", 503);
-        }
-        
-        const product_id_sql = req.params.id;    
+        const product_id_sql = Number(req.params.id);
         const product: IProducts.UpdateProductInfo = {
             product_id_sql,
             name: req.body.name,
@@ -140,16 +124,16 @@ export const updateProductInfo = async (req: Request, res: Response, next: NextF
             brand_id: req.body.brand_id,
             category_id: req.body.category_id,
             attributes: req.body.attributes,
-        };      
+        };
 
-        const updatedProduct = await productService.updateProductInfo(req.dbBranch, product);
+        const updatedProduct = await productService.updateProductInfo(product);
 
         res.status(200).json({
             success: true,
             message: "Updated productInfo successfully",
             updatedProduct
         });
-  
+
     } catch (err) {
         console.log(err);
         next(err);
@@ -157,24 +141,16 @@ export const updateProductInfo = async (req: Request, res: Response, next: NextF
 };
 
 export const updateProductColor = async (req: Request, res: Response, next: NextFunction) => {
-
     try {
-        if (!req.dbBranch! || !req.dbBranch!.connected) {
-            throw new AppError("Central DB is not connected", 503);
-        }
-        const branchId = await productService.getBranchIdByCode(req.dbBranch!, req.user?.branch_code || "");
-        if (!branchId) {
-            throw new AppError("branch_id not found", 404);
-        }
-        
-        const updatedProduct = await productService.updateProductColorSize(req.dbBranch, branchId, req.body);
+        // Bỏ branchId
+        const updatedProduct = await productService.updateProductColorSize(req.body);
 
         res.status(200).json({
             success: true,
             message: "Updated product Color Size successfully",
             data: updatedProduct
         });
-  
+
     } catch (err) {
         next(err);
     }
@@ -182,138 +158,112 @@ export const updateProductColor = async (req: Request, res: Response, next: Next
 
 export const updateProductVideo = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        if (!req.dbBranch! || !req.dbBranch!.connected) {
-            throw new AppError("Central DB is not connected", 503);
-        }
         const productId = req.body.product_id_sql;
         const files = req.files as Express.Multer.File[];
         const videoFile = files.find(f => f.fieldname === 'video');
+
         if (!productId) {
             throw new AppError("productId is required", 400);
         }
-        // if (!videoFile) {
-        //     throw new AppError("video is required", 400);
-        // }
-        const updatedProduct = await productService.updateProductVideo(productId, videoFile || "")
+
+        const updatedProduct = await productService.updateProductVideo(productId, videoFile || "");
+
         res.status(200).json({
             success: true,
             message: "Updated product video successfully",
             data: updatedProduct
         });
-  
+
     } catch (err) {
         next(err);
     }
 };
 
-
 export const deleteProductColor = async (req: Request, res: Response, next: NextFunction) => {
-
     try {
-        if (!req.dbBranch! || !req.dbBranch!.connected) {
-            throw new AppError("Central DB is not connected", 503);
-        }
-        
-        const branchId = await productService.getBranchIdByCode(req.dbBranch!, req.user?.branch_code || "");
-        if (!branchId) {
-            throw new AppError("branch_id not found", 404);
-        }
-        await productService.deleteColor(req.dbBranch, branchId, req.body.product_id_sql, req.body.color_id_mongo);
+        // Bỏ branchId
+        await productService.deleteColor(req.body.product_id_sql, req.body.color_id_mongo);
+
         res.status(200).json({
             success: true,
             message: "Delete product color successfully",
         });
-  
+
     } catch (err) {
         next(err);
     }
 };
 
-export const deleteBranchInnventory = async (req: Request, res: Response, next: NextFunction) => {
-
+export const deleteProductInventory = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        if (!req.dbBranch! || !req.dbBranch!.connected) {
-            throw new AppError("Central DB is not connected", 503);
-        }
-        
-        const branchId = await productService.getBranchIdByCode(req.dbBranch!, req.user?.branch_code || "");
-        if (!branchId) {
-            throw new AppError("branch_id not found", 404);
-        }
-        await productService.deleteBranchInnventory(req.dbBranch, branchId, req.body.branch_inventory);
-        console.log(1);
+        // Đã đổi tên hàm và xóa logic branch
+        await productService.deleteProductInventory(req.body.product_inventory);
+
         res.status(200).json({
             success: true,
             message: "Delete product Inventory successfully",
         });
-  
+
     } catch (err) {
         next(err);
     }
 };
 
 export const updateProductStatusALL = async (req: Request, res: Response, next: NextFunction) => {
-
     try {
-        if (!req.dbBranch! || !req.dbBranch!.connected) {
-            throw new AppError("Central DB is not connected", 503);
+        if (req.user?.role !== 'admin') {
+            throw new AppError("You do not have permission to perform this action", 403);
         }
-        if (req.user?.branch_code !== 'CT' && req.user?.role !== 'admin') {
-            throw new AppError("You do not have permission to perform this action", 403);  
-        }
-        await productService.updateProductStatusALL(req.dbBranch, req.body.status);
+
+        await productService.updateProductStatusALL(req.body.status);
+
         res.status(200).json({
             success: true,
-            message: "Update product status successfully",
+            message: "Update all product statuses successfully",
         });
-  
+
     } catch (err) {
         next(err);
     }
 };
+
 export const updateProductStockALL = async (req: Request, res: Response, next: NextFunction) => {
-
     try {
-        if (!req.dbBranch! || !req.dbBranch!.connected) {
-            throw new AppError("Central DB is not connected", 503);
-        }
-        const branchId = await productService.getBranchIdByCode(req.dbBranch!, req.user?.branch_code || "");
-        if (!branchId) {
-            throw new AppError("branch_id not found", 404);
-        }
-        await productService.updateStockAll(req.dbBranch, branchId, req.body.stock);
+        // Bỏ branchId
+        await productService.updateStockAll(req.body.stock);
+
         res.status(200).json({
             success: true,
-            message: "Update product stock successfully",
+            message: "Update all product stock successfully",
         });
-  
+
     } catch (err) {
         next(err);
     }
 };
 
-
-const buildListInventory = (productId: string, colors: IProducts.IProductColorPayload[], branchId: string) => {
-    const listBranchInventory: IProducts.IBranchInventorySQL[] = []
+// Hàm builder hỗ trợ nội bộ
+const buildListInventory = (productId: number, colors: IProducts.IProductColorPayload[]) => {
+    const listProductInventory: IProducts.IProductInventorySQL[] = []; // Đổi Interface
     for (const element of colors) {
         element._id = new mongoose.Types.ObjectId().toString();
         for (const item of element.sizes) {
             item._id = new mongoose.Types.ObjectId().toString();
-            const branchInventory: IProducts.IBranchInventorySQL = {
-                branch_id: branchId,
+
+            const productInventory: IProducts.IProductInventorySQL = {
                 product_id: productId,
                 color_id_mongo: element._id,
                 size_id_mongo: item._id,
                 price: item.price,
                 stock: item.stock
             };
-            listBranchInventory.push(branchInventory);
+            listProductInventory.push(productInventory);
         }
     }
-    return listBranchInventory;    
-}
+    return listProductInventory;
+};
 
-const buildProductMongo = (idProductMongo: mongoose.Types.ObjectId, idProductSql: string, description: string,
+const buildProductMongo = (idProductMongo: mongoose.Types.ObjectId, idProductSql: number, description: string,
     attributes: any, uploadProducts: IProducts.IProductColorPayload[], videoUrl: string): IProducts.IProductMongo => {
     try {
         let productMongo: IProducts.IProductMongo = {
@@ -321,23 +271,25 @@ const buildProductMongo = (idProductMongo: mongoose.Types.ObjectId, idProductSql
             product_id_sql: idProductSql,
             description: description,
             colors: uploadProducts,
-            // video: videoUrl
-        }        
-        if (videoUrl.length > 7) {
+        };
+
+        if (videoUrl && videoUrl.length > 7) {
             productMongo.video = videoUrl;
         }
+
         if (attributes) {
             try {
                 if (attributes && Object.keys(attributes).length > 0) {
                     productMongo.attributes = JSON.parse(attributes);
                 }
             } catch (err) {
+                // Bỏ qua lỗi parse JSON nếu format string ko hợp lệ
             }
         }
+
         return productMongo;
     } catch (err) {
         console.log(err);
-        throw (err);
+        throw err;
     }
-    
-}
+};

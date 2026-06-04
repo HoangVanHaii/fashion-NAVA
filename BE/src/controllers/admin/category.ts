@@ -5,9 +5,6 @@ import { AppError } from "../../utils/appError";
 
 export const addCategory = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        if (!req.dbBranch! || !req.dbBranch!.connected) {
-            throw new AppError("Central DB is not connected", 503);
-        }
         const { category_name, description, status, gender } = req.body;
         const newCategory = {
             category_name,
@@ -16,7 +13,8 @@ export const addCategory = async (req: Request, res: Response, next: NextFunctio
             gender
         } as Category;
 
-        await categoryService.addCategory(req.dbBranch, newCategory);
+        await categoryService.addCategory(newCategory);
+
         res.status(201).json({
             success: true,
             message: "Category added successfully"
@@ -26,18 +24,15 @@ export const addCategory = async (req: Request, res: Response, next: NextFunctio
     }
 };
 
-
 export const updateCategory = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        if (!req.dbBranch! || !req.dbBranch!.connected) {
-            throw new AppError("Central DB is not connected", 503);
-        }
+        const categoryId = Number(req.params.id);
+        const existingCategory = await categoryService.getCategoryById(categoryId);
 
-        const categoryId = req.params.id;
-        const existingCategory = await categoryService.getCategoryById(req.dbBranch, categoryId);
         if (!existingCategory) {
             throw new AppError("Category not found", 404);
         }
+
         const { category_name, description, status, gender } = req.body;
 
         const updatedCategory = {
@@ -48,7 +43,8 @@ export const updateCategory = async (req: Request, res: Response, next: NextFunc
             gender
         } as Category;
 
-        await categoryService.updateCategory(req.dbBranch, updatedCategory);
+        await categoryService.updateCategory(updatedCategory);
+
         res.status(200).json({
             success: true,
             message: "Category updated successfully"
@@ -60,17 +56,15 @@ export const updateCategory = async (req: Request, res: Response, next: NextFunc
 
 export const deleteCategory = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        if (!req.dbBranch! || !req.dbBranch!.connected) {
-            throw new AppError("Central DB is not connected", 503);
-        }
+        const categoryId = Number(req.params.id);
+        const existingCategory = await categoryService.getCategoryById(categoryId);
 
-        const categoryId = req.params.id;
-        const existingCategory = await categoryService.getCategoryById(req.dbBranch, categoryId);
         if (!existingCategory) {
             throw new AppError("Category not found", 404);
         }
 
-        await categoryService.deleteCategory(req.dbBranch, categoryId);
+        await categoryService.deleteCategory(categoryId);
+
         res.status(200).json({
             success: true,
             message: "Category deleted (set inactive) successfully"
@@ -79,12 +73,11 @@ export const deleteCategory = async (req: Request, res: Response, next: NextFunc
         next(error);
     }
 };
+
 export const getAllInactiveCategories = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        if (!req.dbBranch! || !req.dbBranch!.connected) {
-            throw new AppError("Central DB is not connected", 503);
-        }
-        const categories = await categoryService.getAllInactiveCategories(req.dbBranch!);
+        const categories = await categoryService.getAllInactiveCategories();
+
         res.json({
             success: true,
             message: "Get inactive categories successfully",

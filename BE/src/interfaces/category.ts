@@ -1,5 +1,5 @@
 export interface Category {
-    category_id?: string;       
+    category_id?: number;       
     category_name: string;     
     description?: string;       
     status?: "active" | "inactive"; 
