@@ -17,7 +17,7 @@ const ProductColorSchema = new Schema<IProduct.IProductColorPayload>({
 
 const ProductDetailSchema = new Schema<IProduct.IProductMongo>({
     _id: { type: Schema.Types.ObjectId, required: true },
-    product_id_sql: {type: String, required: true},
+    product_id_sql: {type: Number, required: true},
     description: { type: String, default: '' },
     attributes: { type: Schema.Types.Mixed, default: {} },
     colors: [ProductColorSchema],
