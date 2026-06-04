@@ -110,12 +110,15 @@ onMounted(async () => {
     "excludeIdHome",
     
     flashSaleHomes.value?.id ? flashSaleHomes.value.id.toString() : ""
-    );
+  );
+
   const promises = [
     useProduct.getProductBestSellerStore(20),
     useProduct.getProductLatestStore(20),
   ];
   const [bestSellerData, latestData] = await Promise.all(promises);
+        loadingHome.value = false;
+
   productBestSeller.value = bestSellerData ?? [];
   productLatests.value = latestData ?? [];
 
@@ -127,7 +130,6 @@ onMounted(async () => {
   setTime();
   countdown = setInterval(setTime, 1000);
   window.addEventListener('scroll', handleScroll);
-  loadingHome.value = false;
 
 });
 const productMale = ref<IProductMongoDetail[]>([]);
