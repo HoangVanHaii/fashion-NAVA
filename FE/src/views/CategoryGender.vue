@@ -8,7 +8,6 @@ import { useProductStore } from "../stores/product";
 import { useCategoryStore } from "../stores/category";
 import { getMinProductPrice, getMaxProductPrice, checkProductSale, formatPrice, getMainProductImage } from "../utils/format";
 import AddToCart from "../components/AddToCard.vue";
-import { get } from "mongoose";
 import { useFavouriteStore } from "../stores/favourite";
 import Loading from "../components/Loading.vue";
 import { useAuthStore } from "@/stores/auth";
@@ -39,7 +38,6 @@ onMounted(async () => {
 const gender = route.query.gender as string;
 loadingPage.value = true;
 productGender.value = await product.searchByCategoryGenderStore(gender);
-const queryName = route.query.name as string | string[] | undefined;
 listCategory.value = await category.getCategoryNameStore(gender);
 
 if (userStore.isLogin) {
