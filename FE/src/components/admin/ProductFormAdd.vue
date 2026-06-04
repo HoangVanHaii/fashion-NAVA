@@ -175,7 +175,7 @@
         colors.value[colorIndex].sizes.push({ size: "", stock: 0, price: 0 });
     };
     
-    const removeSize = (colorIndex: number, sizeIndex: number) => {
+    const removeSize = (colorIndex: number, sizeIndex: any) => {
         if (colors.value[colorIndex].sizes.length > 1) {
             colors.value[colorIndex].sizes.splice(sizeIndex, 1);
         }

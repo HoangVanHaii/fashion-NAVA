@@ -1,9 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, watch } from "vue";
 import type { Ref } from "vue";
-import { getImage } from "../utils/format";
 import { useRouter } from "vue-router";
-import { storeToRefs } from "pinia";
 import { useAuthStore } from "@/stores/auth";
 
 const userStore = useAuthStore();

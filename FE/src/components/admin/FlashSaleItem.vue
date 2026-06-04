@@ -45,7 +45,7 @@
         price: number, 
         stock: number, 
         isSelected: boolean,
-        productId: string,
+        productId: number,
         colorId: string,
         sizeId: string
     }>>({});
@@ -81,10 +81,10 @@
         try {
             loadingPage.value = true;
             // Lấy danh sách đang tham gia
-            const dataActive = await useFlashSale.getProductActiveByFlashSaleIdBranchStore(props.flashSale.id || "", selectedBranch.value);
+            const dataActive = await useFlashSale.getProductActiveByFlashSaleIdBranchStore(props.flashSale.id || 0);
             
             // Lấy danh sách chưa tham gia (Theo chi nhánh đang chọn)
-            const dataNoActive = await useFlashSale.getProductNotSaleStore(selectedBranch.value);
+            const dataNoActive = await useFlashSale.getProductNotSaleStore();
             
             if (dataActive) productsInSale.value = (dataActive || []) as IProductMongoDetail[];
             if (dataNoActive) productsAvailable.value = (dataNoActive || []) as IProductMongoDetail[];
@@ -177,7 +177,7 @@ onMounted(async () => {
         return Object.values(selectionData.value).filter(item => item.isSelected).length;
     });
     
-    const countSelectedByProduct = (productId: string) => {
+    const countSelectedByProduct = (productId: number) => {
         let count = 0;
         Object.keys(selectionData.value).forEach(key => {
             if (key.startsWith(productId + '-') && selectionData.value[key]?.isSelected) {
@@ -243,7 +243,7 @@ onMounted(async () => {
     
         try {
             loadingPage.value = true;
-            const res = await useFlashSale.addFlashSaleItemStore(props.flashSale.id, itemsPayload, selectedBranch.value);
+            const res = await useFlashSale.addFlashSaleItemStore(props.flashSale.id, itemsPayload);
             
             loadingPage.value = false;
             

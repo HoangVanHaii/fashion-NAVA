@@ -177,7 +177,7 @@ const handleDelete = async(address :Address)=>{
     if(!confirm("Bạn có chắc chắn muốn xóa địa chỉ này không?")) return;
     try {
         if(address.id){
-            await addressStore.deleteAddressStore(address.id.toString())
+            await addressStore.deleteAddressStore(address.id)
             toastText.value="Đã xóa địa chỉ thành công"
             isNotification.value = true
         }

@@ -3,7 +3,7 @@ import { onMounted, computed, ref } from 'vue';
 import { useReviewStore } from '../stores/reviewStore';
 
 const props = defineProps<{
-    productId: string;
+    productId: number;
 }>();
 
 const reviewStore = useReviewStore();

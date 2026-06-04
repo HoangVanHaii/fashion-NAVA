@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref, watch } from "vue";
 import type { Voucher } from "../interfaces/voucher";
-import { useCartStore } from '../stores/cartStore';
 import { useVoucherStore } from '../stores/voucherStore'; 
 
 // Props
@@ -11,10 +10,9 @@ const props = defineProps<{
 
 const emit = defineEmits(["close", "apply"]);
 
-const cartStore = useCartStore();
 const voucherStore = useVoucherStore();
 
-const selectedVoucherId = ref<string | null>(null);
+const selectedVoucherId = ref<number | null>(null);
 const errorMsg = ref('');
 
 // Search & Claim

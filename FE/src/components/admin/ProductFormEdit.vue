@@ -45,7 +45,7 @@
     
     const productData = reactive<IProduct.IProductMongoDetail>({
         _id: "",
-        product_id_sql: "",
+        product_id_sql: 0 as any,
         category_id: 0 as any,
         brand_id: 0 as any,
         name: "",
@@ -512,8 +512,8 @@ const handleVideoUpload = (event: Event) => {
                 productData.product_id_sql,
                 productData.name || "",
                 productData.description,
-                productData.brand_id || "",
-                productData.category_id || "",
+                productData.brand_id || 0,
+                productData.category_id || 0,
                 attributesObject
             );
             if (productAdmin.success) {

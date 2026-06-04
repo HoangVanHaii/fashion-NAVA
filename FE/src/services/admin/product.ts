@@ -38,8 +38,8 @@ export const updateProductInfo = async (
   id: number,
   name: string,
   description: string,
-  brand_id: string,
-  category_id: string,
+  brand_id: number,
+  category_id: number,
   attributes: any
 ) => {
   const response = await api.put(`/admin/product/info/${id}`, {

@@ -64,8 +64,8 @@ export const useProductAdminStore = defineStore("product-admin", () => {
     id: number,
     name: string,
     description: string,
-    brand_id: string,
-    category_id: string,
+    brand_id: number,
+    category_id: number,
     attributes: any
   ) => {
     try {

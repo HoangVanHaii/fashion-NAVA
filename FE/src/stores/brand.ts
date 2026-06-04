@@ -20,7 +20,7 @@ export const useBrandStore = defineStore('brand', () => {
             loading.value = false;
         }
     }
-    const getBrandDetailStore = async (brand_id: string) => {
+    const getBrandDetailStore = async (brand_id: number) => {
         loading.value = true;
         try {
             const token = localStorage.getItem('accessToken'); 
