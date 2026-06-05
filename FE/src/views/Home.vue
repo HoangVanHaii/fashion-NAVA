@@ -103,6 +103,7 @@ onMounted(async () => {
     useVoucher.getTop4VoucherGlobal(),
     useFlashSale.getFlashSaleHome(),
   ]);
+
   vouchers.value = vouchersData;
     flashSaleHomes.value = flashSaleData?.flash_sale;
     flashSaleProducts.value = flashSaleData?.products;

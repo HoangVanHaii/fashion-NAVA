@@ -64,7 +64,7 @@ export interface CreateOrderPayload {
     }[];
     voucherCode?: string; 
     address: OrderAddress;
-    methodPayment: string; 
+    payment_method: string; 
     note?: string;
     checkout_source?: "cart" | "buy_now";
 }

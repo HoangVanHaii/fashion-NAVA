@@ -14,11 +14,7 @@ export const addtoCart = async (user_id: number, data: ICartItem) => {
     const inputProductId = data.product_id_sql;
     const inputSizeId = data.size_id_mongo.toString();
     data.product_id_sql = inputProductId;
-
-    const productDetail = await ProductDetailModel.findOne({
-        product_id_sql: inputProductId
-    }).lean();
-
+    const productDetail = await ProductDetailModel.findById(data.product_id_mongo).lean();
     if (!productDetail) {
         throw new AppError("Product not found in details database.", 404);
     }
@@ -153,6 +149,7 @@ export const getCartItems = async (user_id: number): Promise<ICartFull> => {
                 `SELECT 
                     p.id,
                     p.name,
+                    p.mongodb_id,
                     pi.price AS base_price,
                     fsi.flash_sale_price
                 FROM products p
@@ -170,9 +167,9 @@ export const getCartItems = async (user_id: number): Promise<ICartFull> => {
 
             const price = product.flash_sale_price ?? product.base_price;
             const total_price = price * item.quantity;
-
+            
             const productDetail = await ProductDetailModel
-                .findOne({ product_id_sql: item.product_id_sql })
+                .findById(product.mongodb_id)
                 .lean();
 
             let variantSize: ICartItemSize | undefined;

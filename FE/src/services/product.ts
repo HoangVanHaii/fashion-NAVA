@@ -6,7 +6,7 @@ export const getProductById = async (id: number) => {
     const authStore = useAuthStore();
 
     const endpoint = authStore.isLogin
-        ? `/product/${id}`
+        ? `/product/public/${id}`
         : `/product/public/${id}`;
 
     const response = await api.get(endpoint);
@@ -17,7 +17,7 @@ export const searchByCategoryId = async (cat_id: number) => {
     const authStore = useAuthStore();
 
     const endpoint = authStore.isLogin
-        ? `/product/category/${cat_id}`
+        ? `/product/public/category/${cat_id}`
         : `/product/public/category/${cat_id}`;
 
     const response = await api.get(endpoint);
@@ -26,7 +26,7 @@ export const searchByCategoryId = async (cat_id: number) => {
 export const searchByCategoryGender = async (gender: string) => {
     const authStore = useAuthStore();
     const endpoint = authStore.isLogin
-        ? `/product/category/gender?gender=${gender}`
+        ? `/product/public/category/gender?gender=${gender}`
         : `/product/public/category/gender?gender=${gender}`;
 
     const response = await api.get(endpoint);
@@ -36,7 +36,7 @@ export const getCategoryNameById = async (id: number) => {
     const authStore = useAuthStore();
 
     const endpoint = authStore.isLogin
-        ? `/category/${id}`
+        ? `/category/public/${id}`
         : `/category/public/${id}`;
 
     const response = await api.get(endpoint);
@@ -46,7 +46,7 @@ export const getRatingOfbrand = async (id: number) => {
     const authStore = useAuthStore();
 
     const endpoint = authStore.isLogin
-        ? `/brand/rating/${id}`
+        ? `/brand/public/rating/${id}`
         : `/brand/public/rating/${id}`;
 
     const response = await api.get(endpoint);
@@ -56,7 +56,7 @@ export const getBrandNameById = async (id: number) => {
     const authStore = useAuthStore();
 
     const endpoint = authStore.isLogin
-        ? `/brand/detail/${id}`
+        ? `/brand/public/detail/${id}`
         : `/brand/public/detail/${id}`;
 
     const response = await api.get(endpoint);
@@ -66,7 +66,7 @@ export const getProductByBrandId = async (id: number) => {
     const authStore = useAuthStore();
 
     const endpoint = authStore.isLogin
-        ? `/product/brand/${id}`
+        ? `/product/public/brand/${id}`
         : `/product/public/brand/${id}`;
 
     const response = await api.get(endpoint);
@@ -77,7 +77,7 @@ export const getAllProduct = async () => {
     const authStore = useAuthStore();
 
     const endpoint = authStore.isLogin
-        ? `/product/`
+        ? `/product/public/`
         : `/product/public/`;
 
     const response = await api.get(endpoint);
@@ -108,7 +108,7 @@ export const getAllProductActive = async () => {
 export const getProductBestSeller = async (top: number) => {
   const authStore = useAuthStore();
   const endpoint = authStore.isLogin
-    ? `/product/best-seller?top=${top}`
+    ? `/product/public/best-seller?top=${top}`
     : `/product/public/best-seller?top=${top}`;
 
   const response = await api.get(endpoint);

@@ -3,7 +3,7 @@ import { Address_Order } from "../interfaces/address";
 import { AppError } from "../utils/appError";
 import { mysqlPool } from "../config/database";
 
-export const addAddress = async (address: Address_Order): Promise<void> => {
+export const addAddress = async (address: Address_Order, addressDetail: string): Promise<void> => {
     const connection = await mysqlPool.getConnection();
     try {
         await connection.beginTransaction();
@@ -16,11 +16,12 @@ export const addAddress = async (address: Address_Order): Promise<void> => {
         }
 
         await connection.query(
-            `INSERT INTO addresses (user_id, name, phone, province, district, ward, street_address, is_default)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            `INSERT INTO addresses (user_id, name, address, phone, province, district, ward, street_address, is_default)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 address.user_id,
                 address.name,
+                addressDetail,
                 address.phone,
                 address.province,
                 address.district,
@@ -52,6 +53,7 @@ export const getAddressesByUser = async (userId: string): Promise<Address_Order[
         );
         return rows as Address_Order[];
     } catch (error) {
+        console.log(error);
         throw new AppError("Failed to get addresses", 500, false);
     }
 };

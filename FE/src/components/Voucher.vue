@@ -2,6 +2,7 @@
 import { onMounted, ref, watch } from "vue";
 import type { Voucher } from "../interfaces/voucher";
 import { useVoucherStore } from '../stores/voucherStore'; 
+import { formatPrice } from '../utils/format';
 
 // Props
 const props = defineProps<{
@@ -20,7 +21,6 @@ const textSearch = ref("");
 const isSearching = ref(false);
 
 // Utils Format
-const formatPrice = (price: number) => price.toLocaleString('vi-VN') + 'đ';
 const formatDate = (dateStr: string) => {
     if(!dateStr) return '';
     return new Date(dateStr).toLocaleDateString('vi-VN');

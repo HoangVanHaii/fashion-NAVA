@@ -73,7 +73,7 @@ export const createOrder = [
         .isLength({ max: 200 })
         .withMessage("Street address must be at most 200 characters"),
 
-    body("methodPayment")
+    body("payment_method")
         .exists({ checkFalsy: true })
         .withMessage("Payment method is required")
         .isString()
@@ -86,16 +86,16 @@ export const cancelOrderValidation = [
     param("id")
         .exists()
         .withMessage("Order ID (id) is required in the URL params")
-        .isUUID() 
-        .withMessage("Order ID must be a valid UUID format (version 3, 4, or 5)")
+        .isInt({gt: 0})
+        .withMessage("Order ID must be a positive integer")
 ];
 
 export const changeStatusOrderValidation = [
     body("order_id")
         .exists({ checkFalsy: true })
         .withMessage("Order ID (order_id) is required")
-        .isUUID()
-        .withMessage("Order ID must be a valid UUID format"),
+        .isInt({gt: 0})
+        .withMessage("Order ID must be a positive integer"),
 
     body("status")
         .exists({ checkFalsy: true })

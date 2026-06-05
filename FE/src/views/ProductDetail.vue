@@ -104,6 +104,7 @@
     
     const loadData = async () => {
         const id = Number(route.params.id as string);
+        
         productId.value = await product.getProductByIdStore(id);
         await reviewStore.getReviewsByProductIdStore(id);
         console.log("aaaaa", productId.value)
@@ -137,6 +138,10 @@
             await favourite.getFavouriteOfMeStore();
             await auth.getProfileStore();
         }
+        window.scrollTo({
+            top: 0,
+            behavior: "smooth" 
+        });
     });
     
     watch(quantity, (newVal) => {
@@ -404,6 +409,7 @@
             const cartItem: ICartItem = {
                 size_id_mongo: targetSize._id,
                 product_id_sql: productId.value.product_id_sql,
+                product_id_mongo: productId.value._id,
                 quantity: quantity.value || 1
             }
             await cart.addToCartAction(cartItem);

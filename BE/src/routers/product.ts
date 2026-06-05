@@ -72,8 +72,6 @@ router.get(
 );
 router.get(
     "/public/:id",
-    productMiddleware.ProductIdValidation,
-    validateRequest,
     productController.getProductDetail
 );
 router.get(
@@ -91,8 +89,6 @@ router.get(
 router.get(
     "/:id",
     authMiddleware,
-    productMiddleware.ProductIdValidation,
-    validateRequest,
     productController.getProductDetail
 );
 

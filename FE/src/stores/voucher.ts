@@ -3,10 +3,10 @@ import { getTop4Voucher, getAllVoucher, getVoucherByCode, getAllVoucherByShopId,
 import { defineStore } from "pinia";
 import { ref } from "vue";
 
-export const voucherStore = defineStore("voucher", () => {
+export const voucherStore = defineStore("voucherStore", () => {
 
     const getTop4VoucherGlobal = async () => {
-
+        
         try {
             const data = await getTop4Voucher(4, "global");
             return data.vouchers;

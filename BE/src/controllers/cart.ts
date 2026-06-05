@@ -6,13 +6,15 @@ import { AppError } from "../utils/appError";
 export const addtoCartController = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const user_id = Number(req.user!.id);
-        const { product_id_sql, size_id_mongo, quantity } = req.body;
+        const { product_id_sql, product_id_mongo, size_id_mongo, quantity } = req.body;
 
         const cartItem: ICartItem = {
             product_id_sql,
+            product_id_mongo,
             size_id_mongo,
             quantity: Number(quantity)
-        };
+        };  
+        console.log("Received add to cart request:", { user_id, cartItem });
 
         await cartService.addtoCart(user_id, cartItem);
 

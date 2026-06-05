@@ -3,12 +3,9 @@ import api from "./api";
 import type { FlashSaleItem } from "@/interfaces/flashSale";
 
 export const getFlashSale = async () => {
-    const authStore = useAuthStore();
-    const endpoint = authStore.isLogin
-        ? `/flashSale/public/flash-sale-home`
-        : `/flashSale/public/flash-sale-home`;
+    console.log("Fetching flash sale home data...");
 
-    const result = await api.get(endpoint);
+    const result = await api.get(`flashSale/public/flash-sale-home`);
     return result.data;
 }
 export const getTotalSoldFlashSaleById = async (id: number) => {
@@ -39,6 +36,7 @@ export const getFlashSaleActive = async () => {
 }
 export const getProductNotSale = async () => {
     const result = await api.get(`/flashSale/productNotSale`);
+    console.log("result not sale", result.data);
     return result.data;
 }
 
@@ -47,7 +45,7 @@ export const getProductActiveByFlashSaleId = async (flash_id: number) => {
     return result.data;
 }
 export const getProductActiveByFlashSaleIdBranch = async (flash_id: number) => {
-    const result = await api.get(`/flashSale/branch/productActive/${flash_id}`);
+    const result = await api.get(`/flashSale/productActive/${flash_id}`);
     return result.data;
 }
 export const getFlashSaleNotIn = async (excludeId: string) => {

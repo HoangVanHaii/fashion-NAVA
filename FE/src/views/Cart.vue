@@ -48,7 +48,7 @@
             </div>
             
             <img 
-              :src="getImage(item.variant?.color?.image_main)" 
+              :src="getImage(item.variant?.color?.image_main || '')" 
               class="w-20 h-20 rounded-lg border object-cover group-hover:scale-105 transition cursor-pointer"
               @click="router.push(`/product/${item.product_id_sql}`)"
             />
@@ -234,6 +234,7 @@ import VoucherModal from '../components/Voucher.vue'
 import { useCartStore } from '../stores/cartStore'
 import type { Voucher } from '../interfaces/voucher'
 import { getProductById } from '../services/product' 
+import { getImage, formatPrice } from '@/utils/format.ts'
 
 // --- INIT ---
 const router = useRouter()
@@ -373,12 +374,10 @@ const showToast = (text: string, isSuccess: boolean = true) => {
   setTimeout(() => { toastText.value = text; }, 0);
 };
 
-const formatPrice = (price: number) => price?.toLocaleString('vi-VN') + 'đ'
-const getImage = (path?: string | null) => path || 'https://placehold.co/100x100?text=No+Image'
-
 onMounted(async () => {
   await cartStore.fetchCartAction()
   selectedIds.value = cartItems.value.map(itemKey as any)
+
 })
 
 // --- UPDATE QUANTITY ---

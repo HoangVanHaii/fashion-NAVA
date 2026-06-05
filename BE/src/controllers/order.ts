@@ -75,8 +75,8 @@ const makeOrderItem = async (orderItems: any[]): Promise<{ orderItemsData: Order
 
 export const createOrder = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const { orderItems, voucherCode, address, methodPayment, note, checkout_source } = req.body;
-
+        const { orderItems, voucherCode, address, payment_method, note, checkout_source } = req.body;
+        // console.log("Received create order request:", { orderItems, voucherCode, address, payment_method, note, checkout_source });
         if (!req.user) throw new AppError("Unauthorized", 401);
         const userId = Number(req.user.id);
 
@@ -98,7 +98,7 @@ export const createOrder = async (req: Request, res: Response, next: NextFunctio
                 voucher_id: validVoucherId ? Number(validVoucherId) : undefined,
                 total: total - discount_value,
                 discount_value: discount_value,
-                payment_method: methodPayment,
+                payment_method: payment_method,
                 address: address,
                 note: note,
                 checkout_source: checkout_source
@@ -108,7 +108,7 @@ export const createOrder = async (req: Request, res: Response, next: NextFunctio
 
         const newOrder = await orderService.createOrder(orderPayload);
 
-        if (methodPayment === 'vnpay') {
+        if (payment_method === 'vnpay') {
             if (total < 5000) {
                 throw new AppError("Minimum order amount for VNPAY is 5000 VND", 400);
             }

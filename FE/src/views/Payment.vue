@@ -317,6 +317,7 @@ import type { Voucher } from '../interfaces/voucher';
 import type { Address } from '../interfaces/address';
 import Header from '@/components/Header.vue'
 import Footer from '@/components/Footer.vue'
+import { formatPrice } from '../utils/format';
 
 const router = useRouter();
 const cartStore = useCartStore();
@@ -371,6 +372,7 @@ const finalTotal = computed(() => Math.max(0, totalMerchandise.value + shippingF
 
 // --- LIFECYCLE ---
 onMounted(async () => {
+
     if (!cartStore.checkoutSession) {
         router.push('/cart');
         return;
@@ -381,11 +383,14 @@ onMounted(async () => {
     } else if (addressStore.listAddress.length > 0) {
         selectedAddress.value = addressStore.listAddress[0] || null;
     }
-    fetchProvinces(); // Pre-fetch for modal
+    window.scrollTo({
+        top: 0,
+        behavior: "smooth" 
+    });
+    await fetchProvinces();
 });
 
 // --- HELPER FUNCTIONS ---
-const formatPrice = (price: number) => price.toLocaleString('vi-VN') + 'đ';
 const formatFullAddress = (addr: Address) => [addr.street_address, addr.ward, addr.district, addr.province].filter(Boolean).join(', ');
 const getImage = (path?: string) => path || 'https://placehold.co/100?text=NoImg';
 const showToast = (msg: string, success: boolean) => { toastText.value = ''; isNotification.value = success; setTimeout(() => toastText.value = msg, 0); };
@@ -474,7 +479,7 @@ const handleOrder = async () => {
             street_address: selectedAddress.value.street_address,
             full_address: formatFullAddress(selectedAddress.value)
         },
-        methodPayment: selectedPayment.value,
+        payment_method: selectedPayment.value,
         note: note.value,
         checkout_source: cartStore.checkoutSession?.checkout_source
     };

@@ -1,6 +1,7 @@
 export interface ICartItem {
     _id?: string; 
     product_id_sql?: number;
+    product_id_mongo?: string;
     size_id_mongo: string;
     quantity: number;
 }

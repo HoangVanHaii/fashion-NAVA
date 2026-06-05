@@ -193,7 +193,7 @@ export const useCartStore = defineStore('cart', () => {
             console.error("Failed to get cart count", err);
         }
     };
-
+``
     return {
         cart, loading, error, totalQuantity, totalAmount, checkoutSession, success, cartCount,
         fetchCartAction, addToCartAction, updateQuantityAction, updateVariantAction, removeItemAction, clearCartAction,

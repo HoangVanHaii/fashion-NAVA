@@ -100,21 +100,20 @@
     
     // 1. Khi mở Modal -> Reset về mặc định và gọi API
 
-
+watch(() => props.isOpen, async (newVal) => {
+    if (newVal) {
+        selectedBranch.value = 'DN'; // Reset về mặc định nếu cần
+        await fetchData();
+    }
+})      ;
 onMounted(async () => {
     selectedBranch.value = 'DN';
-       await fetchData()
-    })
-    // 2. Khi đổi chi nhánh -> Gọi lại API ngay lập tức
-    watch(selectedBranch, () => {
-        if (props.isOpen) {
-            fetchData();
-        }
-    });
-    
-    onMounted(() => {
-        if (props.isOpen) fetchData();
-    });
+    await fetchData()
+})
+  
+onMounted(() => {
+    if (props.isOpen) fetchData();
+});
     
     // --- 3. LOGIC CHUYỂN BƯỚC ---
     const openProductDetail = (product: IProductMongoDetail) => {
@@ -294,12 +293,7 @@ onMounted(async () => {
                             </p>
                         </div>
     
-                        <div class="ml-auto mr-4 flex items-center gap-2">
-                            <label class="text-sm font-medium text-gray-600 hidden sm:block">Chi nhánh:</label>
-                            <select v-model="selectedBranch" :disabled="!canEdit" class="pl-3 pr-8 py-1.5 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-100 outline-none">
-                                <option v-for="branch in branches" :key="branch.id" :value="branch.id">🏢 {{ branch.name }}</option>
-                            </select>
-                        </div>
+                        
                     </div>
     
                     <button @click="$emit('close')" class="text-gray-400 hover:text-red-500 transition-colors">

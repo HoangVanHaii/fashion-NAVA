@@ -268,12 +268,7 @@ export const getByCategoryValidation = [
         .notEmpty().withMessage("Category ID is required")
         .isUUID().withMessage("Category ID must be a valid UUID"),
 ];
-export const ProductIdValidation = [
-    param("id")
-        .isString().withMessage("Id must be a string")
-        .notEmpty().withMessage("Id is required")
-        .isUUID().withMessage("Id must be a valid UUID"),
-];
+
 export const getByBrandValidation = [
     param("brand_id")
         .isString().withMessage("Brand ID must be a string")

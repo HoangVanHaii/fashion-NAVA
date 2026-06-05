@@ -4,8 +4,8 @@ export const addtoCart = [
     body("product_id_sql")
         .exists({ checkFalsy: true })
         .withMessage("product_id_sql is required")
-        .isUUID() 
-        .withMessage("product_id_sql must be a valid UUID/GUID"), 
+        .isInt({ min: 1 })
+        .withMessage("product_id_sql must be a valid integer"), 
     body("size_id_mongo")
         .exists({ checkFalsy: true })
         .withMessage("size_id_mongo is required")

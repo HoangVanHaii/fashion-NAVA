@@ -167,7 +167,6 @@ export const getFlashSaleHome = async (req: Request, res: Response, next: NextFu
 export const getFlashSaleHomePublic = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const { flash_sale, products } = await FlashSaleService.getFlashSaleHome('customer');
-
         return res.status(200).json({
             success: true,
             message: 'Get flash sale home successfully',
@@ -193,7 +192,8 @@ export const getProductActiveByFlashSaleId = async (req: Request, res: Response,
         const role = req.user?.role || 'customer';
 
         let products = await FlashSaleService.getProductsActive(id, role);
-        products = products.filter(productHasPrice);
+        // console.log("products", products);
+        // products = products.filter(productHasPrice);
 
         return res.status(200).json({
             success: true,
@@ -211,7 +211,7 @@ export const getProductActiveByFlashSaleIdBranch = async (req: Request, res: Res
         const role = req.user?.role || 'customer';
 
         let products = await FlashSaleService.getProductsActive(id, role);
-        products = products.filter(productHasPrice);
+        // products = products.filter(productHasPrice);
 
         return res.status(200).json({
             success: true,
@@ -226,7 +226,8 @@ export const getProductActiveByFlashSaleIdBranch = async (req: Request, res: Res
 export const getProductNotInFlashSale = async (req: Request, res: Response, next: NextFunction) => {
     try {
         let products = await FlashSaleService.getProductsNotSale();
-        products = products.filter(productHasPrice);
+        // console.log("products not sale", products);
+        // products = products.filter(productHasPrice);
 
         return res.status(200).json({
             success: true,

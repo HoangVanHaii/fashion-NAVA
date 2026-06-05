@@ -85,8 +85,9 @@ const handleAddToCart = async () => {
     loading.value = true;
     const cartItem: ICartItem = {
         size_id_mongo: sizeChose.value._id,
-        product_id_sql: props.product.product_id_sql,
-        quantity: quantity.value || 1
+      product_id_sql: props.product.product_id_sql,
+      product_id_mongo: props.product._id,
+      quantity: quantity.value || 1
     }
 
     await useCart.addToCartAction(cartItem);

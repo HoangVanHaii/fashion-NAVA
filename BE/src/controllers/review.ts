@@ -28,7 +28,7 @@ export const createReviewController = async (req: Request, res: Response, next: 
       mongodb_id,
       order_item_id: req.body.order_item_id,
       user_id: req.user?.id || "",
-      rating: req.body.rating ? Number(req.body.rating) : undefined,
+      rating: req.body.rating ? Number(req.body.rating) : 5,
       comment: req.body.comment,
       images: cleanImages,
       videos: cleanVideos

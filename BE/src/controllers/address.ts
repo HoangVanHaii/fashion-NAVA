@@ -4,6 +4,7 @@ import { Address_Order } from "../interfaces/address";
 import { AppError } from '../utils/appError';
 
 export const addAddress = async (req: Request, res: Response, next: NextFunction) => {
+    console.log("Received add address request with body:", req.body);
     try {
         if (!req.user) throw new AppError("Unauthorized", 401);
 
@@ -19,9 +20,9 @@ export const addAddress = async (req: Request, res: Response, next: NextFunction
             street_address,
             is_default
         };
-
+        const addressDetail = `${street_address}, ${ward}, ${district}, ${province}`;
         // Bỏ truyền branch_code
-        await addressService.addAddress(newAddress);
+        await addressService.addAddress(newAddress, addressDetail);
 
         res.status(201).json({ message: "Address added successfully" });
     } catch (error) {

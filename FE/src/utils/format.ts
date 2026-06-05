@@ -1,10 +1,18 @@
 import type { IProductColorResponse, IProductMongoDetail, IProductSizeResponse } from "@/interfaces/product";
 
-export const formatPrice = (value: number) => {
-    return value.toLocaleString("vi-VN") + "đ";
+export const formatPrice = (value: number | string) => {
+    // Ép kiểu về Number và loại bỏ phần thập phân
+    const numericValue = Number(value);
+
+    // Kiểm tra nếu không phải là số hợp lệ thì trả về "0đ" hoặc xử lý tùy ý
+    if (isNaN(numericValue)) return "0đ";
+
+    return numericValue.toLocaleString("vi-VN", {
+        maximumFractionDigits: 0
+    }) + "đ";
 }
 export const getImage = (path: string) => {
-    console.log(path);
+    // console.log(path);
     return  path;
 
 }

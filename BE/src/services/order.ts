@@ -9,14 +9,18 @@ import { PoolConnection, ResultSetHeader, RowDataPacket } from "mysql2/promise";
 
 const insertOrder = async (connection: PoolConnection, orderData: Order, mongoOrderId: mongoose.Types.ObjectId): Promise<number> => {
     const query = `
-        INSERT INTO orders (user_id, total, discount_value, voucher_id, mongodb_id, method_order, status)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO orders (user_id, total, discount_value, voucher_id, shipping_phone, shipping_address, shipping_name, payment_method, mongodb_id, method_order, status)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
     const [result] = await connection.query<ResultSetHeader>(query, [
         orderData.user_id,
         orderData.total,
         orderData.discount_value,
         orderData.voucher_id || null,
+        orderData.address?.phone || null,
+        orderData.address?.street_address || null,
+        orderData.address?.name || null,
+        orderData.payment_method || null,
         mongoOrderId.toString(),
         orderData.method_order || 'online',
         orderData.status || 'pending'

@@ -3,7 +3,6 @@ import { validationResult } from "express-validator";
 
 export const validateRequest = (req: Request, res: Response, next: NextFunction) => {
     const errors = validationResult(req);
-
     if (!errors.isEmpty()) {
         const cleanedErrors = errors.array().map((err: any) => ({
             type: err.type,

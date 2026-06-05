@@ -1,7 +1,7 @@
 import api from "../api";
 
 export const getOrderOfBranch = async (method_order: string) => {
-    const response = await api.get(`/employee/order/orderOfBranch/${method_order}`);
+    const response = await api.get(`/employee/order/orderOfSystem/${method_order}`);
     return response.data;
 };
 export const getOrderOfTypeBranch = async (method_order: string) => {

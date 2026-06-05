@@ -160,7 +160,6 @@ const triggerShake = () => {
 
 const handleRegister = async () => {
     
-    alert(province.value);
     if (!name.value) { auth.error = "Tên không được bỏ trống"; triggerShake(); nameInput.value?.focus(); return; }
     if (!dateOfBirth.value) { auth.error = "Ngày sinh không được bỏ trống"; triggerShake(); dobInput.value?.focus(); return; }
     if (!phone.value) { auth.error = "Số điện thoại không được bỏ trống"; triggerShake(); phoneInput.value?.focus(); return; }

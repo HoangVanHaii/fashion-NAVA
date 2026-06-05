@@ -78,7 +78,6 @@ export const refreshToken = async (req: Request, res: Response, next: NextFuncti
 
 export const getProfile = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        console.log(1);
         const userEmail = req.user?.email;
         const fullProfile: User = await authService.getUserProfile(userEmail as string);
 

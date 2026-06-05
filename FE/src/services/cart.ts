@@ -5,6 +5,7 @@ const CART_BASE_URL = "/cart";
 
 export const addToCart = async (payload: ICartItem) => {
     const res = await api.post(CART_BASE_URL, payload);
+    console.log("Add to cart response:", res.data);
     return res.data; 
 };
 

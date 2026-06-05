@@ -22,6 +22,7 @@ export const changeStatusOrder = async (req: Request, res: Response, next: NextF
 export const getOrderOfSystem = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const method_order = req.params.method_order as string;
+        console.log("Received method_order:", method_order);
         if (method_order.toLowerCase() != 'online' && method_order.toLowerCase() != 'offline') {
             throw new AppError('invalid method_order', 400);
         }

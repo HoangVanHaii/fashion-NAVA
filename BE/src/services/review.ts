@@ -243,7 +243,6 @@ export const getReviewsByProductId = async (product_id: number, user_id: number)
             r.mongodb_id,
             r.user_id,
             r.created_at,
-            r.rating,
             oi.ID AS order_item_id,
             u.name AS user_name,
             u.avatar AS user_avatar

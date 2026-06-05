@@ -52,7 +52,7 @@ export const addAddressValidator = [
 
 export const addressByIdValidator = [
   param("id")
-    .isUUID().withMessage("Address ID must be a valid UUID")
+    .isInt({ gt: 0 }).withMessage("Address ID must be a positive integer")
 ];
 
 
